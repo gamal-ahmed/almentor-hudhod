@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/use-toast"; // Fixed import from use-toast.ts instead of toast.tsx
 import { Check, Loader2, Upload, FileAudio, Cog, Send } from "lucide-react";
 
 import FileUpload from "@/components/FileUpload";
