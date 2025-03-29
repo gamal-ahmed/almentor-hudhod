@@ -9,7 +9,7 @@ import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.456
 // Set CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
@@ -51,24 +51,14 @@ serve(async (req) => {
       );
     }
     
-    // Create a minimal S3 client configuration that works in Deno
+    // Create a simplified S3 client configuration for Deno
     const s3Client = new S3Client({
       region: "us-east-1",
       credentials: {
         accessKeyId: AWS_ACCESS_KEY_ID,
         secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
-      // Prevent any file system access attempts
-      credentialDefaultProvider: () => async () => Promise.resolve({
-        accessKeyId: AWS_ACCESS_KEY_ID,
-        secretAccessKey: AWS_SECRET_ACCESS_KEY,
-      }),
-      // Bypass default configuration loading
-      loadedConfig: { 
-        clientDefaults: {}, 
-        credentialDefaults: {} 
-      },
-      // Force it to not load config from any file
+      // Disable filesystem access completely
       loadConfigFile: false
     });
     

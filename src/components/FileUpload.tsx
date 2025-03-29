@@ -1,7 +1,8 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast"; // Fixed import
+import { useToast } from "@/components/ui/use-toast";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
@@ -11,7 +12,7 @@ interface FileUploadProps {
 const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -42,7 +43,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
 
   const handleFiles = (file: File) => {
     if (file.type !== "audio/mpeg" && !file.name.endsWith('.mp3')) {
-      toast.toast({
+      toast({
         title: "Invalid file type",
         description: "Please upload an MP3 file",
         variant: "destructive"
