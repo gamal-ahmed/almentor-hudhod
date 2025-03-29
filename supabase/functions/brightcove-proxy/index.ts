@@ -43,6 +43,7 @@ async function handleBrightcoveAuth(req: Request) {
   const { client_id, client_secret } = await req.json();
 
   if (!client_id || !client_secret) {
+    console.error('Auth request missing credentials:', { client_id: !!client_id, client_secret: !!client_secret });
     return new Response(JSON.stringify({ error: 'Missing client credentials' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -51,6 +52,15 @@ async function handleBrightcoveAuth(req: Request) {
 
   try {
     console.log('Requesting Brightcove auth token...');
+    console.log('Auth request details:', {
+      url: 'https://oauth.brightcove.com/v4/access_token',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${client_id}:${client_secret}`)}`,
+      }
+    });
+
     const response = await fetch('https://oauth.brightcove.com/v4/access_token', {
       method: 'POST',
       headers: {
@@ -60,13 +70,20 @@ async function handleBrightcoveAuth(req: Request) {
       body: 'grant_type=client_credentials',
     });
 
+    const responseData = await response.text();
+    console.log('Brightcove auth response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: responseData
+    });
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Brightcove auth error:', response.status, errorText);
-      throw new Error(`Brightcove auth failed: ${response.statusText} - ${errorText}`);
+      console.error('Brightcove auth error:', response.status, responseData);
+      throw new Error(`Brightcove auth failed: ${response.statusText} - ${responseData}`);
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseData);
     console.log('Brightcove auth successful');
     
     return new Response(JSON.stringify(data), {
@@ -83,7 +100,14 @@ async function handleBrightcoveCaptions(req: Request) {
   const { videoId, vttContent, language, label, accountId, accessToken } = await req.json();
 
   if (!videoId || !vttContent || !accountId || !accessToken) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    const missingFields = {
+      videoId: !videoId,
+      vttContent: !vttContent,
+      accountId: !accountId,
+      accessToken: !accessToken
+    };
+    console.error('Caption request missing required fields:', missingFields);
+    return new Response(JSON.stringify({ error: 'Missing required fields', details: missingFields }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -102,26 +126,44 @@ async function handleBrightcoveCaptions(req: Request) {
       kind: 'captions',
       default: true,
       mime_type: 'text/vtt',
-      // Use a data URI for the src
       src: `data:text/vtt;base64,${vttBase64}`
     };
 
-    const response = await fetch(
-      `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/text_tracks`, 
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(requestBody),
+    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/text_tracks`;
+    console.log('Caption request details:', {
+      url: apiUrl,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: {
+        ...requestBody,
+        vttContentLength: vttContent.length,
+        base64Length: vttBase64.length
       }
-    );
+    });
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const responseData = await response.text();
+    console.log('Brightcove caption response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: responseData
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Brightcove caption error:', response.status, errorText);
-      throw new Error(`Failed to add caption: ${response.status} - ${errorText}`);
+      console.error('Brightcove caption error:', response.status, responseData);
+      throw new Error(`Failed to add caption: ${response.status} - ${responseData}`);
     }
 
     console.log('Successfully added caption to Brightcove video');
