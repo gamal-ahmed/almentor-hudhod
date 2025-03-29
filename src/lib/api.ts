@@ -118,7 +118,8 @@ export async function uploadToS3(file: File, key: string) {
     });
     
     if (!response.ok) {
-      throw new Error(`S3 upload failed: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`S3 upload failed: ${response.statusText} - ${errorText}`);
     }
     
     const data = await response.json();
