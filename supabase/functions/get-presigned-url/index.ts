@@ -3,8 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
   S3Client, 
   PutObjectCommand 
-} from "https://esm.sh/@aws-sdk/client-s3@3.454.0"; 
-import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.454.0"; 
+} from "https://esm.sh/@aws-sdk/client-s3@3.456.0"; 
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.456.0"; 
 
 // Set CORS headers
 const corsHeaders = {
@@ -51,12 +51,19 @@ serve(async (req) => {
       );
     }
     
-    // Configure S3 client
+    // Configure S3 client with explicit credentials to avoid filesystem access
     const s3Client = new S3Client({
       region: "us-east-1",
       credentials: {
         accessKeyId: AWS_ACCESS_KEY_ID,
         secretAccessKey: AWS_SECRET_ACCESS_KEY,
+      },
+      // Disable credential loading from filesystem
+      credentialDefaultProvider: () => async () => {
+        return {
+          accessKeyId: AWS_ACCESS_KEY_ID,
+          secretAccessKey: AWS_SECRET_ACCESS_KEY,
+        };
       },
     });
     
@@ -73,6 +80,8 @@ serve(async (req) => {
     
     // Generate a pre-signed URL (expires in 10 minutes)
     const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+    
+    console.log("Successfully generated presigned URL");
     
     // Return the pre-signed URL and the eventual public URL
     return new Response(
