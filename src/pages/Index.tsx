@@ -239,12 +239,12 @@ const Index = () => {
       const vttKey = `captions/${Date.now()}/caption.vtt`;
       
       // Get S3 credentials
-      const credentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
+      const s3CredentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
       try {
         const s3Keys = await fetchS3Keys();
-        credentialsLog.complete("S3 credentials retrieved successfully");
+        s3CredentialsLog.complete("S3 credentials retrieved successfully");
       } catch (error) {
-        credentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
+        s3CredentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
         throw error;
       }
       
@@ -258,12 +258,12 @@ const Index = () => {
       }
       
       // Get Brightcove credentials
-      const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
+      const brightcoveCredentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
       
       let brightcoveKeys;
       try {
         brightcoveKeys = await fetchBrightcoveKeys();
-        credentialsLog.update("Retrieving Brightcove auth token...");
+        brightcoveCredentialsLog.update("Retrieving Brightcove auth token...");
         
         // Get Brightcove authentication token
         const authToken = await getBrightcoveAuthToken(
@@ -271,7 +271,7 @@ const Index = () => {
           brightcoveKeys.brightcove_client_secret
         );
         
-        credentialsLog.complete("Brightcove authentication successful", 
+        brightcoveCredentialsLog.complete("Brightcove authentication successful", 
           `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
         
         // Add caption to Brightcove video
@@ -296,7 +296,7 @@ const Index = () => {
           description: "Your caption has been successfully published to the Brightcove video.",
         });
       } catch (error) {
-        credentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
+        brightcoveCredentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
         publishLog.error("Caption publishing failed", error instanceof Error ? error.message : String(error));
         throw error;
       }
