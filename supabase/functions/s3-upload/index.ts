@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@aws-sdk/client-s3@3.204.0";
-import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.204.0";
+import { S3Client } from "https://esm.sh/@aws-sdk/client-s3@3.204.0";
 import { PutObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.204.0";
 
 const corsHeaders = {
@@ -16,7 +15,7 @@ const AWS_ACCESS_KEY_ID = Deno.env.get('AWS_ACCESS_KEY_ID');
 const AWS_SECRET_ACCESS_KEY = Deno.env.get('AWS_SECRET_ACCESS_KEY');
 
 // Create an S3 client
-const s3Client = new createClient({
+const s3Client = new S3Client({
   region: "us-east-1",
   credentials: {
     accessKeyId: AWS_ACCESS_KEY_ID || "",
