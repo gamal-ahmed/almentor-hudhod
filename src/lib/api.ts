@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 
 // API endpoints (using Supabase Edge Functions)
@@ -196,7 +197,7 @@ export async function addCaptionToBrightcove(
 }
 
 // Get a pre-signed URL for direct S3 upload
-export async function getPresignedUrl(filename: string, contentType: string) {
+export async function getPresignedUrl(filename: string, contentType: string, headers = {}) {
   try {
     const url = `${GET_PRESIGNED_URL}?filename=${encodeURIComponent(filename)}&contentType=${encodeURIComponent(contentType)}`;
     
@@ -206,6 +207,7 @@ export async function getPresignedUrl(filename: string, contentType: string) {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Accept': 'application/json',
+        ...headers
       },
     });
     
@@ -223,22 +225,53 @@ export async function getPresignedUrl(filename: string, contentType: string) {
 }
 
 // Upload file directly to S3 using a pre-signed URL
-export async function uploadToS3Direct(file: File, presignedUrl: string) {
+export async function uploadToS3Direct(file: File, presignedUrl: string, onProgress?: (progress: number) => void) {
   try {
-    const response = await fetch(presignedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': file.type,
-      },
-      body: file,
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Direct S3 upload failed: ${response.statusText} - ${errorText}`);
+    // Use XMLHttpRequest for upload progress monitoring
+    if (onProgress) {
+      return new Promise<boolean>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            onProgress(percentComplete);
+          }
+        });
+        
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(true);
+          } else {
+            reject(new Error(`Direct S3 upload failed with status ${xhr.status}: ${xhr.responseText}`));
+          }
+        });
+        
+        xhr.addEventListener('error', () => {
+          reject(new Error('XHR error during direct S3 upload'));
+        });
+        
+        xhr.open('PUT', presignedUrl);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.send(file);
+      });
+    } else {
+      // Standard fetch approach when progress isn't needed
+      const response = await fetch(presignedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Direct S3 upload failed: ${response.statusText} - ${errorText}`);
+      }
+      
+      return true;
     }
-    
-    return true;
   } catch (error) {
     console.error('Error in direct S3 upload:', error);
     throw error;

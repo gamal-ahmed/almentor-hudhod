@@ -7,9 +7,18 @@ import { useToast } from "@/components/ui/use-toast";
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
   isUploading: boolean;
+  acceptedFileTypes?: string; // e.g. ".mp3,audio/mpeg"
+  acceptedTypeLabel?: string; // e.g. "MP3 files only"
+  maxSizeMB?: number;
 }
 
-const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
+const FileUpload = ({ 
+  onFileUpload, 
+  isUploading, 
+  acceptedFileTypes = ".mp3,audio/mpeg",
+  acceptedTypeLabel = "MP3 files only",
+  maxSizeMB = 100
+}: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -42,10 +51,23 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
   };
 
   const handleFiles = (file: File) => {
-    if (file.type !== "audio/mpeg" && !file.name.endsWith('.mp3')) {
+    // Check file type
+    const isAcceptedType = new RegExp(acceptedFileTypes.split(',').join('|')).test(file.type);
+    if (!isAcceptedType) {
       toast({
         title: "Invalid file type",
-        description: "Please upload an MP3 file",
+        description: `Please upload a file matching: ${acceptedTypeLabel}`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check file size (in MB)
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > maxSizeMB) {
+      toast({
+        title: "File too large",
+        description: `Maximum file size is ${maxSizeMB}MB. Your file is ${fileSizeMB.toFixed(2)}MB.`,
         variant: "destructive"
       });
       return;
@@ -67,7 +89,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".mp3,audio/mpeg"
+        accept={acceptedFileTypes}
         onChange={handleFileInput}
         className="hidden"
       />
@@ -80,8 +102,8 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       ) : (
         <>
           <Upload className="h-6 w-6 text-muted-foreground mb-2" />
-          <p className="font-medium">Drag & drop an MP3 file here or click to browse</p>
-          <p className="text-sm text-muted-foreground mt-1">MP3 files only</p>
+          <p className="font-medium">Drag & drop a file here or click to browse</p>
+          <p className="text-sm text-muted-foreground mt-1">{acceptedTypeLabel}</p>
         </>
       )}
     </div>
