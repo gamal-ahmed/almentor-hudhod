@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send, Upload as UploadIcon } from "lucide-react";
+import { Check, Loader2, Upload, FileAudio, Cog, Send } from "lucide-react";
 
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
@@ -17,9 +17,7 @@ import {
   fetchS3Keys, 
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
-  addCaptionToBrightcove,
-  getPresignedUrl,
-  uploadToS3Direct
+  addCaptionToBrightcove
 } from "@/lib/api";
 
 const Index = () => {
@@ -35,7 +33,6 @@ const Index = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [isDirectPublishing, setIsDirectPublishing] = useState(false);
   const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, loading: boolean }>>({
     openai: { vtt: "", loading: false },
     gemini: { vtt: "", loading: false }
@@ -44,6 +41,9 @@ const Index = () => {
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
+  
+  // Track if the file has been uploaded to S3
+  const fileS3UrlRef = useRef<string | null>(null);
   
   // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
@@ -63,22 +63,49 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
-        title: "File Selected",
-        description: "Your audio file has been selected successfully.",
-      });
+      // Upload to S3
+      setIsUploading(true);
+      const s3UploadLog = startTimedLog("S3 Upload", "info", "AWS S3");
+      
+      // Get S3 credentials
+      const credentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
+      try {
+        const s3Keys = await fetchS3Keys();
+        credentialsLog.complete("S3 credentials retrieved successfully");
+      } catch (error) {
+        credentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
+        throw error;
+      }
+      
+      const fileKey = `audio/${Date.now()}-${uploadedFile.name}`;
+      s3UploadLog.update(`Uploading file to S3 with key: ${fileKey}`);
+      
+      try {
+        fileS3UrlRef.current = await uploadToS3(uploadedFile, fileKey);
+        s3UploadLog.complete("File uploaded to S3 successfully", `URL: ${fileS3UrlRef.current}`);
+        
+        toast.toast({
+          title: "File Uploaded",
+          description: "Your audio file has been uploaded successfully.",
+        });
+      } catch (error) {
+        s3UploadLog.error("Failed to upload to S3", error instanceof Error ? error.message : String(error));
+        throw error;
+      }
     } catch (error) {
-      console.error("Error selecting file:", error);
-      addLog(`Error selecting file`, "error", {
+      console.error("Error uploading file:", error);
+      addLog(`Error uploading file`, "error", {
         details: error instanceof Error ? error.message : String(error),
         source: "FileUpload"
       });
       
       toast.toast({
-        title: "Selection Failed",
-        description: "There was a problem selecting your file.",
+        title: "Upload Failed",
+        description: "There was a problem uploading your file.",
         variant: "destructive",
       });
+    } finally {
+      setIsUploading(false);
     }
   };
   
@@ -216,7 +243,7 @@ const Index = () => {
     });
   };
   
-  // Publish caption to Brightcove through edge function
+  // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
       toast.toast({
@@ -241,16 +268,6 @@ const Index = () => {
       const s3Log = startTimedLog("VTT S3 Upload", "info", "AWS S3");
       const vttKey = `captions/${Date.now()}/caption.vtt`;
       
-      // Get S3 credentials
-      const s3CredentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
-      try {
-        const s3Keys = await fetchS3Keys();
-        s3CredentialsLog.complete("S3 credentials retrieved successfully");
-      } catch (error) {
-        s3CredentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      
       let vttUrl;
       try {
         vttUrl = await uploadToS3(vttFile, vttKey);
@@ -261,12 +278,12 @@ const Index = () => {
       }
       
       // Get Brightcove credentials
-      const brightcoveCredentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
+      const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
       
       let brightcoveKeys;
       try {
         brightcoveKeys = await fetchBrightcoveKeys();
-        brightcoveCredentialsLog.update("Retrieving Brightcove auth token...");
+        credentialsLog.update("Retrieving Brightcove auth token...");
         
         // Get Brightcove authentication token
         const authToken = await getBrightcoveAuthToken(
@@ -274,7 +291,7 @@ const Index = () => {
           brightcoveKeys.brightcove_client_secret
         );
         
-        brightcoveCredentialsLog.complete("Brightcove authentication successful", 
+        credentialsLog.complete("Brightcove authentication successful", 
           `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
         
         // Add caption to Brightcove video
@@ -299,7 +316,7 @@ const Index = () => {
           description: "Your caption has been successfully published to the Brightcove video.",
         });
       } catch (error) {
-        brightcoveCredentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
+        credentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
         publishLog.error("Caption publishing failed", error instanceof Error ? error.message : String(error));
         throw error;
       }
@@ -317,113 +334,6 @@ const Index = () => {
       });
     } finally {
       setIsPublishing(false);
-    }
-  };
-  
-  // Publish caption to Brightcove through client-side upload
-  const publishCaptionDirect = async () => {
-    if (!selectedTranscription || !videoId) {
-      toast.toast({
-        title: "Missing Information",
-        description: "Please select a transcription and enter a video ID.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      setIsDirectPublishing(true);
-      const publishLog = startTimedLog("Direct Caption Publishing", "info", "Client-S3");
-      
-      publishLog.update(`Preparing caption for direct upload - video ID: ${videoId}`);
-      
-      // Create VTT file
-      const vttBlob = new Blob([selectedTranscription], { type: 'text/vtt' });
-      const fileName = `caption-${Date.now()}.vtt`;
-      const vttFile = new File([vttBlob], fileName, { type: 'text/vtt' });
-      
-      // Get a pre-signed URL for direct upload
-      const s3DirectLog = startTimedLog("Getting pre-signed URL", "info", "Client-S3");
-      let presignedUrlData;
-      
-      try {
-        presignedUrlData = await getPresignedUrl(fileName, 'text/vtt');
-        s3DirectLog.complete("Pre-signed URL obtained successfully");
-      } catch (error) {
-        s3DirectLog.error("Failed to get pre-signed URL", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      
-      // Upload directly to S3 using the pre-signed URL
-      const uploadLog = startTimedLog("Direct S3 Upload", "info", "Client-S3");
-      let vttUrl;
-      
-      try {
-        await uploadToS3Direct(vttFile, presignedUrlData.presignedUrl);
-        vttUrl = presignedUrlData.publicUrl;
-        uploadLog.complete(`Caption file directly uploaded to S3`, `URL: ${vttUrl}`);
-      } catch (error) {
-        uploadLog.error("Failed to upload caption directly to S3", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      
-      // Get Brightcove credentials
-      const brightcoveCredentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
-      
-      let brightcoveKeys;
-      try {
-        brightcoveKeys = await fetchBrightcoveKeys();
-        brightcoveCredentialsLog.update("Retrieving Brightcove auth token...");
-        
-        // Get Brightcove authentication token
-        const authToken = await getBrightcoveAuthToken(
-          brightcoveKeys.brightcove_client_id,
-          brightcoveKeys.brightcove_client_secret
-        );
-        
-        brightcoveCredentialsLog.complete("Brightcove authentication successful", 
-          `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
-        
-        // Add caption to Brightcove video
-        publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
-        
-        await addCaptionToBrightcove(
-          videoId,
-          vttUrl,
-          'ar',
-          'Arabic',
-          brightcoveKeys.brightcove_account_id,
-          authToken
-        );
-        
-        publishLog.complete(
-          "Caption published successfully via direct upload", 
-          `Video ID: ${videoId} | Language: Arabic | Caption URL: ${vttUrl}`
-        );
-        
-        toast.toast({
-          title: "Caption Published",
-          description: "Your caption has been successfully published to the Brightcove video via direct upload.",
-        });
-      } catch (error) {
-        brightcoveCredentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
-        publishLog.error("Direct caption publishing failed", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error publishing caption directly:", error);
-      addLog(`Error in direct publishing`, "error", {
-        details: error instanceof Error ? error.message : String(error),
-        source: "Client-S3"
-      });
-      
-      toast.toast({
-        title: "Direct Publishing Failed",
-        description: "There was a problem publishing your caption via direct upload.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDirectPublishing(false);
     }
   };
   
@@ -524,50 +434,23 @@ const Index = () => {
                 <VideoIdInput 
                   videoId={videoId} 
                   onChange={setVideoId}
-                  disabled={isPublishing || isDirectPublishing}
+                  disabled={isPublishing}
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button 
-                    onClick={publishCaption} 
-                    disabled={isPublishing || isDirectPublishing || !selectedTranscription || !videoId}
-                    className="w-full"
-                    variant="default"
-                  >
-                    {isPublishing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Publishing via Edge...
-                      </>
-                    ) : (
-                      <>Publish via Edge Function</>
-                    )}
-                  </Button>
-                  
-                  <Button 
-                    onClick={publishCaptionDirect} 
-                    disabled={isPublishing || isDirectPublishing || !selectedTranscription || !videoId}
-                    className="w-full"
-                    variant="secondary"
-                  >
-                    {isDirectPublishing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Direct Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <UploadIcon className="mr-2 h-4 w-4" />
-                        Publish Direct to S3
-                      </>
-                    )}
-                  </Button>
-                </div>
-                
-                <p className="text-xs text-muted-foreground mt-2">
-                  <span className="font-medium">Edge Function:</span> Upload through Supabase Edge Function. More reliable but slightly slower.<br/>
-                  <span className="font-medium">Direct to S3:</span> Upload directly from browser to S3. Faster but may have CORS limitations.
-                </p>
+                <Button 
+                  onClick={publishCaption} 
+                  disabled={isPublishing || !selectedTranscription || !videoId}
+                  className="w-full"
+                >
+                  {isPublishing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>Publish Caption</>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
