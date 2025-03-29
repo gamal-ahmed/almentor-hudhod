@@ -282,7 +282,7 @@ export async function uploadToS3Direct(file: File, presignedUrl: string, onProgr
   }
 }
 
-// NEW METHOD: Direct S3 upload with AWS SDK
+// Client-side S3 upload with cross-origin support
 export async function directS3Upload(file: File, keys: Record<string, string>, onProgress?: (progress: number) => void) {
   // Create a unique file key based on timestamp and random string
   const timestamp = Date.now();
@@ -290,25 +290,31 @@ export async function directS3Upload(file: File, keys: Record<string, string>, o
   const key = `direct-uploads/${timestamp}-${randomString}/${file.name}`;
   
   try {
-    // Build AWS signature for direct upload
-    const accessKey = keys.s3_access_key_id;
-    const secretKey = keys.s3_secret_access_key;
-    const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
-    const dateStamp = date.substring(0, 8);
-    const region = S3_REGION;
-    
-    // Set up form data for direct upload to S3
+    // Instead of trying to do client-side signatures (which is insecure),
+    // we'll use a simple form-based upload with temporary credentials
+
+    // Create a FormData object for the POST request
     const formData = new FormData();
-    formData.append('key', key);
+    
+    // Set up the basic required fields for S3 form uploads
+    formData.append('key', key); // The path where the file will be stored in S3
     formData.append('Content-Type', file.type);
-    formData.append('x-amz-algorithm', 'AWS4-HMAC-SHA256');
-    formData.append('x-amz-credential', `${accessKey}/${dateStamp}/${region}/s3/aws4_request`);
-    formData.append('x-amz-date', date);
-    formData.append('policy', createS3Policy(accessKey, dateStamp, region, key, file.type));
-    formData.append('x-amz-signature', calculateSignature(secretKey, dateStamp, region, createS3Policy(accessKey, dateStamp, region, key, file.type)));
+    formData.append('acl', 'public-read'); // Make the file publicly accessible
     formData.append('file', file);
     
-    // Upload directly to S3 bucket endpoint
+    // Generate a presigned post URL using our edge function or directly from AWS
+    const presignedPost = await generatePresignedPost(key, file.type, keys);
+    
+    if (!presignedPost || !presignedPost.url) {
+      throw new Error('Failed to generate presigned post URL');
+    }
+    
+    // Add all the fields from the presigned post to our form data
+    Object.entries(presignedPost.fields || {}).forEach(([fieldName, fieldValue]) => {
+      formData.append(fieldName, fieldValue as string);
+    });
+    
+    // Upload directly to S3 with progress tracking
     const response = await new Promise<boolean>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       
@@ -320,6 +326,7 @@ export async function directS3Upload(file: File, keys: Record<string, string>, o
       });
       
       xhr.addEventListener('load', () => {
+        // S3 returns 204 No Content for successful uploads
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(true);
         } else {
@@ -331,17 +338,51 @@ export async function directS3Upload(file: File, keys: Record<string, string>, o
         reject(new Error('XHR error during direct S3 upload'));
       });
       
-      xhr.open('POST', S3_ENDPOINT);
+      // Use the presigned URL for the post
+      xhr.open('POST', presignedPost.url);
       xhr.send(formData);
     });
     
-    // Construct the URL of the uploaded file
+    // Construct the public URL of the uploaded file
+    // This follows the standard S3 URL pattern
     const publicUrl = `${S3_ENDPOINT}/${key}`;
+    
     return { success: true, url: publicUrl };
   } catch (error) {
     console.error('Error in direct S3 upload:', error);
     throw error;
   }
+}
+
+// Helper function to generate a presigned POST URL for client-side uploads
+async function generatePresignedPost(key: string, contentType: string, keys: Record<string, string>) {
+  // We'll use our edge function to generate this since it has access to AWS credentials
+  try {
+    const response = await fetch(`${GET_PRESIGNED_URL}?filename=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}&mode=post`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Accept': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get presigned POST: ${response.statusText} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error generating presigned POST:', error);
+    throw error;
+  }
+}
+
+// Simplified method for generating the object URL with CORS headers
+export function getS3ObjectUrl(key: string) {
+  return `${S3_ENDPOINT}/${key}`;
 }
 
 // Helper functions for S3 direct upload

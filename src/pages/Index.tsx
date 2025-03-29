@@ -20,7 +20,8 @@ import {
   addCaptionToBrightcove,
   getPresignedUrl,
   uploadToS3Direct,
-  directS3Upload
+  directS3Upload,
+  getS3ObjectUrl
 } from "@/lib/api";
 
 const Index = () => {
@@ -65,7 +66,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Selected",
         description: "Your audio file has been selected successfully.",
       });
@@ -76,7 +77,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "Selection Failed",
         description: "There was a problem selecting your file.",
         variant: "destructive",
@@ -87,7 +88,7 @@ const Index = () => {
   // Process transcriptions with selected models
   const processTranscriptions = async () => {
     if (!file) {
-      toast.toast({
+      toast({
         title: "No File Selected",
         description: "Please upload an audio file first.",
         variant: "destructive",
@@ -96,7 +97,7 @@ const Index = () => {
     }
     
     if (selectedModels.length === 0) {
-      toast.toast({
+      toast({
         title: "No Models Selected",
         description: "Please select at least one transcription model.",
         variant: "destructive",
@@ -175,7 +176,7 @@ const Index = () => {
           `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
         );
         
-        toast.toast({
+        toast({
           title: "Transcription Complete",
           description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
         });
@@ -185,7 +186,7 @@ const Index = () => {
           `All ${selectedModels.length} transcription attempts failed`
         );
         
-        toast.toast({
+        toast({
           title: "Transcription Failed",
           description: "All transcription attempts failed. Please try again.",
           variant: "destructive",
@@ -198,7 +199,7 @@ const Index = () => {
         source: "Transcription"
       });
       
-      toast.toast({
+      toast({
         title: "Processing Error",
         description: "There was a problem processing your transcriptions.",
         variant: "destructive",
@@ -221,7 +222,7 @@ const Index = () => {
   // Publish caption to Brightcove through edge function
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
-      toast.toast({
+      toast({
         title: "Missing Information",
         description: "Please select a transcription and enter a video ID.",
         variant: "destructive",
@@ -296,7 +297,7 @@ const Index = () => {
           `Video ID: ${videoId} | Language: Arabic | Caption URL: ${vttUrl}`
         );
         
-        toast.toast({
+        toast({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video.",
         });
@@ -312,7 +313,7 @@ const Index = () => {
         source: "Brightcove"
       });
       
-      toast.toast({
+      toast({
         title: "Publishing Failed",
         description: "There was a problem publishing your caption.",
         variant: "destructive",
@@ -322,10 +323,10 @@ const Index = () => {
     }
   };
   
-  // Direct S3 Upload with client-side signing
+  // Direct S3 Upload with cross-origin support
   const publishCaptionDirect = async () => {
     if (!selectedTranscription || !videoId) {
-      toast.toast({
+      toast({
         title: "Missing Information",
         description: "Please select a transcription and enter a video ID.",
         variant: "destructive",
@@ -358,7 +359,7 @@ const Index = () => {
       }
       
       // Upload directly to S3 with client-side signing
-      const uploadLog = startTimedLog("Direct S3 Upload with Client Signing", "info", "Client-S3");
+      const uploadLog = startTimedLog("Direct S3 Upload with POST method", "info", "Client-S3");
       let vttUrl;
       
       try {
@@ -406,7 +407,7 @@ const Index = () => {
           `Video ID: ${videoId} | Language: Arabic | Caption URL: ${vttUrl}`
         );
         
-        toast.toast({
+        toast({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video via the new direct upload method.",
         });
@@ -422,7 +423,7 @@ const Index = () => {
         source: "Client-S3"
       });
       
-      toast.toast({
+      toast({
         title: "Direct Publishing Failed",
         description: "There was a problem publishing your caption via the new direct upload method.",
         variant: "destructive",

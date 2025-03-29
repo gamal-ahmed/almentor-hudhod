@@ -2,9 +2,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
   S3Client, 
-  PutObjectCommand 
+  PutObjectCommand,
+  CreateMultipartUploadCommand
 } from "https://esm.sh/@aws-sdk/client-s3@3.456.0"; 
-import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.456.0"; 
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.456.0";
+import { createPresignedPost } from "https://esm.sh/@aws-sdk/s3-presigned-post@3.456.0";
 
 // Set CORS headers
 const corsHeaders = {
@@ -26,6 +28,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const filename = url.searchParams.get("filename");
     const contentType = url.searchParams.get("contentType");
+    const mode = url.searchParams.get("mode") || "put"; // Default to PUT requests
     
     if (!filename || !contentType) {
       return new Response(
@@ -64,31 +67,63 @@ serve(async (req) => {
     
     // Set up the S3 bucket and key for the file
     const bucket = "videos-transcriptions-dev";
-    const key = `client-uploads/${Date.now()}-${filename}`;
+    const key = filename.startsWith("direct-uploads/") ? filename : `client-uploads/${Date.now()}-${filename}`;
     
-    // Create the command to put an object in S3
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      ContentType: contentType,
-    });
+    let result;
     
-    // Generate a pre-signed URL (expires in 10 minutes)
-    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });
-    
-    console.log("Successfully generated presigned URL");
-    
-    // Return the pre-signed URL and the eventual public URL
-    return new Response(
-      JSON.stringify({ 
-        presignedUrl,
-        publicUrl: `https://${bucket}.s3.amazonaws.com/${key}`
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    if (mode === "post") {
+      // Generate a presigned POST URL (better for browser uploads)
+      result = await createPresignedPost(s3Client, {
+        Bucket: bucket,
+        Key: key,
+        Conditions: [
+          ["content-length-range", 0, 104857600], // 0-100MB
+          ["eq", "$Content-Type", contentType],
+        ],
+        Fields: {
+          acl: "public-read",
+          "Content-Type": contentType,
+        },
+        Expires: 600, // 10 minutes
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          url: result.url,
+          fields: result.fields,
+          publicUrl: `https://${bucket}.s3.amazonaws.com/${key}`
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } else {
+      // Create the command to put an object in S3
+      const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: contentType,
+        ACL: "public-read", // Make the object publicly accessible
+      });
+      
+      // Generate a pre-signed URL (expires in 10 minutes)
+      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+      
+      console.log("Successfully generated presigned URL");
+      
+      // Return the pre-signed URL and the eventual public URL
+      return new Response(
+        JSON.stringify({ 
+          presignedUrl,
+          publicUrl: `https://${bucket}.s3.amazonaws.com/${key}`
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   } catch (error) {
     console.error("Error generating pre-signed URL:", error);
     
