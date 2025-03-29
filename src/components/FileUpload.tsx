@@ -1,7 +1,8 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast"; // Fixed import
+import { useToast } from "@/components/ui/use-toast";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
@@ -74,7 +75,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       {isUploading ? (
         <div className="flex flex-col items-center">
           <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-          <p className="text-sm text-muted-foreground">Uploading file...</p>
+          <p className="text-sm text-muted-foreground">Processing file...</p>
         </div>
       ) : (
         <>

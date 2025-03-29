@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +14,6 @@ import VideoIdInput from "@/components/VideoIdInput";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
   transcribeAudio, 
-  uploadToS3, 
-  fetchS3Keys, 
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
   addCaptionToBrightcove
@@ -42,9 +41,6 @@ const Index = () => {
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
   
-  // Track if the file has been uploaded to S3
-  const fileS3UrlRef = useRef<string | null>(null);
-  
   // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
     try {
@@ -63,45 +59,20 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      // Upload to S3
-      setIsUploading(true);
-      const s3UploadLog = startTimedLog("S3 Upload", "info", "AWS S3");
-      
-      // Get S3 credentials
-      const credentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
-      try {
-        const s3Keys = await fetchS3Keys();
-        credentialsLog.complete("S3 credentials retrieved successfully");
-      } catch (error) {
-        credentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      
-      const fileKey = `audio/${Date.now()}-${uploadedFile.name}`;
-      s3UploadLog.update(`Uploading file to S3 with key: ${fileKey}`);
-      
-      try {
-        fileS3UrlRef.current = await uploadToS3(uploadedFile, fileKey);
-        s3UploadLog.complete("File uploaded to S3 successfully", `URL: ${fileS3UrlRef.current}`);
-        
-        toast.toast({
-          title: "File Uploaded",
-          description: "Your audio file has been uploaded successfully.",
-        });
-      } catch (error) {
-        s3UploadLog.error("Failed to upload to S3", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
+      toast.toast({
+        title: "File Selected",
+        description: "Your audio file is ready for transcription.",
+      });
     } catch (error) {
-      console.error("Error uploading file:", error);
-      addLog(`Error uploading file`, "error", {
+      console.error("Error handling file:", error);
+      addLog(`Error handling file`, "error", {
         details: error instanceof Error ? error.message : String(error),
         source: "FileUpload"
       });
       
       toast.toast({
-        title: "Upload Failed",
-        description: "There was a problem uploading your file.",
+        title: "File Error",
+        description: "There was a problem with your file.",
         variant: "destructive",
       });
     } finally {
@@ -150,7 +121,7 @@ const Index = () => {
         const modelLog = startTimedLog(`${model.toUpperCase()} Transcription`, "info", model.toUpperCase());
         
         try {
-          modelLog.update(`Sending audio to ${model} API...`);
+          modelLog.update(`Sending audio directly to ${model} API...`);
           const vttContent = await transcribeAudio(file, model);
           
           const wordCount = vttContent.split(/\s+/).length;
@@ -260,23 +231,6 @@ const Index = () => {
       
       publishLog.update(`Preparing caption for video ID: ${videoId}`);
       
-      // Create VTT file
-      const vttBlob = new Blob([selectedTranscription], { type: 'text/vtt' });
-      const vttFile = new File([vttBlob], `caption-${Date.now()}.vtt`, { type: 'text/vtt' });
-      
-      // Upload VTT to S3
-      const s3Log = startTimedLog("VTT S3 Upload", "info", "AWS S3");
-      const vttKey = `captions/${Date.now()}/caption.vtt`;
-      
-      let vttUrl;
-      try {
-        vttUrl = await uploadToS3(vttFile, vttKey);
-        s3Log.complete(`Caption file uploaded to S3`, `URL: ${vttUrl}`);
-      } catch (error) {
-        s3Log.error("Failed to upload caption to S3", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      
       // Get Brightcove credentials
       const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
       
@@ -294,12 +248,12 @@ const Index = () => {
         credentialsLog.complete("Brightcove authentication successful", 
           `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
         
-        // Add caption to Brightcove video
+        // Add caption directly to Brightcove video (without S3)
         publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
         
         await addCaptionToBrightcove(
           videoId,
-          vttUrl,
+          selectedTranscription,
           'ar',
           'Arabic',
           brightcoveKeys.brightcove_account_id,
@@ -308,7 +262,7 @@ const Index = () => {
         
         publishLog.complete(
           "Caption published successfully", 
-          `Video ID: ${videoId} | Language: Arabic | Caption URL: ${vttUrl}`
+          `Video ID: ${videoId} | Language: Arabic`
         );
         
         toast.toast({
@@ -361,7 +315,7 @@ const Index = () => {
                 <div className="mt-4">
                   <div className="text-sm text-muted-foreground flex items-center">
                     <Check className="h-4 w-4 text-green-500 mr-2" />
-                    File uploaded: <span className="font-medium ml-1">{file.name}</span>
+                    File selected: <span className="font-medium ml-1">{file.name}</span>
                   </div>
                 </div>
               )}
