@@ -42,9 +42,6 @@ const Index = () => {
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
   
-  // Track if the file has been uploaded to S3
-  const fileS3UrlRef = useRef<string | null>(null);
-  
   // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
     try {
@@ -63,49 +60,22 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      // Upload to S3
-      setIsUploading(true);
-      const s3UploadLog = startTimedLog("S3 Upload", "info", "AWS S3");
-      
-      // Get S3 credentials
-      const credentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
-      try {
-        const s3Keys = await fetchS3Keys();
-        credentialsLog.complete("S3 credentials retrieved successfully");
-      } catch (error) {
-        credentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      
-      const fileKey = `audio/${Date.now()}-${uploadedFile.name}`;
-      s3UploadLog.update(`Uploading file to S3 with key: ${fileKey}`);
-      
-      try {
-        fileS3UrlRef.current = await uploadToS3(uploadedFile, fileKey);
-        s3UploadLog.complete("File uploaded to S3 successfully", `URL: ${fileS3UrlRef.current}`);
-        
-        toast.toast({
-          title: "File Uploaded",
-          description: "Your audio file has been uploaded successfully.",
-        });
-      } catch (error) {
-        s3UploadLog.error("Failed to upload to S3", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
+      toast.toast({
+        title: "File Selected",
+        description: "Your audio file has been selected successfully.",
+      });
     } catch (error) {
-      console.error("Error uploading file:", error);
-      addLog(`Error uploading file`, "error", {
+      console.error("Error selecting file:", error);
+      addLog(`Error selecting file`, "error", {
         details: error instanceof Error ? error.message : String(error),
         source: "FileUpload"
       });
       
       toast.toast({
-        title: "Upload Failed",
-        description: "There was a problem uploading your file.",
+        title: "Selection Failed",
+        description: "There was a problem selecting your file.",
         variant: "destructive",
       });
-    } finally {
-      setIsUploading(false);
     }
   };
   
@@ -267,6 +237,16 @@ const Index = () => {
       // Upload VTT to S3
       const s3Log = startTimedLog("VTT S3 Upload", "info", "AWS S3");
       const vttKey = `captions/${Date.now()}/caption.vtt`;
+      
+      // Get S3 credentials
+      const credentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
+      try {
+        const s3Keys = await fetchS3Keys();
+        credentialsLog.complete("S3 credentials retrieved successfully");
+      } catch (error) {
+        credentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
+        throw error;
+      }
       
       let vttUrl;
       try {
