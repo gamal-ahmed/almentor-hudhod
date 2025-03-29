@@ -113,7 +113,6 @@ export async function uploadToS3(file: File, key: string) {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Accept': 'application/json',
-        'Access-Control-Allow-Origin': '*', // Added CORS header
       },
       body: formData,
     });
