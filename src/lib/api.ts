@@ -4,6 +4,7 @@ import { TranscriptionModel } from "@/components/ModelSelector";
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
 const GEMINI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
+const BRIGHTCOVE_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy';
 
 // Supabase API key for authentication
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk';
@@ -38,7 +39,7 @@ export async function fetchBrightcoveKeys() {
   }
 }
 
-// Transcribe audio using selected model - now directly uploads the file
+// Transcribe audio using selected model - directly uploads the file
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "") {
   const formData = new FormData();
   formData.append('audio', file);
@@ -68,20 +69,25 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
   }
 }
 
-// Get Brightcove Auth Token
+// Get Brightcove Auth Token using our proxy
 export async function getBrightcoveAuthToken(clientId: string, clientSecret: string) {
   try {
-    const response = await fetch('https://oauth.brightcove.com/v4/access_token', {
+    const response = await fetch(`${BRIGHTCOVE_PROXY_URL}/auth`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
       },
-      body: 'grant_type=client_credentials',
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret
+      }),
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to get Brightcove token: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to get Brightcove token: ${response.statusText} - ${errorText}`);
     }
     
     const data = await response.json();
@@ -92,7 +98,7 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
   }
 }
 
-// Add caption to Brightcove video
+// Add caption to Brightcove video using our proxy
 export async function addCaptionToBrightcove(
   videoId: string, 
   vttContent: string, 
@@ -102,29 +108,23 @@ export async function addCaptionToBrightcove(
   accessToken: string
 ) {
   try {
-    // Create a temporary URL for the VTT content
-    const vttBlob = new Blob([vttContent], { type: 'text/vtt' });
-    const vttUrl = URL.createObjectURL(vttBlob);
-    
-    // Add caption to Brightcove video
-    const response = await fetch(
-      `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/text_tracks`, 
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          src: vttUrl,
-          srclang: language,
-          label,
-          kind: 'captions',
-          default: true,
-          mime_type: 'text/vtt'
-        }),
-      }
-    );
+    // Send the caption content directly to our proxy
+    const response = await fetch(`${BRIGHTCOVE_PROXY_URL}/captions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        videoId,
+        vttContent,
+        language,
+        label,
+        accountId,
+        accessToken
+      }),
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
