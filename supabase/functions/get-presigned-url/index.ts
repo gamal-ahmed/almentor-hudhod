@@ -51,20 +51,25 @@ serve(async (req) => {
       );
     }
     
-    // Configure S3 client with explicit credentials to avoid filesystem access
+    // Create a minimal S3 client configuration that works in Deno
     const s3Client = new S3Client({
       region: "us-east-1",
       credentials: {
         accessKeyId: AWS_ACCESS_KEY_ID,
         secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
-      // Disable credential loading from filesystem
-      credentialDefaultProvider: () => async () => {
-        return {
-          accessKeyId: AWS_ACCESS_KEY_ID,
-          secretAccessKey: AWS_SECRET_ACCESS_KEY,
-        };
+      // Prevent any file system access attempts
+      credentialDefaultProvider: () => async () => Promise.resolve({
+        accessKeyId: AWS_ACCESS_KEY_ID,
+        secretAccessKey: AWS_SECRET_ACCESS_KEY,
+      }),
+      // Bypass default configuration loading
+      loadedConfig: { 
+        clientDefaults: {}, 
+        credentialDefaults: {} 
       },
+      // Force it to not load config from any file
+      loadConfigFile: false
     });
     
     // Set up the S3 bucket and key for the file
