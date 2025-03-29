@@ -1,30 +1,17 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/ui/use-toast"; // Fixed import
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
   isUploading: boolean;
-  acceptedFileTypes?: string;
-  acceptedTypeLabel?: string;
-  maxSizeMB?: number;
-  uploadProgress?: number;
 }
 
-const FileUpload = ({ 
-  onFileUpload, 
-  isUploading, 
-  acceptedFileTypes = ".mp3,audio/mpeg",
-  acceptedTypeLabel = "MP3 files only",
-  maxSizeMB = 100,
-  uploadProgress = 0
-}: FileUploadProps) => {
+const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+  const toast = useToast();
 
   const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -42,37 +29,22 @@ const FileUpload = ({
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFiles(e.dataTransfer.files[0]);
-      e.dataTransfer.clearData(); // Clear the data to prevent duplicate uploads
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files && e.target.files[0]) {
       handleFiles(e.target.files[0]);
-      e.target.value = ''; // Reset the input value to allow re-uploading the same file
     }
   };
 
   const handleFiles = (file: File) => {
-    // Check file type
-    const isAcceptedType = new RegExp(acceptedFileTypes.split(',').join('|')).test(file.type);
-    if (!isAcceptedType) {
-      toast({
+    if (file.type !== "audio/mpeg" && !file.name.endsWith('.mp3')) {
+      toast.toast({
         title: "Invalid file type",
-        description: `Please upload a file matching: ${acceptedTypeLabel}`,
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Check file size (in MB)
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > maxSizeMB) {
-      toast({
-        title: "File too large",
-        description: `Maximum file size is ${maxSizeMB}MB. Your file is ${fileSizeMB.toFixed(2)}MB.`,
+        description: "Please upload an MP3 file",
         variant: "destructive"
       });
       return;
@@ -94,27 +66,21 @@ const FileUpload = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept={acceptedFileTypes}
+        accept=".mp3,audio/mpeg"
         onChange={handleFileInput}
         className="hidden"
       />
       
       {isUploading ? (
-        <div className="flex flex-col items-center w-full">
+        <div className="flex flex-col items-center">
           <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-          <p className="text-sm text-muted-foreground mb-2">Uploading file...</p>
-          {uploadProgress > 0 && (
-            <div className="w-full max-w-xs">
-              <Progress value={uploadProgress} className="h-2" />
-              <p className="text-xs text-muted-foreground mt-1">{uploadProgress}% complete</p>
-            </div>
-          )}
+          <p className="text-sm text-muted-foreground">Uploading file...</p>
         </div>
       ) : (
         <>
           <Upload className="h-6 w-6 text-muted-foreground mb-2" />
-          <p className="font-medium">Drag & drop a file here or click to browse</p>
-          <p className="text-sm text-muted-foreground mt-1">{acceptedTypeLabel}</p>
+          <p className="font-medium">Drag & drop an MP3 file here or click to browse</p>
+          <p className="text-sm text-muted-foreground mt-1">MP3 files only</p>
         </>
       )}
     </div>
