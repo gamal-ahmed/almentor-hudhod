@@ -3,8 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
   S3Client, 
   PutObjectCommand 
-} from "https://esm.sh/@aws-sdk/client-s3@3.454.0"; // Using a newer version
-import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.454.0"; // Using a newer version
+} from "https://esm.sh/@aws-sdk/client-s3@3.454.0"; 
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.454.0"; 
 
 // Set CORS headers
 const corsHeaders = {
