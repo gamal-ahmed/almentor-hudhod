@@ -3,14 +3,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
   S3Client, 
   PutObjectCommand 
-} from "https://esm.sh/@aws-sdk/client-s3@3.454.0"; 
-import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.454.0"; 
+} from "https://esm.sh/@aws-sdk/client-s3@3.204.0";
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.204.0";
 
 // Set CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "*",
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
 serve(async (req) => {

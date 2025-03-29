@@ -98,7 +98,7 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
   }
 }
 
-// Upload a file to S3
+// Upload a file to S3 using edge function
 export async function uploadToS3(file: File, key: string) {
   const formData = new FormData();
   formData.append('file', file);
@@ -126,6 +126,54 @@ export async function uploadToS3(file: File, key: string) {
     return data.url;
   } catch (error) {
     console.error('Error uploading to S3:', error);
+    throw error;
+  }
+}
+
+// Get a pre-signed URL for direct S3 upload
+export async function getPresignedUrl(filename: string, contentType: string) {
+  try {
+    const response = await fetch(`${GET_PRESIGNED_URL}?filename=${encodeURIComponent(filename)}&contentType=${encodeURIComponent(contentType)}`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Accept': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get pre-signed URL: ${response.statusText} - ${errorText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting pre-signed URL:', error);
+    throw error;
+  }
+}
+
+// Upload directly to S3 using pre-signed URL
+export async function uploadToS3Direct(file: File, presignedUrl: string) {
+  try {
+    const response = await fetch(presignedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Direct S3 upload failed: ${response.statusText} - ${errorText}`);
+    }
+    
+    // Return the public URL (we remove the query parameters from the presigned URL)
+    return presignedUrl.split('?')[0];
+  } catch (error) {
+    console.error('Error with direct S3 upload:', error);
     throw error;
   }
 }
@@ -191,56 +239,6 @@ export async function addCaptionToBrightcove(
     return true;
   } catch (error) {
     console.error('Error adding caption to Brightcove:', error);
-    throw error;
-  }
-}
-
-// Get a pre-signed URL for direct S3 upload
-export async function getPresignedUrl(filename: string, contentType: string) {
-  try {
-    const url = `${GET_PRESIGNED_URL}?filename=${encodeURIComponent(filename)}&contentType=${encodeURIComponent(contentType)}`;
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Accept': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to get pre-signed URL: ${response.statusText} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error getting pre-signed URL:', error);
-    throw error;
-  }
-}
-
-// Upload file directly to S3 using a pre-signed URL
-export async function uploadToS3Direct(file: File, presignedUrl: string) {
-  try {
-    const response = await fetch(presignedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': file.type,
-      },
-      body: file,
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Direct S3 upload failed: ${response.statusText} - ${errorText}`);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in direct S3 upload:', error);
     throw error;
   }
 }
