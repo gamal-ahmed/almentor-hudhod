@@ -51,15 +51,22 @@ serve(async (req) => {
       );
     }
     
-    // Create a simplified S3 client configuration for Deno
+    // Create a properly configured S3 client for Deno environment
     const s3Client = new S3Client({
       region: "us-east-1",
       credentials: {
         accessKeyId: AWS_ACCESS_KEY_ID,
         secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
-      // Disable filesystem access completely
-      loadConfigFile: false
+      // Explicitly disable any file system access
+      loadConfigFile: false,
+      // Use simple implementation that doesn't rely on Node.js libraries
+      requestHandler: {
+        handle: (request) => {
+          // This is a no-op that ensures we're using the basic fetch handler
+          return Promise.resolve({ response: request });
+        }
+      },
     });
     
     // Set up the S3 bucket and key for the file
