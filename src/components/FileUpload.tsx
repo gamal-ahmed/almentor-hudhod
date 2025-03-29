@@ -3,13 +3,15 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Progress } from "@/components/ui/progress";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
   isUploading: boolean;
-  acceptedFileTypes?: string; // e.g. ".mp3,audio/mpeg"
-  acceptedTypeLabel?: string; // e.g. "MP3 files only"
+  acceptedFileTypes?: string;
+  acceptedTypeLabel?: string;
   maxSizeMB?: number;
+  uploadProgress?: number;
 }
 
 const FileUpload = ({ 
@@ -17,7 +19,8 @@ const FileUpload = ({
   isUploading, 
   acceptedFileTypes = ".mp3,audio/mpeg",
   acceptedTypeLabel = "MP3 files only",
-  maxSizeMB = 100
+  maxSizeMB = 100,
+  uploadProgress = 0
 }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,9 +98,15 @@ const FileUpload = ({
       />
       
       {isUploading ? (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center w-full">
           <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-          <p className="text-sm text-muted-foreground">Uploading file...</p>
+          <p className="text-sm text-muted-foreground mb-2">Uploading file...</p>
+          {uploadProgress > 0 && (
+            <div className="w-full max-w-xs">
+              <Progress value={uploadProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">{uploadProgress}% complete</p>
+            </div>
+          )}
         </div>
       ) : (
         <>

@@ -19,7 +19,8 @@ import {
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
   getPresignedUrl,
-  uploadToS3Direct
+  uploadToS3Direct,
+  directS3Upload
 } from "@/lib/api";
 
 const Index = () => {
@@ -36,6 +37,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDirectPublishing, setIsDirectPublishing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, loading: boolean }>>({
     openai: { vtt: "", loading: false },
     gemini: { vtt: "", loading: false }
@@ -43,7 +45,7 @@ const Index = () => {
   
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
-  const toast = useToast();
+  const { toast } = useToast();
   
   // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
@@ -320,7 +322,7 @@ const Index = () => {
     }
   };
   
-  // Publish caption to Brightcove through client-side upload
+  // Direct S3 Upload with client-side signing
   const publishCaptionDirect = async () => {
     if (!selectedTranscription || !videoId) {
       toast.toast({
@@ -333,34 +335,37 @@ const Index = () => {
     
     try {
       setIsDirectPublishing(true);
-      const publishLog = startTimedLog("Direct Caption Publishing", "info", "Client-S3");
+      setUploadProgress(0);
+      const publishLog = startTimedLog("New Direct S3 Upload", "info", "Client-S3");
       
-      publishLog.update(`Preparing caption for direct upload - video ID: ${videoId}`);
+      publishLog.update(`Preparing caption for direct S3 upload - video ID: ${videoId}`);
       
       // Create VTT file
       const vttBlob = new Blob([selectedTranscription], { type: 'text/vtt' });
       const fileName = `caption-${Date.now()}.vtt`;
       const vttFile = new File([vttBlob], fileName, { type: 'text/vtt' });
       
-      // Get a pre-signed URL for direct upload
-      const s3DirectLog = startTimedLog("Getting pre-signed URL", "info", "Client-S3");
-      let presignedUrlData;
+      // Get S3 credentials
+      const s3CredentialsLog = startTimedLog("Fetching S3 credentials", "info", "API");
+      let s3Keys;
       
       try {
-        presignedUrlData = await getPresignedUrl(fileName, 'text/vtt');
-        s3DirectLog.complete("Pre-signed URL obtained successfully");
+        s3Keys = await fetchS3Keys();
+        s3CredentialsLog.complete("S3 credentials retrieved successfully");
       } catch (error) {
-        s3DirectLog.error("Failed to get pre-signed URL", error instanceof Error ? error.message : String(error));
+        s3CredentialsLog.error("Failed to fetch S3 credentials", error instanceof Error ? error.message : String(error));
         throw error;
       }
       
-      // Upload directly to S3 using the pre-signed URL
-      const uploadLog = startTimedLog("Direct S3 Upload", "info", "Client-S3");
+      // Upload directly to S3 with client-side signing
+      const uploadLog = startTimedLog("Direct S3 Upload with Client Signing", "info", "Client-S3");
       let vttUrl;
       
       try {
-        await uploadToS3Direct(vttFile, presignedUrlData.presignedUrl);
-        vttUrl = presignedUrlData.publicUrl;
+        const result = await directS3Upload(vttFile, s3Keys, (progress) => {
+          setUploadProgress(progress);
+        });
+        vttUrl = result.url;
         uploadLog.complete(`Caption file directly uploaded to S3`, `URL: ${vttUrl}`);
       } catch (error) {
         uploadLog.error("Failed to upload caption directly to S3", error instanceof Error ? error.message : String(error));
@@ -397,33 +402,34 @@ const Index = () => {
         );
         
         publishLog.complete(
-          "Caption published successfully via direct upload", 
+          "Caption published successfully via new direct upload", 
           `Video ID: ${videoId} | Language: Arabic | Caption URL: ${vttUrl}`
         );
         
         toast.toast({
           title: "Caption Published",
-          description: "Your caption has been successfully published to the Brightcove video via direct upload.",
+          description: "Your caption has been successfully published to the Brightcove video via the new direct upload method.",
         });
       } catch (error) {
         brightcoveCredentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
-        publishLog.error("Direct caption publishing failed", error instanceof Error ? error.message : String(error));
+        publishLog.error("New direct caption publishing failed", error instanceof Error ? error.message : String(error));
         throw error;
       }
     } catch (error) {
-      console.error("Error publishing caption directly:", error);
-      addLog(`Error in direct publishing`, "error", {
+      console.error("Error in new direct publishing:", error);
+      addLog(`Error in new direct S3 upload`, "error", {
         details: error instanceof Error ? error.message : String(error),
         source: "Client-S3"
       });
       
       toast.toast({
         title: "Direct Publishing Failed",
-        description: "There was a problem publishing your caption via direct upload.",
+        description: "There was a problem publishing your caption via the new direct upload method.",
         variant: "destructive",
       });
     } finally {
       setIsDirectPublishing(false);
+      setUploadProgress(0);
     }
   };
   
@@ -445,7 +451,11 @@ const Index = () => {
                 <FileAudio className="mr-2 h-5 w-5" />
                 Step 1: Upload Audio File
               </h2>
-              <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+              <FileUpload 
+                onFileUpload={handleFileUpload} 
+                isUploading={isUploading} 
+                uploadProgress={uploadProgress}
+              />
               
               {file && (
                 <div className="mt-4">
@@ -553,12 +563,12 @@ const Index = () => {
                     {isDirectPublishing ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Direct Publishing...
+                        Direct Client Upload: {uploadProgress}%
                       </>
                     ) : (
                       <>
                         <UploadIcon className="mr-2 h-4 w-4" />
-                        Publish Direct to S3
+                        Direct Client Upload
                       </>
                     )}
                   </Button>
@@ -566,7 +576,7 @@ const Index = () => {
                 
                 <p className="text-xs text-muted-foreground mt-2">
                   <span className="font-medium">Edge Function:</span> Upload through Supabase Edge Function. More reliable but slightly slower.<br/>
-                  <span className="font-medium">Direct to S3:</span> Upload directly from browser to S3. Faster but may have CORS limitations.
+                  <span className="font-medium">Direct Client Upload:</span> Upload directly from browser to S3 with client-side signing. Fastest but less secure.
                 </p>
               </div>
             </CardContent>
