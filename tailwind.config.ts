@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -18,6 +19,10 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				mono: ['JetBrains Mono', 'monospace'],
+				sans: ['Inter', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -61,7 +66,41 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				teal: {
+					DEFAULT: '#2DD4BF',
+					50: '#E6FAFA',
+					100: '#C2F5F0',
+					200: '#9BEFEA',
+					300: '#63E4DD',
+					400: '#2DD4BF',
+					500: '#21A99A',
+					600: '#1A7E75',
+					700: '#145350',
+					800: '#0F2A2A',
+					900: '#051414',
+				},
+				amber: {
+					DEFAULT: '#F59E0B',
+					50: '#FEF3DC',
+					100: '#FDE5B1',
+					200: '#FBD086',
+					300: '#F9BB5B',
+					400: '#F7A730',
+					500: '#F59E0B',
+					600: '#C37E08',
+					700: '#925D06',
+					800: '#613E04',
+					900: '#301F02',
+				},
+				terminal: {
+					DEFAULT: '#282A36',
+					text: '#F8F8F2',
+					success: '#50FA7B',
+					error: '#FF5555',
+					warning: '#FFB86C',
+					info: '#8BE9FD',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +123,30 @@ export default {
 					to: {
 						height: '0'
 					}
-				}
+				},
+				'typing': {
+					from: { width: '0' },
+					to: { width: '100%' }
+				},
+				'blink': {
+					'0%, 100%': { borderColor: 'transparent' },
+					'50%': { borderColor: 'currentColor' }
+				},
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' }
+				},
+				'pulse-opacity': {
+					'0%, 100%': { opacity: '0.4' },
+					'50%': { opacity: '0.8' }
+				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'typing': 'typing 3s steps(40, end), blink .75s step-end infinite',
+				'fade-in': 'fade-in 0.5s ease-in-out',
+				'pulse-opacity': 'pulse-opacity 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
 			}
 		}
 	},
