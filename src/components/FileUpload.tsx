@@ -42,14 +42,16 @@ const FileUpload = ({
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files[0]);
+      e.dataTransfer.clearData(); // Clear the data to prevent duplicate uploads
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files && e.target.files.length > 0) {
       handleFiles(e.target.files[0]);
+      e.target.value = ''; // Reset the input value to allow re-uploading the same file
     }
   };
 
