@@ -26,12 +26,12 @@ export async function transcribeAudio(audioFile: File): Promise<TranscriptionRes
     // Create a URL from the audio file for processing
     const audioUrl = URL.createObjectURL(audioFile);
     
-    // Run the transcription with a prompt to preserve English words
+    // Run the transcription with the correct configuration options 
+    // (removed "prompt" which isn't supported by the library)
     const result = await transcriber(audioUrl, {
       chunk_length_s: 30,
       stride_length_s: 5,
-      return_timestamps: true,
-      prompt: "Please preserve all English words exactly as spoken"
+      return_timestamps: true
     });
 
     // Clean up the URL object
