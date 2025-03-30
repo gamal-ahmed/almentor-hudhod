@@ -1,3 +1,4 @@
+
 import { SUPABASE_KEY, API_ENDPOINTS } from './utils';
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,7 +82,12 @@ export async function queueTranscription(file: File, model: TranscriptionModel):
 }
 
 // Function to get the status of a transcription job
-export async function getTranscriptionStatus(jobId: string): Promise<{ status: string, result?: any, error?: string }> {
+export async function getTranscriptionStatus(jobId: string): Promise<{ 
+  status: string, 
+  status_message?: string, 
+  result?: any, 
+  error?: string 
+}> {
     try {
         const response = await fetch(`${API_ENDPOINTS.GET_TRANSCRIPTION_STATUS}?job_id=${jobId}`, {
             method: 'GET',

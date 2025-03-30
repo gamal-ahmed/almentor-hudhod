@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,7 +76,7 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
       
       addLog(`Transcription job queued: ${response.jobId}`, "success", {
         source: "AsyncTranscriber",
-        details: `Status: ${response.status}, Message: ${response.message}`
+        details: `Job ID: ${response.jobId}`
       });
       
       toast({
