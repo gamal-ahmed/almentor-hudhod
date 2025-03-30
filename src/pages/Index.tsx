@@ -5,7 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff } from "lucide-react";
+import { 
+  Check, Loader2, Upload, FileAudio, Cog, Send, Info, 
+  FileText, PlayCircle, PauseCircle, Bell, BellOff,
+  Sparkles, ArrowRight, Settings, Activity
+} from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
 import TranscriptionCard from "@/components/TranscriptionCard";
@@ -64,7 +68,7 @@ const Index = () => {
   
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
-  const toast = useToast();
+  const { toast } = useToast();
   
   // Auth state
   const { isAuthenticated } = useAuth();
@@ -74,7 +78,7 @@ const Index = () => {
     if (notificationsEnabled) {
       requestNotificationPermission().then(granted => {
         if (!granted) {
-          toast.toast({
+          toast({
             title: "Notification Permission Denied",
             description: "Please enable notifications in your browser settings to receive alerts.",
             variant: "destructive",
@@ -185,7 +189,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Selected",
         description: "Your audio file is ready for transcription.",
       });
@@ -203,7 +207,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Error",
         description: "There was a problem with your file.",
         variant: "destructive",
@@ -230,14 +234,14 @@ const Index = () => {
       setNotificationsEnabled(granted);
       
       if (granted) {
-        toast.toast({
+        toast({
           title: "Notifications Enabled",
           description: "You will receive browser notifications when processes complete.",
         });
       }
     } else {
       setNotificationsEnabled(false);
-      toast.toast({
+      toast({
         title: "Notifications Disabled",
         description: "You will no longer receive browser notifications.",
       });
@@ -247,7 +251,7 @@ const Index = () => {
   // Process transcriptions with selected models - now creates background jobs
   const processTranscriptions = async () => {
     if (!file) {
-      toast.toast({
+      toast({
         title: "No File Selected",
         description: "Please upload an audio file first.",
         variant: "destructive",
@@ -256,7 +260,7 @@ const Index = () => {
     }
     
     if (!isAuthenticated) {
-      toast.toast({
+      toast({
         title: "Authentication Required",
         description: "Please sign in to create transcription jobs.",
         variant: "destructive",
@@ -265,7 +269,7 @@ const Index = () => {
     }
     
     if (!Array.isArray(selectedModels) || selectedModels.length === 0) {
-      toast.toast({
+      toast({
         title: "No Models Selected",
         description: "Please select at least one transcription model.",
         variant: "destructive",
@@ -301,7 +305,7 @@ const Index = () => {
         `Created ${selectedModels.length} transcription jobs`
       );
       
-      toast.toast({
+      toast({
         title: "Transcription Jobs Created",
         description: `Created ${selectedModels.length} transcription jobs. Check the 'Jobs' tab for status.`,
       });
@@ -319,7 +323,7 @@ const Index = () => {
         source: "Transcription"
       });
       
-      toast.toast({
+      toast({
         title: "Error Creating Jobs",
         description: "There was a problem creating your transcription jobs.",
         variant: "destructive",
@@ -342,7 +346,7 @@ const Index = () => {
   // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
-      toast.toast({
+      toast({
         title: "Missing Information",
         description: "Please select a transcription and enter a video ID.",
         variant: "destructive",
@@ -387,7 +391,7 @@ const Index = () => {
           `Video ID: ${videoId} | Language: Arabic`
         );
         
-        toast.toast({
+        toast({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video.",
         });
@@ -403,7 +407,7 @@ const Index = () => {
         source: "Brightcove"
       });
       
-      toast.toast({
+      toast({
         title: "Publishing Failed",
         description: "There was a problem publishing your caption.",
         variant: "destructive",
@@ -414,49 +418,59 @@ const Index = () => {
   };
   
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       <Header />
-      <div className="container py-6">
-        <div className="max-w-[1440px] mx-auto p-4 md:p-6">
-          <header className="text-center mb-6">
-            <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Transcription Pipeline
-            </h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
-              Download MP3 files from SharePoint, transcribe with multiple AI models, and publish captions to Brightcove.
-            </p>
-          </header>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-3 space-y-4">
-              <Card className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
-                <CardContent className="pt-4 p-3">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center">
-                    <FileAudio className="mr-1 h-4 w-4 text-blue-500" />
-                    Upload Audio
-                  </h3>
+      
+      <main className="container py-8 px-4 max-w-[1440px] mx-auto">
+        <div className="text-center mb-8 animate-fade-in">
+          <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+            Transcription Studio
+          </h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Download MP3 files from SharePoint, transcribe with multiple AI models, and publish captions to Brightcove.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Sidebar with controls */}
+          <div className="lg:col-span-4 space-y-5">
+            {/* File Upload Card */}
+            <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm transition-all hover:shadow-xl">
+              <CardContent className="p-5">
+                <div className="flex items-center mb-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                    <FileAudio className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold">Audio Source</h3>
+                </div>
+                
+                <div className="space-y-4">
                   <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
                   
                   {file && (
-                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                      <div className="text-xs flex items-center justify-between">
-                        <div className="truncate mr-2">
-                          <Check className="h-3 w-3 text-green-500 mr-1 inline-block" />
-                          <span className="font-medium">File:</span> 
-                          <span className="ml-1 truncate">{file.name}</span>
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({Math.round(file.size / 1024)} KB)
-                          </span>
+                    <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Check className="h-4 w-4 text-green-500" />
+                          <div className="truncate text-sm">
+                            <span className="font-medium">{file.name}</span>
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              ({Math.round(file.size / 1024)} KB)
+                            </span>
+                          </div>
                         </div>
                         
                         {audioUrl && (
                           <Button 
-                            variant="outline" 
+                            variant="ghost" 
                             size="sm" 
-                            className="flex items-center gap-1 h-6 text-xs"
                             onClick={toggleAudioPlayback}
+                            className="h-8 w-8 p-0 rounded-full"
                           >
-                            {isAudioPlaying ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
+                            {isAudioPlaying ? 
+                              <PauseCircle className="h-5 w-5 text-primary" /> : 
+                              <PlayCircle className="h-5 w-5 text-primary" />
+                            }
                           </Button>
                         )}
                       </div>
@@ -473,96 +487,71 @@ const Index = () => {
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-              
-              <Card className="overflow-hidden border-l-4 border-l-green-500 shadow-sm">
-                <CardContent className="pt-4 p-3">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center">
-                    <Cog className="mr-1 h-4 w-4 text-green-500" />
-                    Transcription Settings
-                  </h3>
                   
-                  <div className="space-y-2">
+                  <div className="pt-2">
+                    <h4 className="text-sm font-medium mb-2 flex items-center">
+                      <Upload className="h-4 w-4 mr-1 text-purple-400" />
+                      SharePoint Integration
+                    </h4>
+                    <SharePointDownloader 
+                      onFilesQueued={handleFilesQueued}
+                      isProcessing={isProcessing}
+                    />
+                    
+                    {fileQueue.length > 0 && (
+                      <div className="mt-3 animate-fade-in">
+                        <FileQueue
+                          files={fileQueue}
+                          currentIndex={currentQueueIndex}
+                          onProcessNext={processNextInQueue}
+                          onSkip={skipCurrentInQueue}
+                          onReset={resetQueue}
+                          isProcessing={isProcessing}
+                          notificationsEnabled={notificationsEnabled}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Transcription Settings Card */}
+            <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm transition-all hover:shadow-xl">
+              <CardContent className="p-5">
+                <div className="flex items-center mb-4">
+                  <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center mr-3">
+                    <Sparkles className="h-5 w-5 text-green-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold">AI Transcription</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Select AI Models</label>
                     <ModelSelector 
                       selectedModels={selectedModels} 
                       onModelChange={setSelectedModels}
                       disabled={isProcessing || !file}
                     />
-                    
-                    <Button 
-                      onClick={processTranscriptions} 
-                      disabled={isProcessing || !file || selectedModels.length === 0}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-8 text-xs"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="mr-1 h-3 w-3" />
-                          Generate Transcriptions
-                        </>
-                      )}
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-              
-              <Card className={`overflow-hidden border-l-4 ${selectedTranscription ? 'border-l-amber-500' : 'border-l-gray-300'} shadow-sm transition-colors duration-300 ${!selectedTranscription ? 'opacity-60' : ''}`}>
-                <CardContent className="pt-4 p-3">
-                  <h3 className={`text-sm font-semibold mb-2 flex items-center ${!selectedTranscription ? 'text-muted-foreground' : ''}`}>
-                    <Send className={`mr-1 h-4 w-4 ${selectedTranscription ? 'text-amber-500' : 'text-gray-400'}`} />
-                    Publish Options {!selectedTranscription && '(Select a transcription first)'}
-                  </h3>
+                  
+                  <Separator className="my-3" />
                   
                   <div className="space-y-2">
-                    <VideoIdInput 
-                      videoId={videoId} 
-                      onChange={setVideoId}
-                      disabled={isPublishing || !selectedTranscription}
-                    />
-                    
-                    <Button 
-                      onClick={publishCaption} 
-                      disabled={isPublishing || !selectedTranscription || !videoId}
-                      className={`w-full ${selectedTranscription 
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' 
-                        : 'bg-gray-400'} h-8 text-xs`}
-                    >
-                      {isPublishing ? (
-                        <>
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          Publishing...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="mr-1 h-3 w-3" />
-                          Publish Caption
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-                <summary className="cursor-pointer font-medium flex items-center text-sm">
-                  <Cog className="h-4 w-4 mr-2" />
-                  Advanced Settings
-                </summary>
-                <div className="pt-3 space-y-3">
-                  <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <label htmlFor="prompt" className="text-xs font-medium">
-                        Transcription Prompt Options:
-                      </label>
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <Info className="h-3 w-3 mr-1" />
-                        <span>Not all models support prompts</span>
-                      </div>
+                      <h4 className="text-sm font-medium flex items-center">
+                        <Settings className="h-4 w-4 mr-1 text-muted-foreground" />
+                        Prompt Options
+                      </h4>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-xs px-2"
+                        onClick={() => setTranscriptionPrompt(DEFAULT_TRANSCRIPTION_PROMPT)}
+                      >
+                        Reset
+                      </Button>
                     </div>
                     
                     <PromptOptions 
@@ -575,111 +564,193 @@ const Index = () => {
                       disabled={isProcessing}
                     />
                     
-                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
-                      <p className="text-xs font-medium">Generated Prompt:</p>
-                      <p className="text-xs text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">Generated Prompt:</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
                     </div>
                   </div>
-                </div>
-              </details>
-              
-              <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-                <summary className="cursor-pointer font-medium flex items-center text-sm">
-                  <Upload className="h-4 w-4 mr-2" />
-                  SharePoint Files & Queue
-                </summary>
-                <div className="pt-3 space-y-3">
-                  <SharePointDownloader 
-                    onFilesQueued={handleFilesQueued}
-                    isProcessing={isProcessing}
-                  />
                   
-                  {fileQueue.length > 0 && (
-                    <FileQueue
-                      files={fileQueue}
-                      currentIndex={currentQueueIndex}
-                      onProcessNext={processNextInQueue}
-                      onSkip={skipCurrentInQueue}
-                      onReset={resetQueue}
-                      isProcessing={isProcessing}
-                      notificationsEnabled={notificationsEnabled}
-                    />
-                  )}
+                  <Button 
+                    onClick={processTranscriptions} 
+                    disabled={isProcessing || !file || selectedModels.length === 0}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="mr-2 h-4 w-4" />
+                        Generate Transcriptions
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </details>
-            </div>
+              </CardContent>
+            </Card>
             
-            <div className="lg:col-span-9 space-y-4">
-              <Tabs defaultValue="results" className="w-full">
-                <TabsList className="mb-2">
-                  <TabsTrigger value="results">Transcription Results</TabsTrigger>
-                  <TabsTrigger value="jobs">Background Jobs</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="results" className="space-y-3">
-                  <h2 className="text-xl font-semibold flex items-center">
-                    <Check className="mr-2 h-5 w-5 text-violet-500" />
-                    Transcription Results
-                  </h2>
-                  
-                  {selectedModels.length > 0 ? (
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                      {selectedModels.map((model) => {
-                        const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
-                        
-                        return (
-                          <TranscriptionCard
-                            key={model}
-                            modelName={
-                              model === "openai" 
-                                ? "OpenAI Whisper" 
-                                : model === "gemini-2.0-flash" 
-                                  ? "Gemini 2.0 Flash" 
-                                  : "Microsoft Phi-4"
-                            }
-                            vttContent={transcription.vtt}
-                            prompt={transcription.prompt}
-                            onSelect={() => handleSelectTranscription(transcription.vtt, model)}
-                            isSelected={selectedModel === model}
-                            audioSrc={audioUrl || undefined}
-                            isLoading={transcription.loading}
-                          />
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <Card className="p-8 flex flex-col items-center justify-center text-center">
-                      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
-                      <p className="text-muted-foreground max-w-md">
-                        Upload an audio file and select at least one transcription model to see results here.
-                      </p>
-                    </Card>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="jobs">
-                  <TranscriptionJobs 
-                    onSelectTranscription={handleSelectTranscription}
-                    refreshTrigger={refreshJobsTrigger}
-                  />
-                </TabsContent>
-              </Tabs>
-              
-              <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-                <summary className="cursor-pointer font-medium flex items-center text-sm">
-                  <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                  System Logs
-                </summary>
-                <div className="h-[400px] mt-3">
-                  <LogsPanel logs={logs} />
+            {/* Publishing Card */}
+            <Card className={`overflow-hidden border-none shadow-lg transition-all ${
+              selectedTranscription 
+                ? 'bg-gradient-to-br from-card to-amber-500/5 backdrop-blur-sm hover:shadow-xl' 
+                : 'bg-gradient-to-br from-card/80 to-background/60 backdrop-blur-sm opacity-75'
+            }`}>
+              <CardContent className="p-5">
+                <div className="flex items-center mb-4">
+                  <div className={`h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
+                    selectedTranscription 
+                      ? 'bg-amber-500/10' 
+                      : 'bg-gray-200 dark:bg-gray-700'
+                  }`}>
+                    <Send className={`h-5 w-5 ${
+                      selectedTranscription 
+                        ? 'text-amber-500' 
+                        : 'text-gray-400'
+                    }`} />
+                  </div>
+                  <h3 className="text-lg font-semibold">
+                    Publish Caption
+                    {!selectedTranscription && <span className="text-xs font-normal text-muted-foreground block">Select a transcription first</span>}
+                  </h3>
                 </div>
-              </details>
-            </div>
+                
+                <div className="space-y-4">
+                  <VideoIdInput 
+                    videoId={videoId} 
+                    onChange={setVideoId}
+                    disabled={isPublishing || !selectedTranscription}
+                  />
+                  
+                  <Button 
+                    onClick={publishCaption} 
+                    disabled={isPublishing || !selectedTranscription || !videoId}
+                    className={`w-full ${
+                      selectedTranscription 
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md' 
+                        : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                    }`}
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Publish to Brightcove
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Main content area */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-0">
+                <Tabs defaultValue="results" className="w-full">
+                  <div className="flex items-center justify-between px-6 pt-5 pb-2">
+                    <h3 className="text-lg font-semibold">Transcription Results</h3>
+                    <TabsList className="bg-primary/10">
+                      <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        Results
+                      </TabsTrigger>
+                      <TabsTrigger value="jobs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        Background Jobs
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <TabsContent value="results" className="p-6 min-h-[60vh]">
+                    {selectedModels.length > 0 ? (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        {selectedModels.map((model) => {
+                          const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
+                          
+                          return (
+                            <TranscriptionCard
+                              key={model}
+                              modelName={
+                                model === "openai" 
+                                  ? "OpenAI Whisper" 
+                                  : model === "gemini-2.0-flash" 
+                                    ? "Gemini 2.0 Flash" 
+                                    : "Microsoft Phi-4"
+                              }
+                              vttContent={transcription.vtt}
+                              prompt={transcription.prompt}
+                              onSelect={() => handleSelectTranscription(transcription.vtt, model)}
+                              isSelected={selectedModel === model}
+                              audioSrc={audioUrl || undefined}
+                              isLoading={transcription.loading}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                        <div className="bg-primary/5 h-20 w-20 rounded-full flex items-center justify-center mb-4 animate-pulse-subtle">
+                          <FileText className="h-10 w-10 text-primary/60" />
+                        </div>
+                        <h3 className="text-xl font-medium mb-2">No Transcriptions Yet</h3>
+                        <p className="text-muted-foreground max-w-md">
+                          Upload an audio file and select at least one transcription model to see results here.
+                        </p>
+                        
+                        <Button 
+                          variant="outline" 
+                          className="mt-6 group"
+                          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        >
+                          Start by uploading a file
+                          <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="jobs" className="p-6 min-h-[60vh]">
+                    <TranscriptionJobs 
+                      onSelectTranscription={handleSelectTranscription}
+                      refreshTrigger={refreshJobsTrigger}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-0">
+                <details className="group">
+                  <summary className="p-5 cursor-pointer list-none flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-3">
+                        <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold">System Logs</h3>
+                    </div>
+                    <div className="transform transition-transform group-open:rotate-180">
+                      <ArrowRight className="h-5 w-5 rotate-90 text-muted-foreground" />
+                    </div>
+                  </summary>
+                  <Separator />
+                  <div className="h-[350px] p-5">
+                    <LogsPanel logs={logs} />
+                  </div>
+                </details>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 };
 
