@@ -22,9 +22,12 @@ export default function TranscriptionDetail() {
   const { data: job, isLoading: isJobLoading, error: jobError } = useQuery({
     queryKey: ['transcription-job', jobId],
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
-    refetchInterval: (data) => {
+    refetchInterval: (queryData) => {
       // Poll every 5 seconds for non-completed jobs
-      return (data && (data.status === 'pending' || data.status === 'processing')) ? 5000 : false;
+      if (queryData && (queryData.status === 'pending' || queryData.status === 'processing')) {
+        return 5000;
+      }
+      return false;
     },
   });
   
@@ -181,7 +184,7 @@ export default function TranscriptionDetail() {
             {job.status === 'completed' && job.result && (
               <div className="flex gap-2">
                 <ExportMenu 
-                  vttContent={(job.result as any).vttContent} 
+                  transcriptionContent={(job.result as any).vttContent} 
                   fileName={getAudioFileName(job.file_path || '')}
                 />
               </div>
