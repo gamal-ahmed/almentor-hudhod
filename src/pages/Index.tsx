@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -474,7 +473,193 @@ const Index = () => {
         </header>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Main Content - 8 columns wide, larger on screens */}
+          {/* Left Sidebar - Controls and upload - 3 columns wide */}
+          <div className="lg:col-span-3 space-y-4">
+            {/* Step 1: Upload */}
+            <Card className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
+              <CardContent className="pt-4 p-3">
+                <h3 className="text-sm font-semibold mb-2 flex items-center">
+                  <FileAudio className="mr-1 h-4 w-4 text-blue-500" />
+                  Upload Audio
+                </h3>
+                <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+                
+                {file && (
+                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                    <div className="text-xs flex items-center justify-between">
+                      <div className="truncate mr-2">
+                        <Check className="h-3 w-3 text-green-500 mr-1 inline-block" />
+                        <span className="font-medium">File:</span> 
+                        <span className="ml-1 truncate">{file.name}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({Math.round(file.size / 1024)} KB)
+                        </span>
+                      </div>
+                      
+                      {audioUrl && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1 h-6 text-xs"
+                          onClick={toggleAudioPlayback}
+                        >
+                          {isAudioPlaying ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {audioUrl && (
+                      <audio 
+                        ref={audioRef} 
+                        src={audioUrl} 
+                        onEnded={() => setIsAudioPlaying(false)}
+                        onPause={() => setIsAudioPlaying(false)}
+                        onPlay={() => setIsAudioPlaying(true)}
+                        className="hidden"
+                      />
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Step 2: Select Models & Process */}
+            <Card className="overflow-hidden border-l-4 border-l-green-500 shadow-sm">
+              <CardContent className="pt-4 p-3">
+                <h3 className="text-sm font-semibold mb-2 flex items-center">
+                  <Cog className="mr-1 h-4 w-4 text-green-500" />
+                  Transcription Settings
+                </h3>
+                
+                <div className="space-y-2">
+                  <ModelSelector 
+                    selectedModels={selectedModels} 
+                    onModelChange={setSelectedModels}
+                    disabled={isProcessing || !file}
+                  />
+                  
+                  <Button 
+                    onClick={processTranscriptions} 
+                    disabled={isProcessing || !file || selectedModels.length === 0}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-8 text-xs"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-1 h-3 w-3" />
+                        Generate Transcriptions
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Step 4: Publish */}
+            <Card className="overflow-hidden border-l-4 border-l-amber-500 shadow-sm">
+              <CardContent className="pt-4 p-3">
+                <h3 className="text-sm font-semibold mb-2 flex items-center">
+                  <Send className="mr-1 h-4 w-4 text-amber-500" />
+                  Publish Options
+                </h3>
+                
+                <div className="space-y-2">
+                  <VideoIdInput 
+                    videoId={videoId} 
+                    onChange={setVideoId}
+                    disabled={isPublishing}
+                  />
+                  
+                  <Button 
+                    onClick={publishCaption} 
+                    disabled={isPublishing || !selectedTranscription || !videoId}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 h-8 text-xs"
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-1 h-3 w-3" />
+                        Publish Caption
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Collapsible Advanced Settings Panel */}
+            <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+              <summary className="cursor-pointer font-medium flex items-center text-sm">
+                <Cog className="h-4 w-4 mr-2" />
+                Advanced Settings
+              </summary>
+              <div className="pt-3 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="prompt" className="text-xs font-medium">
+                      Transcription Prompt Options:
+                    </label>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <Info className="h-3 w-3 mr-1" />
+                      <span>Not all models support prompts</span>
+                    </div>
+                  </div>
+                  
+                  <PromptOptions 
+                    preserveEnglish={preserveEnglish}
+                    onPreserveEnglishChange={handlePreserveEnglishChange}
+                    outputFormat={outputFormat}
+                    onOutputFormatChange={handleOutputFormatChange}
+                    notificationsEnabled={notificationsEnabled}
+                    onNotificationsChange={handleNotificationsChange}
+                    disabled={isProcessing}
+                  />
+                  
+                  <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                    <p className="text-xs font-medium">Generated Prompt:</p>
+                    <p className="text-xs text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
+                  </div>
+                </div>
+              </div>
+            </details>
+            
+            {/* SharePoint Downloader - Tucked away in advanced panel */}
+            <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+              <summary className="cursor-pointer font-medium flex items-center text-sm">
+                <Upload className="h-4 w-4 mr-2" />
+                SharePoint Files & Queue
+              </summary>
+              <div className="pt-3 space-y-3">
+                <SharePointDownloader 
+                  onFilesQueued={handleFilesQueued}
+                  isProcessing={isProcessing}
+                />
+                
+                {/* File Queue Manager */}
+                {fileQueue.length > 0 && (
+                  <FileQueue
+                    files={fileQueue}
+                    currentIndex={currentQueueIndex}
+                    onProcessNext={processNextInQueue}
+                    onSkip={skipCurrentInQueue}
+                    onReset={resetQueue}
+                    isProcessing={isProcessing}
+                    notificationsEnabled={notificationsEnabled}
+                  />
+                )}
+              </div>
+            </details>
+          </div>
+          
+          {/* Main Content - 9 columns wide, larger on screens */}
           <div className="lg:col-span-9 space-y-4">
             {/* Step 3: Review & Select - Now given prominence at the top */}
             <div className="space-y-3">
@@ -517,201 +702,13 @@ const Index = () => {
               )}
             </div>
             
-            {/* Controls in a horizontal layout */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {/* Step 1: Upload */}
-              <Card className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
-                <CardContent className="pt-4 p-3">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center">
-                    <FileAudio className="mr-1 h-4 w-4 text-blue-500" />
-                    Upload Audio
-                  </h3>
-                  <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
-                  
-                  {file && (
-                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                      <div className="text-xs flex items-center justify-between">
-                        <div className="truncate mr-2">
-                          <Check className="h-3 w-3 text-green-500 mr-1 inline-block" />
-                          <span className="font-medium">File:</span> 
-                          <span className="ml-1 truncate">{file.name}</span>
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({Math.round(file.size / 1024)} KB)
-                          </span>
-                        </div>
-                        
-                        {audioUrl && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex items-center gap-1 h-6 text-xs"
-                            onClick={toggleAudioPlayback}
-                          >
-                            {isAudioPlaying ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {audioUrl && (
-                        <audio 
-                          ref={audioRef} 
-                          src={audioUrl} 
-                          onEnded={() => setIsAudioPlaying(false)}
-                          onPause={() => setIsAudioPlaying(false)}
-                          onPlay={() => setIsAudioPlaying(true)}
-                          className="hidden"
-                        />
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Step 2: Select Models & Process */}
-              <Card className="overflow-hidden border-l-4 border-l-green-500 shadow-sm">
-                <CardContent className="pt-4 p-3">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center">
-                    <Cog className="mr-1 h-4 w-4 text-green-500" />
-                    Transcription Settings
-                  </h3>
-                  
-                  <div className="space-y-2">
-                    <ModelSelector 
-                      selectedModels={selectedModels} 
-                      onModelChange={setSelectedModels}
-                      disabled={isProcessing || !file}
-                    />
-                    
-                    <Button 
-                      onClick={processTranscriptions} 
-                      disabled={isProcessing || !file || selectedModels.length === 0}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-8 text-xs"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="mr-1 h-3 w-3" />
-                          Generate Transcriptions
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Step 4: Publish */}
-              <Card className="overflow-hidden border-l-4 border-l-amber-500 shadow-sm">
-                <CardContent className="pt-4 p-3">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center">
-                    <Send className="mr-1 h-4 w-4 text-amber-500" />
-                    Publish Options
-                  </h3>
-                  
-                  <div className="space-y-2">
-                    <VideoIdInput 
-                      videoId={videoId} 
-                      onChange={setVideoId}
-                      disabled={isPublishing}
-                    />
-                    
-                    <Button 
-                      onClick={publishCaption} 
-                      disabled={isPublishing || !selectedTranscription || !videoId}
-                      className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 h-8 text-xs"
-                    >
-                      {isPublishing ? (
-                        <>
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          Publishing...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="mr-1 h-3 w-3" />
-                          Publish Caption
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Collapsible Advanced Settings Panel */}
+            {/* Log Panel - now at the bottom of the main area */}
             <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-              <summary className="cursor-pointer font-medium flex items-center text-sm">
-                <Cog className="h-4 w-4 mr-2" />
-                Advanced Settings & Options
-              </summary>
-              <div className="pt-3 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label htmlFor="prompt" className="text-xs font-medium">
-                      Transcription Prompt Options:
-                    </label>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Info className="h-3 w-3 mr-1" />
-                      <span>Not all models support prompts</span>
-                    </div>
-                  </div>
-                  
-                  <PromptOptions 
-                    preserveEnglish={preserveEnglish}
-                    onPreserveEnglishChange={handlePreserveEnglishChange}
-                    outputFormat={outputFormat}
-                    onOutputFormatChange={handleOutputFormatChange}
-                    notificationsEnabled={notificationsEnabled}
-                    onNotificationsChange={handleNotificationsChange}
-                    disabled={isProcessing}
-                  />
-                  
-                  <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
-                    <p className="text-xs font-medium">Generated Prompt:</p>
-                    <p className="text-xs text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
-                  </div>
-                </div>
-              </div>
-            </details>
-            
-            {/* SharePoint Downloader - Tucked away in advanced panel */}
-            <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-              <summary className="cursor-pointer font-medium flex items-center text-sm">
-                <Upload className="h-4 w-4 mr-2" />
-                SharePoint File Access & Queue
-              </summary>
-              <div className="pt-3 space-y-3">
-                <SharePointDownloader 
-                  onFilesQueued={handleFilesQueued}
-                  isProcessing={isProcessing}
-                />
-                
-                {/* File Queue Manager */}
-                {fileQueue.length > 0 && (
-                  <FileQueue
-                    files={fileQueue}
-                    currentIndex={currentQueueIndex}
-                    onProcessNext={processNextInQueue}
-                    onSkip={skipCurrentInQueue}
-                    onReset={resetQueue}
-                    isProcessing={isProcessing}
-                    notificationsEnabled={notificationsEnabled}
-                  />
-                )}
-              </div>
-            </details>
-          </div>
-          
-          {/* Log Panel - 3 columns wide, minimized */}
-          <div className="lg:col-span-3 lg:sticky lg:top-4 lg:self-start">
-            <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg open:h-[600px] transition-all duration-300">
               <summary className="cursor-pointer font-medium flex items-center text-sm">
                 <FileText className="h-4 w-4 mr-2 text-gray-500" />
                 System Logs
               </summary>
-              <div className="h-[550px] mt-3">
+              <div className="h-[400px] mt-3">
                 <LogsPanel logs={logs} />
               </div>
             </details>
