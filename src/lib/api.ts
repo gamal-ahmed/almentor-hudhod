@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -193,122 +192,41 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       throw new Error(`Transcription failed: ${response.statusText}`);
     }
     
-    // Special handling for Gemini to log detailed response
-    if (model === 'gemini') {
-      try {
-        const responseText = await response.text();
-        addLog(`Raw Gemini response received (${responseText.length} chars)`, "debug", {
-          source: "gemini",
-          details: responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '')
-        });
-        
-        // Parse the text back to JSON
-        let data;
-        try {
-          data = JSON.parse(responseText);
-          addLog(`Successfully parsed Gemini JSON response`, "debug", {
-            source: "gemini",
-            details: `Response keys: ${Object.keys(data).join(', ')}`
-          });
-        } catch (parseError) {
-          addLog(`Error parsing Gemini JSON response, will treat as raw text`, "warning", {
-            source: "gemini",
-            details: `Parse error: ${parseError.message}, Raw content: ${responseText.substring(0, 200)}...`
-          });
-          
-          // If not valid JSON, treat the response as raw VTT content
-          const vttContent = responseText.trim().startsWith('WEBVTT') 
-            ? responseText 
-            : convertTextToVTT(responseText);
-            
-          logOperation.complete(`Successfully transcribed with ${model} (raw text)`, `Generated ${vttContent.length} characters of VTT content`);
-          return {
-            vttContent,
-            prompt
-          };
-        }
-        
-        // Extra validation for Gemini response
-        if (!data) {
-          throw new Error("Empty response from Gemini");
-        }
-        
-        // If vttContent is missing but text is available, convert text to VTT
-        if (!data.vttContent && data.text) {
-          addLog(`Gemini returned text but no VTT, converting to VTT format`, "info", {
-            source: "gemini",
-            details: `Text length: ${data.text.length}, Sample: ${data.text.substring(0, 200)}...`
-          });
-          
-          data.vttContent = convertTextToVTT(data.text);
-        }
-        
-        // If response has raw text only (not in expected format)
-        if (!data.vttContent && typeof data === 'string') {
-          addLog(`Gemini returned raw text, converting to VTT format`, "info", {
-            source: "gemini",
-            details: `Text length: ${data.length}, Sample: ${data.substring(0, 200)}...`
-          });
-          
-          data = { vttContent: convertTextToVTT(data), prompt };
-        }
-        
-        addLog(`Gemini VTT content length: ${data.vttContent ? data.vttContent.length : 0}`, "debug", {
-          source: "gemini",
-          details: data.vttContent ? `First 200 chars: ${data.vttContent.substring(0, 200)}...` : 'No VTT content'
-        });
-        
-        // Return properly formatted data
-        logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${data.vttContent.length} characters of VTT content`);
-        return {
-          vttContent: data.vttContent,
-          prompt
-        };
-      } catch (parseError) {
-        addLog(`Error processing Gemini response: ${parseError.message}`, "error", {
-          source: "gemini",
-          details: parseError.stack
-        });
-        throw parseError;
-      }
-    } else {
-      // Handle other models normally
-      const data = await response.json();
-      
-      // Log more details about the response
-      addLog(`Response data structure: ${Object.keys(data).join(', ')}`, "debug", {
+    const data = await response.json();
+    
+    // Log the response data structure
+    addLog(`Response data structure: ${Object.keys(data).join(', ')}`, "debug", {
+      source: model,
+      details: `Response data type: ${typeof data}`
+    });
+    
+    if (!data.vttContent) {
+      addLog(`Invalid response format from ${model}`, "error", {
         source: model,
-        details: `Response data type: ${typeof data}`
+        details: `Response did not contain vttContent: ${JSON.stringify(data)}`
       });
-      
-      if (!data.vttContent) {
-        addLog(`Invalid response format from ${model}`, "error", {
-          source: model,
-          details: `Response did not contain vttContent: ${JSON.stringify(data)}`
-        });
-        logOperation.error("Invalid response format", `Response did not contain vttContent: ${JSON.stringify(data)}`);
-        throw new Error(`Invalid response from ${model}: missing vttContent`);
-      }
-      
-      // Log the first 200 characters of the vttContent for debugging
-      const vttPreview = data.vttContent.substring(0, 200) + (data.vttContent.length > 200 ? '...' : '');
-      addLog(`${model} transcription content preview`, "debug", {
-        source: model,
-        details: `Content (first 200 chars): ${vttPreview}`
-      });
-      
-      addLog(`Successfully transcribed with ${model}`, "success", {
-        source: model,
-        details: `Generated ${data.vttContent.length} characters of VTT content`
-      });
-      
-      logOperation.complete(`Completed ${model} transcription`, `Generated ${data.vttContent.length} characters of VTT content`);
-      
-      return {
-        vttContent: data.vttContent,
-        prompt
-      };
+      logOperation.error("Invalid response format", `Response did not contain vttContent: ${JSON.stringify(data)}`);
+      throw new Error(`Invalid response from ${model}: missing vttContent`);
     }
+    
+    // Log the first 200 characters of the vttContent for debugging
+    const vttPreview = data.vttContent.substring(0, 200) + (data.vttContent.length > 200 ? '...' : '');
+    addLog(`${model} transcription content preview`, "debug", {
+      source: model,
+      details: `Content (first 200 chars): ${vttPreview}`
+    });
+    
+    addLog(`Successfully transcribed with ${model}`, "success", {
+      source: model,
+      details: `Generated ${data.vttContent.length} characters of VTT content`
+    });
+    
+    logOperation.complete(`Completed ${model} transcription`, `Generated ${data.vttContent.length} characters of VTT content`);
+    
+    return {
+      vttContent: data.vttContent,
+      prompt
+    };
   } catch (error) {
     addLog(`Error in ${model} transcription: ${error.message}`, "error", {
       source: model,
