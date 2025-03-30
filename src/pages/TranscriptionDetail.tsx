@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, ArrowLeft, CheckCircle, Clock, Download, FileAudio, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { ExportMenu } from '@/components/ExportMenu';
+import ExportMenu from '@/components/ExportMenu';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +24,7 @@ export default function TranscriptionDetail() {
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
     refetchInterval: (data) => {
       // Poll every 5 seconds for non-completed jobs
-      return (data?.status === 'pending' || data?.status === 'processing') ? 5000 : false;
+      return (data && (data.status === 'pending' || data.status === 'processing')) ? 5000 : false;
     },
   });
   
