@@ -86,12 +86,15 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 updatedJobs[i] = typedUpdatedJob as unknown as TranscriptionJob;
                 hasChanges = true;
                 
-                if (typedUpdatedJob.status === 'completed' && job.status !== 'completed') {
+                const currentJobStatus = job.status as string;
+                const updatedJobStatus = typedUpdatedJob.status as string;
+                
+                if (updatedJobStatus === 'completed' && currentJobStatus !== 'completed') {
                   toast({
                     title: "Transcription completed",
                     description: `${getModelDisplayName(typedUpdatedJob.model)} transcription is now ready.`,
                   });
-                } else if (typedUpdatedJob.status === 'failed' && job.status !== 'failed') {
+                } else if (updatedJobStatus === 'failed' && currentJobStatus !== 'failed') {
                   toast({
                     title: "Transcription failed",
                     description: typedUpdatedJob.error || "An unknown error occurred",
