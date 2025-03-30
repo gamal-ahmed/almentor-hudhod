@@ -11,7 +11,7 @@ import { Json } from '@/integrations/supabase/types';
 
 interface TranscriptionJob {
   id: string;
-  status: string;
+  status: string; // Changed from a restricted type to allow all possible statuses
   model: string;
   created_at: string;
   updated_at: string;
