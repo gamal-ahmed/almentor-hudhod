@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +26,7 @@ export function BrightcoveUploader({ open, onOpenChange, audioFile }: Brightcove
   const [brightcoveKeys, setBrightcoveKeys] = useState<any>({});
   const [accessToken, setAccessToken] = useState<string>("");
   const addLog = useLogsStore((state) => state.addLog);
+  const startTimedLog = useLogsStore((state) => state.startTimedLog);
 
   const languages = [
     { value: "en", label: "English" },
@@ -115,10 +115,7 @@ export function BrightcoveUploader({ open, onOpenChange, audioFile }: Brightcove
     try {
       setIsLoading(true);
       
-      const logOperation = addLog(`Uploading captions to Brightcove video ${videoId}`, "info", {
-        source: "BrightcoveUploader",
-        details: `Language: ${language}, Label: ${label}`
-      });
+      const logOperation = startTimedLog(`Uploading captions to Brightcove video ${videoId}`, "info", "BrightcoveUploader");
       
       const success = await addCaptionToBrightcove(
         videoId,
@@ -139,7 +136,7 @@ export function BrightcoveUploader({ open, onOpenChange, audioFile }: Brightcove
       }
       
       setIsLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       addLog(`Error uploading captions to Brightcove: ${error.message}`, "error", {
         source: "BrightcoveUploader",
         details: error.stack
