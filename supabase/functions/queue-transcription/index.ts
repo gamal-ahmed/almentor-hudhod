@@ -17,7 +17,16 @@ serve(async (req) => {
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header is required');
+      return new Response(
+        JSON.stringify({ error: 'Authorization header is required' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // Initialize Supabase client
@@ -27,10 +36,35 @@ serve(async (req) => {
 
     // Get user session - use getUser() to validate the JWT token
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+    
+    if (userError) {
       console.error("Authentication error:", userError);
-      throw new Error('Authentication required');
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', details: userError.message }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
+    
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    console.log(`Authenticated user: ${user.id}, ${user.email}`);
 
     // Extract form data
     const formData = await req.formData();

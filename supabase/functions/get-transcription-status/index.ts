@@ -29,13 +29,31 @@ serve(async (req) => {
     }
 
     if (!jobId) {
-      throw new Error('Job ID is required');
+      return new Response(
+        JSON.stringify({ error: 'Job ID is required' }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header is required');
+      return new Response(
+        JSON.stringify({ error: 'Authorization header is required' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // Initialize Supabase client
@@ -45,9 +63,32 @@ serve(async (req) => {
     
     // Get user session - use getUser() to validate the JWT token
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+    
+    if (userError) {
       console.error("Authentication error:", userError);
-      throw new Error('Authentication required');
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', details: userError.message }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // Query the job status
@@ -58,16 +99,43 @@ serve(async (req) => {
       .maybeSingle();
 
     if (jobError) {
-      throw new Error(`Failed to fetch job: ${jobError.message}`);
+      return new Response(
+        JSON.stringify({ error: `Failed to fetch job: ${jobError.message}` }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     if (!job) {
-      throw new Error(`Job not found with ID: ${jobId}`);
+      return new Response(
+        JSON.stringify({ error: `Job not found with ID: ${jobId}` }),
+        {
+          status: 404,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // If user_id is set, verify that the current user owns the job
     if (job.user_id && job.user_id !== user.id) {
-      throw new Error('You do not have permission to access this job');
+      return new Response(
+        JSON.stringify({ error: 'You do not have permission to access this job' }),
+        {
+          status: 403,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // Return the job status with all necessary information
@@ -94,7 +162,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error.message }),
       {
-        status: 404,
+        status: 500,
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json",

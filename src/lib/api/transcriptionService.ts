@@ -51,13 +51,25 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
+      let errorDetails = "Unknown error";
+      try {
+        const errorJson = await response.json();
+        errorDetails = errorJson.error || errorJson.message || response.statusText;
+        addLog(`Error response details: ${JSON.stringify(errorJson)}`, "error", {
+          source: model,
+          details: `Status: ${response.status}`
+        });
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      
       addLog(`Error response from queue-transcription`, "error", {
         source: model,
-        details: `Status: ${response.status}, Response: ${errorText}`
+        details: `Status: ${response.status}, Response: ${errorDetails}`
       });
-      logOperation.error(`Failed with status ${response.status}`, errorText);
-      throw new Error(`Failed to queue transcription: ${response.statusText}`);
+      
+      logOperation.error(`Failed with status ${response.status}`, errorDetails);
+      throw new Error(`Failed to queue transcription: ${errorDetails}`);
     }
     
     const data = await response.json();
@@ -109,12 +121,20 @@ export async function getTranscriptionStatus(jobId: string) {
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
+      let errorDetails = "Unknown error";
+      try {
+        const errorJson = await response.json();
+        errorDetails = errorJson.error || errorJson.message || response.statusText;
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      
       addLog(`Error checking transcription job status`, "error", {
         source: "TranscriptionService",
-        details: `Status: ${response.status}, Response: ${errorText}`
+        details: `Status: ${response.status}, Response: ${errorDetails}`
       });
-      throw new Error(`Failed to check transcription status: ${response.statusText}`);
+      
+      throw new Error(`Failed to check transcription status: ${errorDetails}`);
     }
     
     const data = await response.json();
