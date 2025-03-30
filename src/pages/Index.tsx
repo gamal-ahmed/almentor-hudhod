@@ -7,13 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Brightness, FileAudio, Upload, Download, Plus, Loader2, X, Copy, CheckCircle } from "lucide-react";
+import { FileAudio, Upload, Download, Plus, Loader2, X, Copy, CheckCircle, Sun, Moon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { Logs } from "@/components/Logs";
-import { TranscriptionHistory } from "@/components/TranscriptionHistory";
-import { ModelSelector, TranscriptionModel } from "@/components/ModelSelector";
+import TranscriptionHistory from "@/components/TranscriptionHistory";
+import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
 import { BrightcoveUploader } from "@/components/BrightcoveUploader";
 import {
   transcribeAudio,
@@ -31,12 +31,11 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/AuthContext";
 import { SharePointSelector } from "@/components/SharePointSelector";
 
-// Add this type definition at the top of the file or in a separate types file
 type TranscriptionSession = {
   id?: string;
   user_id: string;
   audio_file_name: string | null;
-  selected_models: string[];
+  selected_models: TranscriptionModel[];
   transcriptions: Record<string, { vtt: string; prompt: string; loading: boolean }>;
   selected_model: string | null;
   selected_transcription: string | null;
@@ -65,7 +64,7 @@ const Index = () => {
   const [downloadedFileName, setDownloadedFileName] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
-	const addLog = useLogsStore((state) => state.addLog);
+  const addLog = useLogsStore((state) => state.addLog);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -168,7 +167,6 @@ const Index = () => {
       return;
     }
 
-    // Reset transcriptions to an empty state and set loading to true for selected models
     const initialTranscriptions: Record<string, { vtt: string, prompt: string, loading: boolean }> = {};
     selectedModels.forEach(model => {
       initialTranscriptions[model] = { vtt: '', prompt: '', loading: true };
@@ -176,7 +174,6 @@ const Index = () => {
     setTranscriptions(initialTranscriptions);
     setSelectedTranscription(null);
 
-    // Asynchronously transcribe with each selected model
     selectedModels.forEach(async (model) => {
       try {
         const result = await transcribeAudio(audioFile, model);
@@ -221,7 +218,6 @@ const Index = () => {
   };
 
   const handleLoadTranscription = (transcription: any) => {
-    // Load the transcription into the state
     setTranscriptions({
       [transcription.model]: {
         vtt: transcription.result.vttContent,
@@ -314,7 +310,6 @@ const Index = () => {
       <h1 className="text-2xl font-bold mb-4">Transcription Tool</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Left Panel */}
         <div className="flex flex-col space-y-4">
           <Card>
             <CardHeader>
@@ -373,7 +368,11 @@ const Index = () => {
               <CardDescription>Select the models to use for transcription.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ModelSelector selectedModels={selectedModels} onModelSelect={handleModelSelect} />
+              <ModelSelector 
+                selectedModels={selectedModels} 
+                onModelChange={setSelectedModels}
+                disabled={false}
+              />
             </CardContent>
           </Card>
 
@@ -422,7 +421,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Right Panel */}
         <div className="flex flex-col space-y-4">
           <Card>
             <CardHeader>

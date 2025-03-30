@@ -1,5 +1,8 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { TranscriptionModel } from "@/components/ModelSelector";
+import { useLogsStore } from "@/lib/useLogsStore";
+import { API_ENDPOINTS, SUPABASE_KEY } from "@/lib/api/utils";
 
 type TranscriptionSession = {
   id?: string;
@@ -342,7 +345,12 @@ export async function getLatestTranscriptionSession(): Promise<TranscriptionSess
       throw error;
     }
     
-    return data;
+    // Convert string[] to TranscriptionModel[] to match our type definition
+    if (data && Array.isArray(data.selected_models)) {
+      data.selected_models = data.selected_models.map(model => model as TranscriptionModel);
+    }
+    
+    return data as TranscriptionSession;
   } catch (error) {
     console.error("Error fetching transcription session:", error);
     return null;
