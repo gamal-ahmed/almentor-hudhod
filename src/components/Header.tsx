@@ -10,12 +10,8 @@ export default function Header() {
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+    await signOut();
+    navigate('/');
   };
 
   return (

@@ -1,196 +1,113 @@
 
-import { SUPABASE_KEY, API_ENDPOINTS } from './utils';
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { supabase } from "@/integrations/supabase/client";
+import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
+import { useLogsStore } from "@/lib/useLogsStore";
 
-// Function to transcribe audio using OpenAI
-export async function transcribeAudio(file: File, model: TranscriptionModel, prompt: string): Promise<{ vttContent: string; prompt: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('model', model);
-  formData.append('prompt', prompt);
+const getLogsStore = () => useLogsStore.getState();
 
-  let endpointURL = '';
-
-  if (model === 'openai') {
-    endpointURL = API_ENDPOINTS.OPENAI_TRANSCRIBE;
-  } else if (model === 'gemini-2.0-flash') {
-    endpointURL = API_ENDPOINTS.GEMINI_TRANSCRIBE;
-  } else if (model === 'phi4') {
-    endpointURL = API_ENDPOINTS.PHI4_TRANSCRIBE;
-  } else {
-    throw new Error(`Unsupported model: ${model}`);
-  }
-
+export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
+  const addLog = getLogsStore().addLog;
+  const startTimedLog = getLogsStore().startTimedLog;
+  
+  const logOperation = startTimedLog(`Transcribing with ${model}`, "info", model);
+  
   try {
-    const response = await fetch(endpointURL, {
+    addLog(`Starting transcription with ${model} model`, "info", {
+      source: model,
+      details: `File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`
+    });
+    
+    // Prepare FormData for any model
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('prompt', prompt);
+    
+    let url;
+    let headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    };
+    
+    switch (model) {
+      case 'openai':
+        url = API_ENDPOINTS.OPENAI_TRANSCRIBE;
+        break;
+      case 'gemini-2.0-flash':
+        url = API_ENDPOINTS.GEMINI_TRANSCRIBE;
+        break;
+      case 'phi4':
+        url = API_ENDPOINTS.PHI4_TRANSCRIBE;
+        break;
+      default:
+        url = API_ENDPOINTS.OPENAI_TRANSCRIBE;
+    }
+    
+    addLog(`Sending request to ${model} endpoint`, "info", { 
+      source: model,
+      details: `Endpoint: ${url}, File size: ${file.size} bytes`
+    });
+    
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY
-      },
+      headers,
       body: formData,
     });
-
+    
+    addLog(`Received response from ${model} endpoint`, "info", {
+      source: model,
+      details: `Status: ${response.status} ${response.statusText}`
+    });
+    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Full error response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      addLog(`Error response from ${model}`, "error", {
+        source: model,
+        details: `Status: ${response.status}, Response: ${errorText}`
+      });
+      logOperation.error(`Failed with status ${response.status}`, errorText);
+      throw new Error(`Transcription failed: ${response.statusText}`);
     }
-
+    
     const data = await response.json();
     
-    if (data.error) {
-      console.error('Function error:', data.error);
-      throw new Error(`Transcription function error: ${data.error}`);
+    addLog(`Response data structure: ${Object.keys(data).join(', ')}`, "debug", {
+      source: model,
+      details: `Response data type: ${typeof data}`
+    });
+    
+    if (!data.vttContent) {
+      addLog(`Invalid response format from ${model}`, "error", {
+        source: model,
+        details: `Response did not contain vttContent: ${JSON.stringify(data)}`
+      });
+      logOperation.error("Invalid response format", `Response did not contain vttContent: ${JSON.stringify(data)}`);
+      throw new Error(`Invalid response from ${model}: missing vttContent`);
     }
-
-    return { 
+    
+    const vttPreview = data.vttContent.substring(0, 200) + (data.vttContent.length > 200 ? '...' : '');
+    addLog(`${model} transcription content preview`, "debug", {
+      source: model,
+      details: `Content (first 200 chars): ${vttPreview}`
+    });
+    
+    addLog(`Successfully transcribed with ${model}`, "success", {
+      source: model,
+      details: `Generated ${data.vttContent.length} characters of VTT content`
+    });
+    
+    logOperation.complete(`Completed ${model} transcription`, `Generated ${data.vttContent.length} characters of VTT content`);
+    
+    return {
       vttContent: data.vttContent,
-      prompt: data.prompt
+      prompt
     };
   } catch (error) {
-    console.error("Failed to transcribe audio:", error);
-    throw error;
-  }
-}
-
-// Function to queue a transcription job
-export async function queueTranscription(file: File, model: TranscriptionModel): Promise<{ jobId: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('model', model);
-
-  try {
-    const response = await fetch(API_ENDPOINTS.QUEUE_TRANSCRIPTION, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY
-      },
-      body: formData,
+    addLog(`Error in ${model} transcription: ${error.message}`, "error", {
+      source: model,
+      details: error.stack
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return { jobId: data.jobId };
-  } catch (error) {
-    console.error("Failed to queue transcription:", error);
-    throw error;
-  }
-}
-
-// Function to get the status of a transcription job
-export async function getTranscriptionStatus(jobId: string): Promise<{ 
-  status: string, 
-  status_message?: string, 
-  result?: any, 
-  error?: string 
-}> {
-    try {
-        const response = await fetch(`${API_ENDPOINTS.GET_TRANSCRIPTION_STATUS}?job_id=${jobId}`, {
-            method: 'GET',
-            headers: {
-                'apikey': SUPABASE_KEY,
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Failed to get transcription status:", error);
-        throw error;
-    }
-}
-
-// Function to get all transcription jobs for a user
-export async function getTranscriptionJobs(): Promise<any[]> {
-  try {
-    const { data, error } = await supabase
-      .from('transcription_jobs')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching transcription jobs:', error);
-      throw error;
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('Error getting transcription jobs:', error);
-    throw error;
-  }
-}
-
-// Function to get the latest transcription job for a user
-export async function getLatestTranscriptionJob(): Promise<any | null> {
-  try {
-    const { data, error } = await supabase
-      .from('transcription_jobs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error('Error fetching latest transcription job:', error);
-      throw error;
-    }
-
-    return data && data.length > 0 ? data[0] : null;
-  } catch (error) {
-    console.error('Error getting latest transcription job:', error);
-    throw error;
-  }
-}
-
-export async function saveTranscriptionResult(
-  file: File,
-  model: string,
-  vttContent: string,
-  prompt: string
-): Promise<string> {
-  try {
-    // Upload the file to Supabase Storage
-    const fileName = `${Date.now()}_${file.name}`;
-    const filePath = `audio/${fileName}`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('transcription-files')
-      .upload(filePath, file);
-      
-    if (uploadError) {
-      console.error('Error uploading file:', uploadError);
-      throw uploadError;
-    }
-    
-    // Save the job record to Supabase
-    const { data: jobData, error: jobError } = await supabase
-      .from('transcription_jobs')
-      .insert({
-        file_path: filePath,
-        model: model,
-        file_name: file.name,
-        status: 'completed',
-        result: {
-          vttContent,
-          prompt
-        }
-      });
-      
-    if (jobError) {
-      console.error('Error saving transcription job:', jobError);
-      throw jobError;
-    }
-    
-    return filePath;
-  } catch (error) {
-    console.error('Error saving transcription result:', error);
+    console.error(`Error in ${model} transcription:`, error);
+    logOperation.error(`${error.message}`, error.stack);
     throw error;
   }
 }

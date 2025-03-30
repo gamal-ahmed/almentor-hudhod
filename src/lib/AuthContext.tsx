@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      console.log("Current session on init:", currentSession);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
@@ -72,13 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
         throw error;
       }
-      
-      console.log("Sign in successful:", data);
       
       toast({
         title: "Welcome back!",
