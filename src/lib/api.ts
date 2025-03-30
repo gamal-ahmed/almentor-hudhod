@@ -1,17 +1,6 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as serverTranscribeAudio } from "./api/transcriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
-
-// Re-export all necessary functions from the API services
-export { 
-  getUserTranscriptions,
-  saveTranscriptionResult,
-  getTranscriptionById,
-  getLatestTranscriptionsByModel,
-  saveTranscriptionSession,
-  getLatestTranscriptionSession
-} from './api/transcriptionService';
 
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';

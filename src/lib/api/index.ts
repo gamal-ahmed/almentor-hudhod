@@ -2,15 +2,7 @@
 // Re-export all API services from a central point
 
 // Transcription API
-export { 
-  transcribeAudio,
-  saveTranscriptionResult,
-  getUserTranscriptions,
-  getTranscriptionById,
-  getLatestTranscriptionsByModel,
-  saveTranscriptionSession,
-  getLatestTranscriptionSession
-} from './transcriptionService';
+export { transcribeAudio } from './transcriptionService';
 
 // SharePoint API
 export { 

@@ -1,499 +1,731 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
-import { FileAudio, Upload, Download, Plus, Loader2, X, Copy, CheckCircle, Sun, Moon } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
-import { useLogsStore } from "@/lib/useLogsStore";
-import { Logs } from "@/components/Logs";
-import TranscriptionHistory from "@/components/TranscriptionHistory";
-import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
-import { BrightcoveUploader } from "@/components/BrightcoveUploader";
-import {
-  transcribeAudio,
-  getLatestTranscriptionSession,
-  saveTranscriptionSession,
-  fetchSharePointFiles,
-  downloadSharePointFile
-} from "@/lib/api";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/lib/AuthContext";
-import { SharePointSelector } from "@/components/SharePointSelector";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff } from "lucide-react";
+import FileUpload from "@/components/FileUpload";
+import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
+import TranscriptionCard from "@/components/TranscriptionCard";
+import LogsPanel from "@/components/LogsPanel";
+import VideoIdInput from "@/components/VideoIdInput";
+import PromptOptions from "@/components/PromptOptions";
+import SharePointDownloader from "@/components/SharePointDownloader";
+import FileQueue from "@/components/FileQueue";
+import { useLogsStore } from "@/lib/useLogsStore";
+import { 
+  transcribeAudio, 
+  fetchBrightcoveKeys,
+  getBrightcoveAuthToken,
+  addCaptionToBrightcove
+} from "@/lib/api";
+import { requestNotificationPermission, showNotification } from "@/lib/notifications";
+import Header from '@/components/Header';
 
-type TranscriptionSession = {
-  id?: string;
-  user_id: string;
-  audio_file_name: string | null;
-  selected_models: TranscriptionModel[];
-  transcriptions: Record<string, { vtt: string; prompt: string; loading: boolean }>;
-  selected_model: string | null;
-  selected_transcription: string | null;
-  video_id?: string;
-  last_updated?: string;
-  created_at?: string;
-};
+const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
 const Index = () => {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioFileName, setAudioFileName] = useState<string | null>(null);
-  const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({});
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  // Main state
+  const [file, setFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini-2.0-flash", "phi4"]);
+  const [videoId, setVideoId] = useState<string>("");
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
-  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState<boolean>(true);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>([]);
-  const [videoId, setVideoId] = useState<string>('');
-  const [isSharePointSelectorOpen, setIsSharePointSelectorOpen] = useState<boolean>(false);
-  const [isBrightcoveUploaderOpen, setIsBrightcoveUploaderOpen] = useState<boolean>(false);
-  const [sharePointUrl, setSharePointUrl] = useState<string>('');
-  const [sharePointFiles, setSharePointFiles] = useState<any[]>([]);
-  const [isFetchingSharePointFiles, setIsFetchingSharePointFiles] = useState<boolean>(false);
-  const [isDownloadComplete, setIsDownloadComplete] = useState<boolean>(false);
-  const [downloadedFileName, setDownloadedFileName] = useState<string | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
-  const { toast } = useToast();
-  const addLog = useLogsStore((state) => state.addLog);
-  const { user } = useAuth();
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
+  
+  // SharePoint and Queue state
+  const [fileQueue, setFileQueue] = useState<File[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(0);
+  
+  // Prompt options state
+  const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
+  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Processing state
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({
+    openai: { vtt: "", prompt: "", loading: false },
+    "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
+    phi4: { vtt: "", prompt: "", loading: false }
+  });
+  
+  // Logs and notification
+  const { logs, addLog, startTimedLog } = useLogsStore();
+  const toast = useToast();
 
+  // Request notification permission when notifications are enabled
   useEffect(() => {
-    document.body.classList.toggle('dark', isDarkMode);
-  }, [isDarkMode]);
-
-  useEffect(() => {
-    restoreSession();
-  }, [user]);
-
-  useEffect(() => {
-    if (audioFile) {
-      setAudioFileName(audioFile.name);
+    if (notificationsEnabled) {
+      requestNotificationPermission().then(granted => {
+        if (!granted) {
+          toast.toast({
+            title: "Notification Permission Denied",
+            description: "Please enable notifications in your browser settings to receive alerts.",
+            variant: "destructive",
+          });
+          setNotificationsEnabled(false);
+        }
+      });
     }
-  }, [audioFile]);
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setAudioFile(file);
-      setUploadProgress(0);
-      setAudioFileName(file.name);
-      addLog(`File uploaded: ${file.name}`, "info", {
-        source: "user",
-        details: `Size: ${file.size} bytes, Type: ${file.type}`
+  }, [notificationsEnabled, toast]);
+  
+  // Update prompt based on options
+  const updatePromptFromOptions = () => {
+    let newPrompt = "";
+    
+    if (preserveEnglish) {
+      newPrompt += "Please preserve all English words exactly as spoken. ";
+    }
+    
+    if (outputFormat === "vtt") {
+      newPrompt += "Generate output with timestamps in VTT format. ";
+    } else {
+      newPrompt += "Generate plain text without timestamps. ";
+    }
+    
+    setTranscriptionPrompt(newPrompt.trim());
+  };
+  
+  // Handle playback of audio file
+  const toggleAudioPlayback = () => {
+    if (!audioRef.current) return;
+    
+    if (isAudioPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    
+    setIsAudioPlaying(!isAudioPlaying);
+  };
+  
+  // Handle SharePoint files being queued
+  const handleFilesQueued = (files: File[]) => {
+    setFileQueue(files);
+    setCurrentQueueIndex(0);
+    addLog(`Queued ${files.length} files from SharePoint`, "info", {
+      details: `Files: ${files.map(f => f.name).join(", ")}`,
+      source: "SharePoint"
+    });
+    
+    if (notificationsEnabled) {
+      showNotification("Files Queued", {
+        body: `${files.length} audio files are ready for sequential processing`,
+        tag: "file-queue"
       });
     }
   };
-
-  const handleSharePointUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSharePointUrl(event.target.value);
+  
+  // Process the next file in the queue
+  const processNextInQueue = async () => {
+    if (currentQueueIndex >= fileQueue.length) {
+      return;
+    }
+    
+    const nextFile = fileQueue[currentQueueIndex];
+    await handleFileUpload(nextFile);
+    setCurrentQueueIndex(prev => prev + 1);
   };
-
-  const handleFetchSharePointFiles = async () => {
-    setIsFetchingSharePointFiles(true);
+  
+  // Skip the current file in the queue
+  const skipCurrentInQueue = () => {
+    addLog(`Skipped file: ${fileQueue[currentQueueIndex]?.name}`, "info", {
+      source: "FileQueue"
+    });
+    setCurrentQueueIndex(prev => prev + 1);
+  };
+  
+  // Reset the queue
+  const resetQueue = () => {
+    setFileQueue([]);
+    setCurrentQueueIndex(0);
+    setFile(null);
+    setAudioUrl(null);
+    setSelectedTranscription(null);
+    setSelectedModel(null);
+    
+    addLog("File queue reset", "info", {
+      source: "FileQueue"
+    });
+  };
+  
+  // When a file is uploaded
+  const handleFileUpload = async (uploadedFile: File) => {
     try {
-      const files = await fetchSharePointFiles(sharePointUrl);
-      setSharePointFiles(files);
-      toast({
-        title: "Success",
-        description: `Successfully fetched ${files.length} files from SharePoint.`,
+      setFile(uploadedFile);
+      const newAudioUrl = URL.createObjectURL(uploadedFile);
+      setAudioUrl(newAudioUrl);
+      setSelectedTranscription(null);
+      setSelectedModel(null);
+      
+      setTranscriptions({
+        openai: { vtt: "", prompt: "", loading: false },
+        "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
+        phi4: { vtt: "", prompt: "", loading: false }
       });
-    } catch (error: any) {
-      console.error("Error fetching SharePoint files:", error);
-      toast({
-        title: "Error",
-        description: `Failed to fetch files from SharePoint: ${error.message}`,
+      
+      addLog(`File selected: ${uploadedFile.name}`, "info", {
+        details: `Size: ${Math.round(uploadedFile.size / 1024)} KB | Type: ${uploadedFile.type}`,
+        source: "FileUpload"
+      });
+      
+      toast.toast({
+        title: "File Selected",
+        description: "Your audio file is ready for transcription.",
+      });
+      
+      if (notificationsEnabled) {
+        showNotification("File Selected", {
+          body: "Your audio file is ready for transcription.",
+          tag: "file-upload"
+        });
+      }
+    } catch (error) {
+      console.error("Error handling file:", error);
+      addLog(`Error handling file`, "error", {
+        details: error instanceof Error ? error.message : String(error),
+        source: "FileUpload"
+      });
+      
+      toast.toast({
+        title: "File Error",
+        description: "There was a problem with your file.",
         variant: "destructive",
       });
     } finally {
-      setIsFetchingSharePointFiles(false);
+      setIsUploading(false);
     }
   };
 
-  const handleDownloadSharePointFile = async (fileUrl: string) => {
-    try {
-      const file = await downloadSharePointFile(fileUrl);
-      setAudioFile(file);
-      setAudioFileName(file.name);
-      setIsDownloadComplete(true);
-      setDownloadedFileName(file.name);
-      toast({
-        title: "Download Complete",
-        description: `Successfully downloaded ${file.name} from SharePoint.`,
-      });
-    } catch (error: any) {
-      console.error("Error downloading SharePoint file:", error);
-      toast({
-        title: "Error",
-        description: `Failed to download file from SharePoint: ${error.message}`,
-        variant: "destructive",
-      });
-    }
+  // Update options and regenerate prompt
+  const handlePreserveEnglishChange = (checked: boolean) => {
+    setPreserveEnglish(checked);
+    setTimeout(updatePromptFromOptions, 0);
   };
-
-  const handleModelSelect = (model: TranscriptionModel) => {
-    if (selectedModels.includes(model)) {
-      setSelectedModels(selectedModels.filter((m) => m !== model));
+  
+  const handleOutputFormatChange = (format: "vtt" | "plain") => {
+    setOutputFormat(format);
+    setTimeout(updatePromptFromOptions, 0);
+  };
+  
+  const handleNotificationsChange = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestNotificationPermission();
+      setNotificationsEnabled(granted);
+      
+      if (granted) {
+        toast.toast({
+          title: "Notifications Enabled",
+          description: "You will receive browser notifications when processes complete.",
+        });
+      }
     } else {
-      setSelectedModels([...selectedModels, model]);
+      setNotificationsEnabled(false);
+      toast.toast({
+        title: "Notifications Disabled",
+        description: "You will no longer receive browser notifications.",
+      });
     }
   };
-
-  const handleTranscribe = async () => {
-    if (!audioFile) {
-      toast({
-        title: "Error",
+  
+  // Process transcriptions with selected models
+  const processTranscriptions = async () => {
+    if (!file) {
+      toast.toast({
+        title: "No File Selected",
         description: "Please upload an audio file first.",
         variant: "destructive",
       });
       return;
     }
-
-    if (selectedModels.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one model.",
+    
+    if (!Array.isArray(selectedModels) || selectedModels.length === 0) {
+      toast.toast({
+        title: "No Models Selected",
+        description: "Please select at least one transcription model.",
         variant: "destructive",
       });
       return;
     }
-
-    const initialTranscriptions: Record<string, { vtt: string, prompt: string, loading: boolean }> = {};
-    selectedModels.forEach(model => {
-      initialTranscriptions[model] = { vtt: '', prompt: '', loading: true };
-    });
-    setTranscriptions(initialTranscriptions);
-    setSelectedTranscription(null);
-
-    selectedModels.forEach(async (model) => {
-      try {
-        const result = await transcribeAudio(audioFile, model);
-        setTranscriptions(prev => ({
-          ...prev,
-          [model]: { vtt: result.vttContent, prompt: result.prompt, loading: false }
-        }));
-        toast({
-          title: "Transcription Complete",
-          description: `Transcription with ${model} completed successfully.`,
+    
+    try {
+      setIsProcessing(true);
+      const mainLog = startTimedLog("Transcription Process", "info", "Transcription");
+      
+      updatePromptFromOptions();
+      
+      const updatedTranscriptions = { ...transcriptions };
+      selectedModels.forEach(model => {
+        updatedTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: true };
+      });
+      setTranscriptions(updatedTranscriptions);
+      
+      addLog(`Processing transcriptions with models: ${selectedModels.join(", ")}`, "info", {
+        details: `File: ${file.name} | Size: ${Math.round(file.size / 1024)} KB | Prompt: "${transcriptionPrompt}"`,
+        source: "Transcription"
+      });
+      
+      const transcriptionPromises = selectedModels.map(async (model) => {
+        const modelLog = startTimedLog(`${model.toUpperCase()} Transcription`, "info", model.toUpperCase());
+        
+        try {
+          modelLog.update(`Sending audio to ${model} with prompt: "${transcriptionPrompt}"`);
+          const result = await transcribeAudio(file, model, transcriptionPrompt);
+          
+          if (model === 'gemini-2.0-flash') {
+            addLog(`Gemini transcription result received`, "debug", {
+              source: "gemini-2.0-flash",
+              details: `VTT Content length: ${result.vttContent.length}, First 100 chars: ${result.vttContent.substring(0, 100)}...`
+            });
+          }
+          
+          const wordCount = result.vttContent.split(/\s+/).length;
+          modelLog.complete(
+            `${model.toUpperCase()} transcription successful`, 
+            `Generated ${wordCount} words | VTT format | Length: ${result.vttContent.length} characters`
+          );
+          
+          return { model, vtt: result.vttContent, prompt: result.prompt || transcriptionPrompt };
+        } catch (error) {
+          modelLog.error(
+            `${model.toUpperCase()} transcription failed`,
+            error instanceof Error ? error.message : String(error)
+          );
+          throw error;
+        }
+      });
+      
+      const results = await Promise.allSettled(transcriptionPromises);
+      
+      const finalTranscriptions = { ...transcriptions };
+      
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          const { model, vtt, prompt } = result.value;
+          
+          if (model === 'gemini-2.0-flash') {
+            addLog(`Updating Gemini transcription in state`, "debug", {
+              source: "gemini-2.0-flash",
+              details: `VTT length: ${vtt.length}, First 100 chars: ${vtt.substring(0, 100)}...`
+            });
+          }
+          
+          finalTranscriptions[model] = { vtt, prompt, loading: false };
+        } else {
+          const failedModelIndex = results.findIndex(r => r === result);
+          if (failedModelIndex >= 0 && failedModelIndex < selectedModels.length) {
+            const model = selectedModels[failedModelIndex];
+            finalTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: false };
+          }
+        }
+      });
+      
+      addLog(`Updating transcriptions state with results`, "debug", {
+        source: "Transcription",
+        details: `Models processed: ${selectedModels.join(', ')}`
+      });
+      
+      setTranscriptions(finalTranscriptions);
+      
+      if (selectedModels.includes('gemini-2.0-flash')) {
+        addLog(`Gemini state after update: ${finalTranscriptions['gemini-2.0-flash']?.vtt ? 'Has content' : 'No content'}`, "debug", {
+          source: "gemini-2.0-flash",
+          details: `VTT length: ${finalTranscriptions['gemini-2.0-flash']?.vtt?.length || 0}`
         });
-      } catch (error: any) {
-        console.error(`Error transcribing with ${model}:`, error);
-        setTranscriptions(prev => ({
-          ...prev,
-          [model]: { vtt: 'Error', prompt: error.message, loading: false }
-        }));
-        toast({
-          title: "Transcription Error",
-          description: `Transcription with ${model} failed: ${error.message}`,
+      }
+      
+      const successfulTranscriptions = results.filter(r => r.status === "fulfilled").length;
+      
+      if (successfulTranscriptions > 0) {
+        mainLog.complete(
+          `Transcription process completed`, 
+          `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
+        );
+        
+        toast.toast({
+          title: "Transcription Complete",
+          description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
+        });
+        
+        if (notificationsEnabled) {
+          showNotification("Transcription Complete", {
+            body: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
+            tag: "transcription-complete"
+          });
+        }
+      } else {
+        mainLog.error(
+          `Transcription process failed`,
+          `All ${selectedModels.length} transcription attempts failed`
+        );
+        
+        toast.toast({
+          title: "Transcription Failed",
+          description: "All transcription attempts failed. Please try again.",
           variant: "destructive",
         });
       }
-    });
-  };
-
-  const handleTranscriptionSelect = (model: string) => {
-    setSelectedTranscription(model);
-    setSelectedModel(model);
-  };
-
-  const handleAutoScrollToggle = () => {
-    setIsAutoScrollEnabled(!isAutoScrollEnabled);
-  };
-
-  const handleDarkModeToggle = () => {
-    setIsDarkMode(!isDarkMode);
-  };
-
-  const handleVideoIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setVideoId(event.target.value);
-  };
-
-  const handleLoadTranscription = (transcription: any) => {
-    setTranscriptions({
-      [transcription.model]: {
-        vtt: transcription.result.vttContent,
-        prompt: transcription.result.prompt,
-        loading: false
-      }
-    });
-    setSelectedModel(transcription.model);
-    setSelectedTranscription(transcription.model);
-    setAudioFileName(transcription.file_path);
-  };
-
-  const restoreSession = async () => {
-    try {
-      const session = await getLatestTranscriptionSession();
+    } catch (error) {
+      console.error("Error processing transcriptions:", error);
+      addLog(`Error in transcription process`, "error", {
+        details: error instanceof Error ? error.message : String(error),
+        source: "Transcription"
+      });
       
-      if (session) {
-        setAudioFileName(session.audio_file_name);
-        setSelectedModels(session.selected_models as TranscriptionModel[]);
-        setTranscriptions(session.transcriptions);
-        setSelectedModel(session.selected_model);
-        setSelectedTranscription(session.selected_transcription);
-        setVideoId(session.video_id || '');
-      }
-    } catch (error) {
-      console.error("Error restoring session:", error);
-      toast({
-        title: "Session Restore Error",
-        description: "Could not restore your previous transcription session.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const saveSession = async () => {
-    try {
-      await saveTranscriptionSession(
-        audioFileName,
-        selectedModels,
-        transcriptions,
-        selectedModel,
-        selectedTranscription,
-        videoId
-      );
-    } catch (error) {
-      console.error("Error saving session:", error);
-      toast({
-        title: "Session Save Error",
-        description: "Could not save your transcription session.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  useEffect(() => {
-    saveSession();
-  }, [audioFileName, selectedModels, transcriptions, selectedModel, selectedTranscription, videoId]);
-
-  const handleCopyToClipboard = () => {
-    if (selectedTranscription && transcriptions[selectedTranscription]) {
-      navigator.clipboard.writeText(transcriptions[selectedTranscription].vtt)
-        .then(() => {
-          setIsCopied(true);
-          toast({
-            title: "Copied!",
-            description: "Transcription copied to clipboard.",
-          });
-          setTimeout(() => setIsCopied(false), 2000);
-        })
-        .catch(err => {
-          console.error("Failed to copy text: ", err);
-          toast({
-            title: "Error",
-            description: "Failed to copy transcription to clipboard.",
-            variant: "destructive",
-          });
-        });
-    } else {
-      toast({
-        title: "Error",
-        description: "No transcription selected to copy.",
+      toast.toast({
+        title: "Processing Error",
+        description: "There was a problem processing your transcriptions.",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
-
+  
+  // When a transcription is selected
+  const handleSelectTranscription = (model: string, vtt: string) => {
+    setSelectedTranscription(vtt);
+    setSelectedModel(model);
+    addLog(`Selected ${model.toUpperCase()} transcription for publishing`, "info", {
+      source: "Selection",
+      details: `VTT length: ${vtt.length} characters | Word count: ${vtt.split(/\s+/).length} words`
+    });
+  };
+  
+  // Publish caption to Brightcove
+  const publishCaption = async () => {
+    if (!selectedTranscription || !videoId) {
+      toast.toast({
+        title: "Missing Information",
+        description: "Please select a transcription and enter a video ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsPublishing(true);
+      const publishLog = startTimedLog("Caption Publishing", "info", "Brightcove");
+      
+      publishLog.update(`Preparing caption for video ID: ${videoId}`);
+      
+      const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
+      
+      let brightcoveKeys;
+      try {
+        brightcoveKeys = await fetchBrightcoveKeys();
+        credentialsLog.update("Retrieving Brightcove auth token...");
+        
+        const authToken = await getBrightcoveAuthToken(
+          brightcoveKeys.brightcove_client_id,
+          brightcoveKeys.brightcove_client_secret
+        );
+        
+        credentialsLog.complete("Brightcove authentication successful", 
+          `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
+        
+        publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
+        
+        await addCaptionToBrightcove(
+          videoId,
+          selectedTranscription,
+          'ar',
+          'Arabic',
+          brightcoveKeys.brightcove_account_id,
+          authToken
+        );
+        
+        publishLog.complete(
+          "Caption published successfully", 
+          `Video ID: ${videoId} | Language: Arabic`
+        );
+        
+        toast.toast({
+          title: "Caption Published",
+          description: "Your caption has been successfully published to the Brightcove video.",
+        });
+      } catch (error) {
+        credentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
+        publishLog.error("Caption publishing failed", error instanceof Error ? error.message : String(error));
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error publishing caption:", error);
+      addLog(`Error publishing caption`, "error", {
+        details: error instanceof Error ? error.message : String(error),
+        source: "Brightcove"
+      });
+      
+      toast.toast({
+        title: "Publishing Failed",
+        description: "There was a problem publishing your caption.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+  
   return (
-    <div className="container mx-auto p-4 dark:bg-gray-900 dark:text-white min-h-screen">
-      <Toaster />
-      <h1 className="text-2xl font-bold mb-4">Transcription Tool</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Audio Input</CardTitle>
-              <CardDescription>Upload or select an audio file for transcription.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="upload" className="cursor-pointer">
-                  <Upload className="mr-2 h-4 w-4" />
-                  <span>Upload Audio</span>
-                </Label>
-                <Input type="file" id="upload" className="hidden" onChange={handleFileUpload} />
-                {audioFileName && (
-                  <Badge variant="secondary">
-                    <FileAudio className="mr-2 h-4 w-4" />
-                    {audioFileName}
-                  </Badge>
-                )}
-              </div>
-
-              <Button variant="outline" onClick={() => setIsSharePointSelectorOpen(true)}>
-                <img src="/sharepoint.svg" alt="SharePoint" className="mr-2 h-4 w-4" />
-                <span>Select from SharePoint</span>
-              </Button>
-
-              <SharePointSelector
-                open={isSharePointSelectorOpen}
-                onOpenChange={setIsSharePointSelectorOpen}
-                sharePointUrl={sharePointUrl}
-                onSharePointUrlChange={handleSharePointUrlChange}
-                onFetchFiles={handleFetchSharePointFiles}
-                files={sharePointFiles}
-                onDownloadFile={handleDownloadSharePointFile}
-                isFetching={isFetchingSharePointFiles}
-                isDownloadComplete={isDownloadComplete}
-                downloadedFileName={downloadedFileName}
-              />
-
-              <Button variant="outline" onClick={() => setIsBrightcoveUploaderOpen(true)}>
-                <img src="/brightcove.svg" alt="Brightcove" className="mr-2 h-4 w-4" />
-                <span>Upload to Brightcove</span>
-              </Button>
-
-              <BrightcoveUploader
-                open={isBrightcoveUploaderOpen}
-                onOpenChange={setIsBrightcoveUploaderOpen}
-                audioFile={audioFile}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Transcription Models</CardTitle>
-              <CardDescription>Select the models to use for transcription.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ModelSelector 
-                selectedModels={selectedModels} 
-                onModelChange={setSelectedModels}
-                disabled={false}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Transcription Options</CardTitle>
-              <CardDescription>Configure transcription settings.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Button onClick={handleTranscribe} disabled={!audioFile || selectedModels.length === 0}>
-                  Transcribe
-                </Button>
-                {uploadProgress > 0 && (
-                  <Progress value={uploadProgress} className="w-32" />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-              <CardDescription>Customize the tool's behavior.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="auto-scroll">Auto Scroll</Label>
-                <Switch id="auto-scroll" checked={isAutoScrollEnabled} onCheckedChange={handleAutoScrollToggle} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="dark-mode">Dark Mode</Label>
-                <Switch id="dark-mode" checked={isDarkMode} onCheckedChange={handleDarkModeToggle} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Transcription History</CardTitle>
-              <CardDescription>Load previous transcriptions.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TranscriptionHistory onLoadTranscription={handleLoadTranscription} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex flex-col space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Transcription Output</CardTitle>
-              <CardDescription>View and manage the transcribed text.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Select onValueChange={handleTranscriptionSelect}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Transcription" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(transcriptions).map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
-                      {transcriptions[model].loading && (
-                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+    <>
+      <Header />
+      <div className="container py-6">
+        <div className="max-w-[1440px] mx-auto p-4 md:p-6">
+          <header className="text-center mb-6">
+            <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              Transcription Pipeline
+            </h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
+              Download MP3 files from SharePoint, transcribe with multiple AI models, and publish captions to Brightcove.
+            </p>
+          </header>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-3 space-y-4">
+              <Card className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
+                <CardContent className="pt-4 p-3">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center">
+                    <FileAudio className="mr-1 h-4 w-4 text-blue-500" />
+                    Upload Audio
+                  </h3>
+                  <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+                  
+                  {file && (
+                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                      <div className="text-xs flex items-center justify-between">
+                        <div className="truncate mr-2">
+                          <Check className="h-3 w-3 text-green-500 mr-1 inline-block" />
+                          <span className="font-medium">File:</span> 
+                          <span className="ml-1 truncate">{file.name}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            ({Math.round(file.size / 1024)} KB)
+                          </span>
+                        </div>
+                        
+                        {audioUrl && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex items-center gap-1 h-6 text-xs"
+                            onClick={toggleAudioPlayback}
+                          >
+                            {isAudioPlaying ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {audioUrl && (
+                        <audio 
+                          ref={audioRef} 
+                          src={audioUrl} 
+                          onEnded={() => setIsAudioPlaying(false)}
+                          onPause={() => setIsAudioPlaying(false)}
+                          onPlay={() => setIsAudioPlaying(true)}
+                          className="hidden"
+                        />
                       )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {selectedTranscription && transcriptions[selectedTranscription] ? (
-                <div className="relative">
-                  <ScrollArea className="h-[400px] w-full rounded-md border p-4">
-                    <Textarea
-                      readOnly
-                      value={transcriptions[selectedTranscription].vtt}
-                      className="w-full h-full resize-none dark:bg-gray-800"
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Card className="overflow-hidden border-l-4 border-l-green-500 shadow-sm">
+                <CardContent className="pt-4 p-3">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center">
+                    <Cog className="mr-1 h-4 w-4 text-green-500" />
+                    Transcription Settings
+                  </h3>
+                  
+                  <div className="space-y-2">
+                    <ModelSelector 
+                      selectedModels={selectedModels} 
+                      onModelChange={setSelectedModels}
+                      disabled={isProcessing || !file}
                     />
-                  </ScrollArea>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={handleCopyToClipboard}
-                    disabled={isCopied}
-                  >
-                    {isCopied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+                    
+                    <Button 
+                      onClick={processTranscriptions} 
+                      disabled={isProcessing || !file || selectedModels.length === 0}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-8 text-xs"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="mr-1 h-3 w-3" />
+                          Generate Transcriptions
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className={`overflow-hidden border-l-4 ${selectedTranscription ? 'border-l-amber-500' : 'border-l-gray-300'} shadow-sm transition-colors duration-300 ${!selectedTranscription ? 'opacity-60' : ''}`}>
+                <CardContent className="pt-4 p-3">
+                  <h3 className={`text-sm font-semibold mb-2 flex items-center ${!selectedTranscription ? 'text-muted-foreground' : ''}`}>
+                    <Send className={`mr-1 h-4 w-4 ${selectedTranscription ? 'text-amber-500' : 'text-gray-400'}`} />
+                    Publish Options {!selectedTranscription && '(Select a transcription first)'}
+                  </h3>
+                  
+                  <div className="space-y-2">
+                    <VideoIdInput 
+                      videoId={videoId} 
+                      onChange={setVideoId}
+                      disabled={isPublishing || !selectedTranscription}
+                    />
+                    
+                    <Button 
+                      onClick={publishCaption} 
+                      disabled={isPublishing || !selectedTranscription || !videoId}
+                      className={`w-full ${selectedTranscription 
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' 
+                        : 'bg-gray-400'} h-8 text-xs`}
+                    >
+                      {isPublishing ? (
+                        <>
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          Publishing...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-1 h-3 w-3" />
+                          Publish Caption
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                <summary className="cursor-pointer font-medium flex items-center text-sm">
+                  <Cog className="h-4 w-4 mr-2" />
+                  Advanced Settings
+                </summary>
+                <div className="pt-3 space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label htmlFor="prompt" className="text-xs font-medium">
+                        Transcription Prompt Options:
+                      </label>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 mr-1" />
+                        <span>Not all models support prompts</span>
+                      </div>
+                    </div>
+                    
+                    <PromptOptions 
+                      preserveEnglish={preserveEnglish}
+                      onPreserveEnglishChange={handlePreserveEnglishChange}
+                      outputFormat={outputFormat}
+                      onOutputFormatChange={handleOutputFormatChange}
+                      notificationsEnabled={notificationsEnabled}
+                      onNotificationsChange={handleNotificationsChange}
+                      disabled={isProcessing}
+                    />
+                    
+                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs font-medium">Generated Prompt:</p>
+                      <p className="text-xs text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-muted-foreground">Select a transcription to view the output.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Brightcove Integration</CardTitle>
-              <CardDescription>Add the video ID to associate with the transcription.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="grid gap-2">
-                <Label htmlFor="video-id">Video ID</Label>
-                <Input id="video-id" value={videoId} onChange={handleVideoIdChange} />
+              </details>
+              
+              <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                <summary className="cursor-pointer font-medium flex items-center text-sm">
+                  <Upload className="h-4 w-4 mr-2" />
+                  SharePoint Files & Queue
+                </summary>
+                <div className="pt-3 space-y-3">
+                  <SharePointDownloader 
+                    onFilesQueued={handleFilesQueued}
+                    isProcessing={isProcessing}
+                  />
+                  
+                  {fileQueue.length > 0 && (
+                    <FileQueue
+                      files={fileQueue}
+                      currentIndex={currentQueueIndex}
+                      onProcessNext={processNextInQueue}
+                      onSkip={skipCurrentInQueue}
+                      onReset={resetQueue}
+                      isProcessing={isProcessing}
+                      notificationsEnabled={notificationsEnabled}
+                    />
+                  )}
+                </div>
+              </details>
+            </div>
+            
+            <div className="lg:col-span-9 space-y-4">
+              <div className="space-y-3">
+                <h2 className="text-xl font-semibold flex items-center">
+                  <Check className="mr-2 h-5 w-5 text-violet-500" />
+                  Transcription Results
+                </h2>
+                
+                {selectedModels.length > 0 ? (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {selectedModels.map((model) => {
+                      const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
+                      
+                      return (
+                        <TranscriptionCard
+                          key={model}
+                          modelName={
+                            model === "openai" 
+                              ? "OpenAI Whisper" 
+                              : model === "gemini-2.0-flash" 
+                                ? "Gemini 2.0 Flash" 
+                                : "Microsoft Phi-4"
+                          }
+                          vttContent={transcription.vtt}
+                          prompt={transcription.prompt}
+                          onSelect={() => handleSelectTranscription(model, transcription.vtt)}
+                          isSelected={selectedModel === model}
+                          audioSrc={audioUrl || undefined}
+                          isLoading={transcription.loading}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card className="p-8 flex flex-col items-center justify-center text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Upload an audio file and select at least one transcription model to see results here.
+                    </p>
+                  </Card>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Logs</CardTitle>
-              <CardDescription>View the application logs.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Logs />
-            </CardContent>
-          </Card>
+              
+              <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                <summary className="cursor-pointer font-medium flex items-center text-sm">
+                  <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                  System Logs
+                </summary>
+                <div className="h-[400px] mt-3">
+                  <LogsPanel logs={logs} />
+                </div>
+              </details>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
