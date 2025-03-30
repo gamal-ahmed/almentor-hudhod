@@ -211,9 +211,9 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
       case 'pending':
         return <Badge variant="secondary">Queued</Badge>;
       case 'processing':
-        return <Badge variant="primary" className="bg-blue-500">Processing</Badge>;
+        return <Badge className="bg-blue-500">Processing</Badge>;
       case 'completed':
-        return <Badge variant="success" className="bg-green-500">Completed</Badge>;
+        return <Badge className="bg-green-500">Completed</Badge>;
       case 'failed':
       case 'error':
         return <Badge variant="destructive">Failed</Badge>;
