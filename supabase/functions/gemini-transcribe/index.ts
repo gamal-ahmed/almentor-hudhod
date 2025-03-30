@@ -52,13 +52,13 @@ serve(async (req) => {
     console.log(`Received audio file: ${audioFile.name}, size: ${audioFile.size} bytes`);
     console.log(`Using prompt: ${prompt}`);
 
-    // Convert the audio file to base64
+    // Read the audio file as an array buffer
     const arrayBuffer = await audioFile.arrayBuffer();
     
-    // Process base64 in chunks to avoid stack overflow
-    const base64Audio = await arrayBufferToBase64(arrayBuffer);
+    // Use a more reliable method to encode to base64
+    const base64Audio = await encodeAudioToBase64(arrayBuffer);
     
-    console.log("Audio conversion complete, base64 length:", base64Audio.length);
+    console.log(`Audio conversion complete, base64 length: ${base64Audio.length}`);
     
     // Define the Gemini API request with system instructions
     const geminiRequestBody = {
@@ -184,22 +184,28 @@ serve(async (req) => {
   }
 });
 
-// Non-recursive base64 conversion to prevent stack overflow
-async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
-  const chunk_size = 1024 * 1024; // 1MB chunks
-  const uint8Array = new Uint8Array(buffer);
-  let result = '';
+// Improved base64 encoding function that properly handles large files
+async function encodeAudioToBase64(buffer: ArrayBuffer): Promise<string> {
+  // Create a Uint8Array from the array buffer
+  const bytes = new Uint8Array(buffer);
   
-  // Process in chunks to avoid stack overflow
-  for (let i = 0; i < uint8Array.length; i += chunk_size) {
-    const chunk = uint8Array.slice(i, i + chunk_size);
-    const binaryString = Array.from(chunk)
-      .map(byte => String.fromCharCode(byte))
-      .join('');
-    result += btoa(binaryString);
+  // Use the chunk size that works well with Deno's memory limits
+  const chunkSize = 1024 * 512; // 512KB chunks
+  let base64 = '';
+  
+  // Process the file in chunks to avoid memory issues
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, Math.min(i + chunkSize, bytes.length));
+    // Create a binary string from the chunk
+    let binaryString = '';
+    for (let j = 0; j < chunk.length; j++) {
+      binaryString += String.fromCharCode(chunk[j]);
+    }
+    // Convert the binary string to base64 and append to result
+    base64 += btoa(binaryString);
   }
   
-  return result;
+  return base64;
 }
 
 // Helper function to convert text to VTT format
