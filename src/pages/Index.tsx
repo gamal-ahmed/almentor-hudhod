@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle } from "lucide-react";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff } from "lucide-react";
 
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
@@ -20,6 +20,7 @@ import {
   addCaptionToBrightcove
 } from "@/lib/api";
 import { DEFAULT_TRANSCRIPTION_PROMPT } from "@/lib/phi4TranscriptionService";
+import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 
 const Index = () => {
   // Main state
@@ -34,6 +35,7 @@ const Index = () => {
   // Prompt options state
   const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
@@ -50,6 +52,22 @@ const Index = () => {
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
+
+  // Request notification permission when notifications are enabled
+  useEffect(() => {
+    if (notificationsEnabled) {
+      requestNotificationPermission().then(granted => {
+        if (!granted) {
+          toast.toast({
+            title: "Notification Permission Denied",
+            description: "Please enable notifications in your browser settings to receive alerts.",
+            variant: "destructive",
+          });
+          setNotificationsEnabled(false);
+        }
+      });
+    }
+  }, [notificationsEnabled, toast]);
   
   // Update prompt based on options
   const updatePromptFromOptions = () => {
@@ -107,6 +125,14 @@ const Index = () => {
         title: "File Selected",
         description: "Your audio file is ready for transcription.",
       });
+      
+      // Show browser notification if enabled
+      if (notificationsEnabled) {
+        showNotification("File Selected", {
+          body: "Your audio file is ready for transcription.",
+          tag: "file-upload"
+        });
+      }
     } catch (error) {
       console.error("Error handling file:", error);
       addLog(`Error handling file`, "error", {
@@ -133,6 +159,26 @@ const Index = () => {
   const handleOutputFormatChange = (format: "vtt" | "plain") => {
     setOutputFormat(format);
     setTimeout(updatePromptFromOptions, 0);
+  };
+  
+  const handleNotificationsChange = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestNotificationPermission();
+      setNotificationsEnabled(granted);
+      
+      if (granted) {
+        toast.toast({
+          title: "Notifications Enabled",
+          description: "You will receive browser notifications when processes complete.",
+        });
+      }
+    } else {
+      setNotificationsEnabled(false);
+      toast.toast({
+        title: "Notifications Disabled",
+        description: "You will no longer receive browser notifications.",
+      });
+    }
   };
   
   // Process transcriptions with selected models
@@ -233,6 +279,14 @@ const Index = () => {
           title: "Transcription Complete",
           description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
         });
+        
+        // Show browser notification if enabled
+        if (notificationsEnabled) {
+          showNotification("Transcription Complete", {
+            body: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
+            tag: "transcription-complete"
+          });
+        }
       } else {
         mainLog.error(
           `Transcription process failed`,
@@ -448,6 +502,8 @@ const Index = () => {
                       onPreserveEnglishChange={handlePreserveEnglishChange}
                       outputFormat={outputFormat}
                       onOutputFormatChange={handleOutputFormatChange}
+                      notificationsEnabled={notificationsEnabled}
+                      onNotificationsChange={handleNotificationsChange}
                       disabled={isProcessing}
                     />
                     

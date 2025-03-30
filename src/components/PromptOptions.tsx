@@ -2,12 +2,15 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Bell } from "lucide-react";
 
 interface PromptOptionsProps {
   preserveEnglish: boolean;
   onPreserveEnglishChange: (checked: boolean) => void;
   outputFormat: "vtt" | "plain";
   onOutputFormatChange: (format: "vtt" | "plain") => void;
+  notificationsEnabled: boolean;
+  onNotificationsChange: (enabled: boolean) => void;
   disabled?: boolean;
 }
 
@@ -16,6 +19,8 @@ const PromptOptions = ({
   onPreserveEnglishChange,
   outputFormat,
   onOutputFormatChange,
+  notificationsEnabled,
+  onNotificationsChange,
   disabled = false
 }: PromptOptionsProps) => {
   return (
@@ -47,6 +52,19 @@ const PromptOptions = ({
             <SelectItem value="plain">Plain text</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex items-center space-x-2 pt-2 border-t border-gray-200 dark:border-gray-800">
+        <Checkbox
+          id="notifications"
+          checked={notificationsEnabled}
+          onCheckedChange={(checked) => onNotificationsChange(checked as boolean)}
+          disabled={disabled}
+        />
+        <Label htmlFor="notifications" className="cursor-pointer flex items-center">
+          <Bell className="h-4 w-4 mr-2 text-amber-500" />
+          Enable browser notifications
+        </Label>
       </div>
     </div>
   );
