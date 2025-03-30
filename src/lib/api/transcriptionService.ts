@@ -1,13 +1,10 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "../phi4TranscriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
-// Get logs store outside of component to use in this service file
 const getLogsStore = () => useLogsStore.getState();
 
-// Transcribe audio using selected model - directly uploads the file
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = DEFAULT_TRANSCRIPTION_PROMPT) {
   const addLog = getLogsStore().addLog;
   const startTimedLog = getLogsStore().startTimedLog;
@@ -52,7 +49,7 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       case 'openai':
         url = API_ENDPOINTS.OPENAI_TRANSCRIBE;
         break;
-      case 'gemini':
+      case 'gemini-2.0-flash':
         url = API_ENDPOINTS.GEMINI_TRANSCRIBE;
         break;
       default:
@@ -90,7 +87,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     
     const data = await response.json();
     
-    // Log the response data structure
     addLog(`Response data structure: ${Object.keys(data).join(', ')}`, "debug", {
       source: model,
       details: `Response data type: ${typeof data}`
@@ -105,7 +101,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       throw new Error(`Invalid response from ${model}: missing vttContent`);
     }
     
-    // Log the first 200 characters of the vttContent for debugging
     const vttPreview = data.vttContent.substring(0, 200) + (data.vttContent.length > 200 ? '...' : '');
     addLog(`${model} transcription content preview`, "debug", {
       source: model,

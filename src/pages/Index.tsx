@@ -28,7 +28,7 @@ const Index = () => {
   // Main state
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini", "phi4"]);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini-2.0-flash", "phi4"]);
   const [videoId, setVideoId] = useState<string>("");
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -681,8 +681,8 @@ const Index = () => {
                       modelName={
                         model === "openai" 
                           ? "OpenAI Whisper" 
-                          : model === "gemini" 
-                            ? "Google Gemini" 
+                          : model === "gemini-2.0-flash" 
+                            ? "Gemini 2.0 Flash" 
                             : "Microsoft Phi-4"
                       }
                       vttContent={transcriptions[model].vtt}

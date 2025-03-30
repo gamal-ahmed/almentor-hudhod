@@ -3,7 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useLogsStore } from "@/lib/useLogsStore";
 
-export type TranscriptionModel = "openai" | "gemini" | "phi4";
+export type TranscriptionModel = "openai" | "gemini-2.0-flash" | "phi4";
 
 interface ModelSelectorProps {
   selectedModels: TranscriptionModel[];
@@ -45,7 +45,7 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
 
   const models: {id: TranscriptionModel, label: string}[] = [
     { id: "openai", label: "OpenAI Whisper" },
-    { id: "gemini", label: "Google Gemini" },
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
     { id: "phi4", label: "Microsoft Phi-4" }
   ];
 
