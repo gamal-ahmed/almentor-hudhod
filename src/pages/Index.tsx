@@ -1,400 +1,700 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { toast } from "@/hooks/use-toast";
-import { ChevronDown, ChevronUp, FileAudio, Upload, Loader2, Check, Copy, Download, RefreshCw, Video } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff } from "lucide-react";
+
 import FileUpload from "@/components/FileUpload";
-import ModelSelector from "@/components/ModelSelector";
-import PromptOptions from "@/components/PromptOptions";
+import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
 import TranscriptionCard from "@/components/TranscriptionCard";
-import { transcribeAudio } from "@/lib/api";
-import { TranscriptionModel } from "@/components/ModelSelector";
+import LogsPanel from "@/components/LogsPanel";
+import VideoIdInput from "@/components/VideoIdInput";
+import PromptOptions from "@/components/PromptOptions";
+import SharePointDownloader from "@/components/SharePointDownloader";
+import FileQueue from "@/components/FileQueue";
+import { useLogsStore } from "@/lib/useLogsStore";
+import { 
+  transcribeAudio, 
+  fetchBrightcoveKeys,
+  getBrightcoveAuthToken,
+  addCaptionToBrightcove
+} from "@/lib/api";
 import { DEFAULT_TRANSCRIPTION_PROMPT } from "@/lib/phi4TranscriptionService";
+import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 
 const Index = () => {
+  // Main state
   const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "phi4"]);
-  const [transcriptionResults, setTranscriptionResults] = useState<Record<string, { vttContent: string; prompt: string }>>({});
-  const [selectedResult, setSelectedResult] = useState<string | null>(null);
-  const [preserveEnglish, setPreserveEnglish] = useState(true);
-  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [customPrompt, setCustomPrompt] = useState(DEFAULT_TRANSCRIPTION_PROMPT);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini", "phi4"]);
+  const [videoId, setVideoId] = useState<string>("");
+  const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
+  
+  // SharePoint and Queue state
+  const [fileQueue, setFileQueue] = useState<File[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(0);
+  
+  // Prompt options state
+  const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
+  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Processing state
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({
+    openai: { vtt: "", prompt: "", loading: false },
+    gemini: { vtt: "", prompt: "", loading: false },
+    phi4: { vtt: "", prompt: "", loading: false }
+  });
+  
+  // Logs and notification
+  const { logs, addLog, startTimedLog } = useLogsStore();
+  const toast = useToast();
 
-  // Request notification permission if enabled
+  // Request notification permission when notifications are enabled
   useEffect(() => {
-    if (notificationsEnabled && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, [notificationsEnabled]);
-
-  // Clean up audio URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
-
-  const handleFileUpload = (uploadedFile: File) => {
-    // Clean up previous audio URL if it exists
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-    }
-    
-    setFile(uploadedFile);
-    setAudioUrl(URL.createObjectURL(uploadedFile));
-    setTranscriptionResults({});
-    setSelectedResult(null);
-  };
-
-  const handleTranscribe = async () => {
-    if (!file) {
-      toast({
-        title: "No file selected",
-        description: "Please upload an audio file first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (selectedModels.length === 0) {
-      toast({
-        title: "No models selected",
-        description: "Please select at least one transcription model",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-    const newResults = { ...transcriptionResults };
-    
-    try {
-      // Process each selected model
-      for (const model of selectedModels) {
-        try {
-          const prompt = preserveEnglish ? customPrompt : "";
-          const result = await transcribeAudio(file, model, prompt);
-          
-          // Store the result
-          newResults[model] = result;
-          setTranscriptionResults({ ...newResults });
-          
-          // Set as selected result if it's the first one or if there's no selection yet
-          if (!selectedResult) {
-            setSelectedResult(model);
-          }
-          
-          // Show notification if enabled
-          if (notificationsEnabled && Notification.permission === "granted") {
-            new Notification("Transcription Complete", {
-              body: `${getModelDisplayName(model)} transcription is ready!`,
-              icon: "/favicon.ico"
-            });
-          }
-        } catch (error) {
-          console.error(`Error transcribing with ${model}:`, error);
-          toast({
-            title: `${getModelDisplayName(model)} transcription failed`,
-            description: error instanceof Error ? error.message : "An unknown error occurred",
+    if (notificationsEnabled) {
+      requestNotificationPermission().then(granted => {
+        if (!granted) {
+          toast.toast({
+            title: "Notification Permission Denied",
+            description: "Please enable notifications in your browser settings to receive alerts.",
             variant: "destructive",
           });
+          setNotificationsEnabled(false);
         }
+      });
+    }
+  }, [notificationsEnabled, toast]);
+  
+  // Update prompt based on options
+  const updatePromptFromOptions = () => {
+    let newPrompt = "";
+    
+    if (preserveEnglish) {
+      newPrompt += "Please preserve all English words exactly as spoken. ";
+    }
+    
+    if (outputFormat === "vtt") {
+      newPrompt += "Generate output with timestamps in VTT format. ";
+    } else {
+      newPrompt += "Generate plain text without timestamps. ";
+    }
+    
+    setTranscriptionPrompt(newPrompt.trim());
+  };
+  
+  // Handle playback of audio file
+  const toggleAudioPlayback = () => {
+    if (!audioRef.current) return;
+    
+    if (isAudioPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    
+    setIsAudioPlaying(!isAudioPlaying);
+  };
+  
+  // Handle SharePoint files being queued
+  const handleFilesQueued = (files: File[]) => {
+    setFileQueue(files);
+    setCurrentQueueIndex(0);
+    addLog(`Queued ${files.length} files from SharePoint`, "info", {
+      details: `Files: ${files.map(f => f.name).join(", ")}`,
+      source: "SharePoint"
+    });
+    
+    if (notificationsEnabled) {
+      showNotification("Files Queued", {
+        body: `${files.length} audio files are ready for sequential processing`,
+        tag: "file-queue"
+      });
+    }
+  };
+  
+  // Process the next file in the queue
+  const processNextInQueue = async () => {
+    if (currentQueueIndex >= fileQueue.length) {
+      return;
+    }
+    
+    const nextFile = fileQueue[currentQueueIndex];
+    await handleFileUpload(nextFile);
+    setCurrentQueueIndex(prev => prev + 1);
+  };
+  
+  // Skip the current file in the queue
+  const skipCurrentInQueue = () => {
+    addLog(`Skipped file: ${fileQueue[currentQueueIndex]?.name}`, "info", {
+      source: "FileQueue"
+    });
+    setCurrentQueueIndex(prev => prev + 1);
+  };
+  
+  // Reset the queue
+  const resetQueue = () => {
+    setFileQueue([]);
+    setCurrentQueueIndex(0);
+    setFile(null);
+    setAudioUrl(null);
+    setSelectedTranscription(null);
+    setSelectedModel(null);
+    
+    addLog("File queue reset", "info", {
+      source: "FileQueue"
+    });
+  };
+  
+  // When a file is uploaded
+  const handleFileUpload = async (uploadedFile: File) => {
+    try {
+      // Reset state
+      setFile(uploadedFile);
+      const newAudioUrl = URL.createObjectURL(uploadedFile);
+      setAudioUrl(newAudioUrl);
+      setSelectedTranscription(null);
+      setSelectedModel(null);
+      
+      // Make sure to reset transcriptions for all models
+      setTranscriptions({
+        openai: { vtt: "", prompt: "", loading: false },
+        gemini: { vtt: "", prompt: "", loading: false },
+        phi4: { vtt: "", prompt: "", loading: false }
+      });
+      
+      addLog(`File selected: ${uploadedFile.name}`, "info", {
+        details: `Size: ${Math.round(uploadedFile.size / 1024)} KB | Type: ${uploadedFile.type}`,
+        source: "FileUpload"
+      });
+      
+      toast.toast({
+        title: "File Selected",
+        description: "Your audio file is ready for transcription.",
+      });
+      
+      // Show browser notification if enabled
+      if (notificationsEnabled) {
+        showNotification("File Selected", {
+          body: "Your audio file is ready for transcription.",
+          tag: "file-upload"
+        });
       }
+    } catch (error) {
+      console.error("Error handling file:", error);
+      addLog(`Error handling file`, "error", {
+        details: error instanceof Error ? error.message : String(error),
+        source: "FileUpload"
+      });
+      
+      toast.toast({
+        title: "File Error",
+        description: "There was a problem with your file.",
+        variant: "destructive",
+      });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const getModelDisplayName = (model: string): string => {
-    switch (model) {
-      case "openai":
-        return "OpenAI Whisper";
-      case "gemini":
-        return "Google Gemini 2.0 Flash";
-      case "phi4":
-        return "Microsoft Phi-4 Multimodal";
-      default:
-        return model;
+  // Update options and regenerate prompt
+  const handlePreserveEnglishChange = (checked: boolean) => {
+    setPreserveEnglish(checked);
+    setTimeout(updatePromptFromOptions, 0);
+  };
+  
+  const handleOutputFormatChange = (format: "vtt" | "plain") => {
+    setOutputFormat(format);
+    setTimeout(updatePromptFromOptions, 0);
+  };
+  
+  const handleNotificationsChange = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestNotificationPermission();
+      setNotificationsEnabled(granted);
+      
+      if (granted) {
+        toast.toast({
+          title: "Notifications Enabled",
+          description: "You will receive browser notifications when processes complete.",
+        });
+      }
+    } else {
+      setNotificationsEnabled(false);
+      toast.toast({
+        title: "Notifications Disabled",
+        description: "You will no longer receive browser notifications.",
+      });
     }
   };
-
-  const handleCopySelected = () => {
-    if (!selectedResult || !transcriptionResults[selectedResult]) return;
+  
+  // Process transcriptions with selected models
+  const processTranscriptions = async () => {
+    if (!file) {
+      toast.toast({
+        title: "No File Selected",
+        description: "Please upload an audio file first.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    navigator.clipboard.writeText(transcriptionResults[selectedResult].vttContent);
-    toast({
-      title: "Copied to clipboard",
-      description: "The transcription has been copied to your clipboard",
+    if (selectedModels.length === 0) {
+      toast.toast({
+        title: "No Models Selected",
+        description: "Please select at least one transcription model.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsProcessing(true);
+      const mainLog = startTimedLog("Transcription Process", "info", "Transcription");
+      
+      // Update prompt based on options before processing
+      updatePromptFromOptions();
+      
+      // Reset transcriptions state for selected models
+      const updatedTranscriptions = { ...transcriptions };
+      selectedModels.forEach(model => {
+        updatedTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: true };
+      });
+      setTranscriptions(updatedTranscriptions);
+      
+      addLog(`Processing transcriptions with models: ${selectedModels.join(", ")}`, "info", {
+        details: `File: ${file.name} | Size: ${Math.round(file.size / 1024)} KB | Prompt: "${transcriptionPrompt}"`,
+        source: "Transcription"
+      });
+      
+      // Process each selected model in parallel
+      const transcriptionPromises = selectedModels.map(async (model) => {
+        const modelLog = startTimedLog(`${model.toUpperCase()} Transcription`, "info", model.toUpperCase());
+        
+        try {
+          modelLog.update(`Sending audio to ${model} with prompt: "${transcriptionPrompt}"`);
+          const result = await transcribeAudio(file, model, transcriptionPrompt);
+          
+          const wordCount = result.vttContent.split(/\s+/).length;
+          modelLog.complete(
+            `${model.toUpperCase()} transcription successful`, 
+            `Generated ${wordCount} words | VTT format | Length: ${result.vttContent.length} characters`
+          );
+          
+          return { model, vtt: result.vttContent, prompt: result.prompt || transcriptionPrompt };
+        } catch (error) {
+          modelLog.error(
+            `${model.toUpperCase()} transcription failed`,
+            error instanceof Error ? error.message : String(error)
+          );
+          throw error;
+        }
+      });
+      
+      // Wait for all transcriptions to complete
+      const results = await Promise.allSettled(transcriptionPromises);
+      
+      // Update state with results
+      const finalTranscriptions = { ...transcriptions };
+      
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          const { model, vtt, prompt } = result.value;
+          finalTranscriptions[model] = { vtt, prompt, loading: false };
+        } else {
+          // Find the model that failed
+          const failedModelIndex = results.findIndex(r => r === result);
+          if (failedModelIndex >= 0 && failedModelIndex < selectedModels.length) {
+            const model = selectedModels[failedModelIndex];
+            finalTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: false };
+          }
+        }
+      });
+      
+      setTranscriptions(finalTranscriptions);
+      
+      // Check if any transcriptions succeeded
+      const successfulTranscriptions = results.filter(r => r.status === "fulfilled").length;
+      
+      if (successfulTranscriptions > 0) {
+        mainLog.complete(
+          `Transcription process completed`, 
+          `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
+        );
+        
+        toast.toast({
+          title: "Transcription Complete",
+          description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
+        });
+        
+        // Show browser notification if enabled
+        if (notificationsEnabled) {
+          showNotification("Transcription Complete", {
+            body: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
+            tag: "transcription-complete"
+          });
+        }
+      } else {
+        mainLog.error(
+          `Transcription process failed`,
+          `All ${selectedModels.length} transcription attempts failed`
+        );
+        
+        toast.toast({
+          title: "Transcription Failed",
+          description: "All transcription attempts failed. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error processing transcriptions:", error);
+      addLog(`Error in transcription process`, "error", {
+        details: error instanceof Error ? error.message : String(error),
+        source: "Transcription"
+      });
+      
+      toast.toast({
+        title: "Processing Error",
+        description: "There was a problem processing your transcriptions.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  // When a transcription is selected
+  const handleSelectTranscription = (model: string, vtt: string) => {
+    setSelectedTranscription(vtt);
+    setSelectedModel(model);
+    addLog(`Selected ${model.toUpperCase()} transcription for publishing`, "info", {
+      source: "Selection",
+      details: `VTT length: ${vtt.length} characters | Word count: ${vtt.split(/\s+/).length} words`
     });
   };
-
-  const handleDownloadSelected = () => {
-    if (!selectedResult || !transcriptionResults[selectedResult] || !file) return;
-    
-    const vttContent = transcriptionResults[selectedResult].vttContent;
-    const blob = new Blob([vttContent], { type: "text/vtt" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${file.name.replace(/\.[^/.]+$/, "")}.vtt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleReset = () => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
+  
+  // Publish caption to Brightcove
+  const publishCaption = async () => {
+    if (!selectedTranscription || !videoId) {
+      toast.toast({
+        title: "Missing Information",
+        description: "Please select a transcription and enter a video ID.",
+        variant: "destructive",
+      });
+      return;
     }
-    setFile(null);
-    setAudioUrl(null);
-    setTranscriptionResults({});
-    setSelectedResult(null);
-  };
-
-  return (
-    <div className="container">
-      <div className="flex justify-between items-center py-4 border-b mb-8">
-        <h1 className="text-2xl font-bold">Media Transcription Tools</h1>
-        <nav className="flex gap-4">
-          <a href="/" className="font-medium hover:text-primary">Home</a>
-          <a href="/video-transcribe" className="font-medium hover:text-primary">Video Transcribe</a>
-        </nav>
-      </div>
+    
+    try {
+      setIsPublishing(true);
+      const publishLog = startTimedLog("Caption Publishing", "info", "Brightcove");
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileAudio className="mr-2 h-5 w-5" />
-                Audio File
-              </CardTitle>
-              <CardDescription>
-                Upload an MP3 file to transcribe
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
-              
-              {file && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(file.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
-                  
-                  {audioUrl && (
-                    <audio controls className="w-full mt-2">
-                      <source src={audioUrl} type="audio/mpeg" />
-                      Your browser does not support the audio element.
-                    </audio>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Transcription Options</CardTitle>
-              <CardDescription>
-                Select models and customize settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <ModelSelector 
-                selectedModels={selectedModels} 
-                onModelChange={setSelectedModels} 
-                disabled={isUploading}
-              />
-              
-              <PromptOptions
-                preserveEnglish={preserveEnglish}
-                onPreserveEnglishChange={setPreserveEnglish}
-                outputFormat={outputFormat}
-                onOutputFormatChange={setOutputFormat}
-                notificationsEnabled={notificationsEnabled}
-                onNotificationsChange={setNotificationsEnabled}
-                disabled={isUploading}
-              />
-              
-              <Collapsible 
-                open={showAdvancedOptions} 
-                onOpenChange={setShowAdvancedOptions}
-                className="border rounded-md p-2"
-              >
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="flex w-full justify-between p-2 h-auto">
-                    <span>Advanced Options</span>
-                    {showAdvancedOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="px-2 pt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="customPrompt">Custom Prompt</Label>
-                    <Textarea 
-                      id="customPrompt" 
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      placeholder="Enter custom transcription prompt..."
-                      disabled={!preserveEnglish || isUploading}
-                      className="min-h-[80px]"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Customize the prompt sent to the transcription model
-                    </p>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-2">
-              <Button 
-                className="w-full" 
-                onClick={handleTranscribe} 
-                disabled={!file || isUploading || selectedModels.length === 0}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Transcribing...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Transcribe Audio
-                  </>
-                )}
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={handleReset}
-                disabled={!file || isUploading}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reset
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
+      publishLog.update(`Preparing caption for video ID: ${videoId}`);
+      
+      // Get Brightcove credentials
+      const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
+      
+      let brightcoveKeys;
+      try {
+        brightcoveKeys = await fetchBrightcoveKeys();
+        credentialsLog.update("Retrieving Brightcove auth token...");
         
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Transcription Results</CardTitle>
-              <CardDescription>
-                Compare results from different models
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {Object.keys(transcriptionResults).length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(transcriptionResults).map(([model, result]) => (
+        // Get Brightcove authentication token
+        const authToken = await getBrightcoveAuthToken(
+          brightcoveKeys.brightcove_client_id,
+          brightcoveKeys.brightcove_client_secret
+        );
+        
+        credentialsLog.complete("Brightcove authentication successful", 
+          `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
+        
+        // Add caption directly to Brightcove video (without S3)
+        publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
+        
+        await addCaptionToBrightcove(
+          videoId,
+          selectedTranscription,
+          'ar',
+          'Arabic',
+          brightcoveKeys.brightcove_account_id,
+          authToken
+        );
+        
+        publishLog.complete(
+          "Caption published successfully", 
+          `Video ID: ${videoId} | Language: Arabic`
+        );
+        
+        toast.toast({
+          title: "Caption Published",
+          description: "Your caption has been successfully published to the Brightcove video.",
+        });
+      } catch (error) {
+        credentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
+        publishLog.error("Caption publishing failed", error instanceof Error ? error.message : String(error));
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error publishing caption:", error);
+      addLog(`Error publishing caption`, "error", {
+        details: error instanceof Error ? error.message : String(error),
+        source: "Brightcove"
+      });
+      
+      toast.toast({
+        title: "Publishing Failed",
+        description: "There was a problem publishing your caption.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-[1440px] mx-auto p-4 md:p-6">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Transcription Pipeline
+          </h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Download MP3 files from SharePoint, sequentially transcribe them with multiple AI models, and publish captions to Brightcove.
+          </p>
+        </header>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Content - 8 columns wide */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* SharePoint Downloader */}
+            <SharePointDownloader 
+              onFilesQueued={handleFilesQueued}
+              isProcessing={isProcessing}
+            />
+            
+            {/* File Queue Manager */}
+            {fileQueue.length > 0 && (
+              <FileQueue
+                files={fileQueue}
+                currentIndex={currentQueueIndex}
+                onProcessNext={processNextInQueue}
+                onSkip={skipCurrentInQueue}
+                onReset={resetQueue}
+                isProcessing={isProcessing}
+                notificationsEnabled={notificationsEnabled}
+              />
+            )}
+            
+            {/* Step 1: Upload */}
+            <Card className="overflow-hidden border-t-4 border-t-blue-500 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <FileAudio className="mr-2 h-5 w-5 text-blue-500" />
+                  Step 1: Upload Audio File
+                </h2>
+                <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+                
+                {file && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-sm flex items-center justify-between">
+                      <div>
+                        <Check className="h-4 w-4 text-green-500 mr-2 inline-block" />
+                        <span className="font-medium">File selected:</span> 
+                        <span className="ml-1">{file.name}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({Math.round(file.size / 1024)} KB)
+                        </span>
+                      </div>
+                      
+                      {audioUrl && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1"
+                          onClick={toggleAudioPlayback}
+                        >
+                          {isAudioPlaying ? (
+                            <>
+                              <PauseCircle className="h-4 w-4" />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="h-4 w-4" />
+                              <span>Play</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* Hidden audio element for playback */}
+                    {audioUrl && (
+                      <audio 
+                        ref={audioRef} 
+                        src={audioUrl} 
+                        onEnded={() => setIsAudioPlaying(false)}
+                        onPause={() => setIsAudioPlaying(false)}
+                        onPlay={() => setIsAudioPlaying(true)}
+                        className="hidden"
+                      />
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Step 2: Select Models & Process */}
+            <Card className="overflow-hidden border-t-4 border-t-green-500 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Cog className="mr-2 h-5 w-5 text-green-500" />
+                  Step 2: Generate Transcriptions
+                </h2>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label htmlFor="prompt" className="text-sm font-medium">
+                        Transcription Prompt Options:
+                      </label>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 mr-1" />
+                        <span>Not all models support prompts</span>
+                      </div>
+                    </div>
+                    
+                    <PromptOptions 
+                      preserveEnglish={preserveEnglish}
+                      onPreserveEnglishChange={handlePreserveEnglishChange}
+                      outputFormat={outputFormat}
+                      onOutputFormatChange={handleOutputFormatChange}
+                      notificationsEnabled={notificationsEnabled}
+                      onNotificationsChange={handleNotificationsChange}
+                      disabled={isProcessing}
+                    />
+                    
+                    <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm font-medium">Generated Prompt:</p>
+                      <p className="text-sm text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
+                    </div>
+                  </div>
+                  
+                  <ModelSelector 
+                    selectedModels={selectedModels} 
+                    onModelChange={setSelectedModels}
+                    disabled={isProcessing || !file}
+                  />
+                  
+                  <Button 
+                    onClick={processTranscriptions} 
+                    disabled={isProcessing || !file || selectedModels.length === 0}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Generate Transcriptions
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Step 3: Review & Select */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold mb-2 flex items-center">
+                <Check className="mr-2 h-5 w-5 text-violet-500" />
+                Step 3: Review & Select
+              </h2>
+              
+              {selectedModels.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {selectedModels.map((model) => (
                     <TranscriptionCard
                       key={model}
-                      modelName={getModelDisplayName(model)}
-                      vttContent={result.vttContent}
-                      prompt={result.prompt}
-                      onSelect={() => setSelectedResult(model)}
-                      isSelected={selectedResult === model}
+                      modelName={
+                        model === "openai" 
+                          ? "OpenAI Whisper" 
+                          : model === "gemini" 
+                            ? "Google Gemini" 
+                            : "Microsoft Phi-4"
+                      }
+                      vttContent={transcriptions[model].vtt}
+                      prompt={transcriptions[model].prompt}
+                      onSelect={() => handleSelectTranscription(model, transcriptions[model].vtt)}
+                      isSelected={selectedModel === model}
                       audioSrc={audioUrl || undefined}
+                      isLoading={transcriptions[model].loading}
                     />
                   ))}
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-[400px] text-center">
-                  {isUploading ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-                      <p className="text-lg font-medium">Transcribing your audio...</p>
-                      <p className="text-sm text-muted-foreground mt-2">This may take a few minutes depending on the file size.</p>
-                    </div>
-                  ) : file ? (
-                    <div className="flex flex-col items-center">
-                      <Upload className="h-10 w-10 text-muted-foreground mb-4" />
-                      <p className="text-lg font-medium">Ready to transcribe</p>
-                      <p className="text-sm text-muted-foreground mt-2">Click the "Transcribe Audio" button to start.</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <FileAudio className="h-10 w-10 text-muted-foreground mb-4" />
-                      <p className="text-lg font-medium">No transcription yet</p>
-                      <p className="text-sm text-muted-foreground mt-2">Upload an audio file to get started.</p>
-                    </div>
-                  )}
-                </div>
               )}
-            </CardContent>
-            <CardFooter className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={handleCopySelected}
-                disabled={!selectedResult}
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Copy Selected
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleDownloadSelected}
-                disabled={!selectedResult}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download VTT
-              </Button>
-            </CardFooter>
-          </Card>
+            </div>
+            
+            {/* Step 4: Publish */}
+            <Card className="overflow-hidden border-t-4 border-t-amber-500 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Send className="mr-2 h-5 w-5 text-amber-500" />
+                  Step 4: Publish to Brightcove
+                </h2>
+                
+                <div className="space-y-4">
+                  <VideoIdInput 
+                    videoId={videoId} 
+                    onChange={setVideoId}
+                    disabled={isPublishing}
+                  />
+                  
+                  <Button 
+                    onClick={publishCaption} 
+                    disabled={isPublishing || !selectedTranscription || !videoId}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Publish Caption
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Log Panel - 4 columns wide */}
+          <div className="lg:col-span-4 lg:sticky lg:top-6 lg:self-start">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <FileText className="mr-2 h-5 w-5 text-gray-500" />
+              System Logs
+            </h2>
+            <div className="h-[750px] bg-gradient-to-b from-transparent to-gray-50 dark:to-gray-900 p-1 rounded-lg">
+              <LogsPanel logs={logs} />
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle>Audio Transcription</CardTitle>
-            <CardDescription>
-              Transcribe audio files to text using multiple AI models
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Upload MP3 files and transcribe them using OpenAI, Google Gemini, or Microsoft Phi-4 models.</p>
-          </CardContent>
-          <CardFooter>
-            <Button asChild>
-              <a href="/">Get Started</a>
-            </Button>
-          </CardFooter>
-        </Card>
-        
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle>Video Transcription</CardTitle>
-            <CardDescription>
-              Extract and transcribe audio from video files
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Upload video files and transcribe their audio content using Google's Speech-to-Text API.</p>
-          </CardContent>
-          <CardFooter>
-            <Button asChild>
-              <a href="/video-transcribe">Get Started</a>
-            </Button>
-          </CardFooter>
-        </Card>
       </div>
     </div>
   );
