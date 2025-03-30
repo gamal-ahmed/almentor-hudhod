@@ -152,7 +152,7 @@ const Index = () => {
     if (notificationsEnabled) {
       requestNotificationPermission().then(granted => {
         if (!granted) {
-          toast.toast({
+          toast({
             title: "Notification Permission Denied",
             description: "Please enable notifications in your browser settings to receive alerts.",
             variant: "destructive",
@@ -256,7 +256,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Selected",
         description: "Your audio file is ready for transcription.",
       });
@@ -274,7 +274,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Error",
         description: "There was a problem with your file.",
         variant: "destructive",
@@ -300,14 +300,14 @@ const Index = () => {
       setNotificationsEnabled(granted);
       
       if (granted) {
-        toast.toast({
+        toast({
           title: "Notifications Enabled",
           description: "You will receive browser notifications when processes complete.",
         });
       }
     } else {
       setNotificationsEnabled(false);
-      toast.toast({
+      toast({
         title: "Notifications Disabled",
         description: "You will no longer receive browser notifications.",
       });
@@ -316,7 +316,7 @@ const Index = () => {
   
   const processTranscriptions = async () => {
     if (!file) {
-      toast.toast({
+      toast({
         title: "No File Selected",
         description: "Please upload an audio file first.",
         variant: "destructive",
@@ -325,7 +325,7 @@ const Index = () => {
     }
     
     if (!Array.isArray(selectedModels) || selectedModels.length === 0) {
-      toast.toast({
+      toast({
         title: "No Models Selected",
         description: "Please select at least one transcription model.",
         variant: "destructive",
@@ -427,7 +427,7 @@ const Index = () => {
           `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
         );
         
-        toast.toast({
+        toast({
           title: "Transcription Complete",
           description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
         });
@@ -444,7 +444,7 @@ const Index = () => {
           `All ${selectedModels.length} transcription attempts failed`
         );
         
-        toast.toast({
+        toast({
           title: "Transcription Failed",
           description: "All transcription attempts failed. Please try again.",
           variant: "destructive",
@@ -457,7 +457,7 @@ const Index = () => {
         source: "Transcription"
       });
       
-      toast.toast({
+      toast({
         title: "Processing Error",
         description: "There was a problem processing your transcriptions.",
         variant: "destructive",
@@ -488,7 +488,7 @@ const Index = () => {
   
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
-      toast.toast({
+      toast({
         title: "Missing Information",
         description: "Please select a transcription and enter a video ID.",
         variant: "destructive",
@@ -533,7 +533,7 @@ const Index = () => {
           `Video ID: ${videoId} | Language: Arabic`
         );
         
-        toast.toast({
+        toast({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video.",
         });
@@ -549,7 +549,7 @@ const Index = () => {
         source: "Brightcove"
       });
       
-      toast.toast({
+      toast({
         title: "Publishing Failed",
         description: "There was a problem publishing your caption.",
         variant: "destructive",
@@ -564,14 +564,14 @@ const Index = () => {
       const jobs = await getMyTranscriptionJobs();
       setTranscriptionJobs(jobs);
       
-      toast.toast({
+      toast({
         title: "Jobs Refreshed",
         description: `Found ${jobs.length} transcription jobs`,
       });
     } catch (error) {
       console.error('Error refreshing transcription jobs:', error);
       
-      toast.toast({
+      toast({
         title: "Refresh Failed",
         description: "Could not refresh transcription jobs",
         variant: "destructive",
