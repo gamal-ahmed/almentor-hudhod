@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -198,6 +199,12 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     
     const data = await response.json();
     
+    // Log more details about the response
+    addLog(`Response data structure: ${Object.keys(data).join(', ')}`, "debug", {
+      source: model,
+      details: `Response data type: ${typeof data}`
+    });
+    
     if (!data.vttContent) {
       addLog(`Invalid response format from ${model}`, "error", {
         source: model,
@@ -206,6 +213,13 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       logOperation.error("Invalid response format", `Response did not contain vttContent: ${JSON.stringify(data)}`);
       throw new Error(`Invalid response from ${model}: missing vttContent`);
     }
+    
+    // Log the first 200 characters of the vttContent for debugging
+    const vttPreview = data.vttContent.substring(0, 200) + (data.vttContent.length > 200 ? '...' : '');
+    addLog(`${model} transcription content preview`, "debug", {
+      source: model,
+      details: `Content (first 200 chars): ${vttPreview}`
+    });
     
     addLog(`Successfully transcribed with ${model}`, "success", {
       source: model,

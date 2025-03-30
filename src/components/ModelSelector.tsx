@@ -53,6 +53,12 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
   // Ensure selectedModels is always treated as an array
   const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
 
+  // Add additional logging for debugging
+  console.log("ModelSelector render:", { 
+    selectedModels: safeSelectedModels,
+    disabled
+  });
+
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-x-2 gap-y-1">

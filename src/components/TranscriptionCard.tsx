@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Copy, Play, Pause, Info } from "lucide-react";
 import { parseVTT } from "@/lib/vttParser";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLogsStore } from "@/lib/useLogsStore";
 
 interface TranscriptionCardProps {
   modelName: string;
@@ -36,9 +37,29 @@ const TranscriptionCard = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeSegment, setActiveSegment] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const addLog = useLogsStore(state => state.addLog);
+  
+  // Debug log for tracking props
+  useEffect(() => {
+    console.log(`TranscriptionCard render for ${modelName}:`, { 
+      hasContent: !!vttContent, 
+      contentLength: vttContent?.length || 0,
+      isLoading, 
+      isSelected 
+    });
+    
+    if (modelName.includes("Gemini")) {
+      addLog(`Gemini card rendering with content: ${!!vttContent}`, "debug", {
+        source: "TranscriptionCard",
+        details: `Content length: ${vttContent?.length || 0}, Loading: ${isLoading}`
+      });
+    }
+  }, [vttContent, isLoading, modelName, addLog]);
   
   // Only attempt to parse VTT if vttContent is not empty and is a string
-  const vttSegments = vttContent && typeof vttContent === 'string' ? parseVTT(vttContent) : [];
+  const vttSegments = (vttContent && typeof vttContent === 'string') 
+    ? parseVTT(vttContent) 
+    : [];
   
   // Setup audio element and event handling
   useEffect(() => {
@@ -93,6 +114,11 @@ const TranscriptionCard = ({
       navigator.clipboard.writeText(vttContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      
+      addLog(`Copied ${modelName} transcription to clipboard`, "info", {
+        source: "TranscriptionCard",
+        details: `Content length: ${vttContent.length} characters`
+      });
     }
   };
   
@@ -217,6 +243,11 @@ const TranscriptionCard = ({
           <div className="text-center text-muted-foreground flex flex-col items-center justify-center h-full">
             <span className="text-4xl mb-2">📝</span>
             <span>No transcription available yet</span>
+            {modelName.includes("Gemini") && (
+              <span className="text-xs mt-2 px-2 py-1 bg-red-100 dark:bg-red-900/20 rounded-md">
+                Check logs for Gemini transcription status
+              </span>
+            )}
           </div>
         )}
       </CardContent>
