@@ -278,9 +278,9 @@ const Index = () => {
           modelLog.update(`Sending audio to ${model} with prompt: "${transcriptionPrompt}"`);
           const result = await transcribeAudio(file, model, transcriptionPrompt);
           
-          if (model === 'gemini') {
+          if (model === 'gemini-2.0-flash') {
             addLog(`Gemini transcription result received`, "debug", {
-              source: "gemini",
+              source: "gemini-2.0-flash",
               details: `VTT Content length: ${result.vttContent.length}, First 100 chars: ${result.vttContent.substring(0, 100)}...`
             });
           }
@@ -309,9 +309,9 @@ const Index = () => {
         if (result.status === "fulfilled") {
           const { model, vtt, prompt } = result.value;
           
-          if (model === 'gemini') {
+          if (model === 'gemini-2.0-flash') {
             addLog(`Updating Gemini transcription in state`, "debug", {
-              source: "gemini",
+              source: "gemini-2.0-flash",
               details: `VTT length: ${vtt.length}, First 100 chars: ${vtt.substring(0, 100)}...`
             });
           }
@@ -333,10 +333,10 @@ const Index = () => {
       
       setTranscriptions(finalTranscriptions);
       
-      if (selectedModels.includes('gemini')) {
-        addLog(`Gemini state after update: ${finalTranscriptions.gemini?.vtt ? 'Has content' : 'No content'}`, "debug", {
-          source: "gemini",
-          details: `VTT length: ${finalTranscriptions.gemini?.vtt?.length || 0}`
+      if (selectedModels.includes('gemini-2.0-flash')) {
+        addLog(`Gemini state after update: ${finalTranscriptions['gemini-2.0-flash']?.vtt ? 'Has content' : 'No content'}`, "debug", {
+          source: "gemini-2.0-flash",
+          details: `VTT length: ${finalTranscriptions['gemini-2.0-flash']?.vtt?.length || 0}`
         });
       }
       

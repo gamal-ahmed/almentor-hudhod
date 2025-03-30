@@ -156,7 +156,7 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       case 'openai':
         url = OPENAI_TRANSCRIBE_URL;
         break;
-      case 'gemini':
+      case 'gemini-2.0-flash':
         url = GEMINI_TRANSCRIBE_URL;
         break;
       default:
@@ -194,7 +194,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     
     const data = await response.json();
     
-    // Log the response data structure
     addLog(`Response data structure: ${Object.keys(data).join(', ')}`, "debug", {
       source: model,
       details: `Response data type: ${typeof data}`
@@ -209,7 +208,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       throw new Error(`Invalid response from ${model}: missing vttContent`);
     }
     
-    // Log the first 200 characters of the vttContent for debugging
     const vttPreview = data.vttContent.substring(0, 200) + (data.vttContent.length > 200 ? '...' : '');
     addLog(`${model} transcription content preview`, "debug", {
       source: model,
