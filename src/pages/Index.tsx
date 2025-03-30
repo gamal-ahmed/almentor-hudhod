@@ -51,7 +51,7 @@ const Index = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({
     openai: { vtt: "", prompt: "", loading: false },
-    gemini: { vtt: "", prompt: "", loading: false },
+    "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
     phi4: { vtt: "", prompt: "", loading: false }
   });
   
@@ -166,7 +166,7 @@ const Index = () => {
       
       setTranscriptions({
         openai: { vtt: "", prompt: "", loading: false },
-        gemini: { vtt: "", prompt: "", loading: false },
+        "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
         phi4: { vtt: "", prompt: "", loading: false }
       });
       
@@ -675,24 +675,28 @@ const Index = () => {
               
               {selectedModels.length > 0 ? (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {selectedModels.map((model) => (
-                    <TranscriptionCard
-                      key={model}
-                      modelName={
-                        model === "openai" 
-                          ? "OpenAI Whisper" 
-                          : model === "gemini-2.0-flash" 
-                            ? "Gemini 2.0 Flash" 
-                            : "Microsoft Phi-4"
-                      }
-                      vttContent={transcriptions[model].vtt}
-                      prompt={transcriptions[model].prompt}
-                      onSelect={() => handleSelectTranscription(model, transcriptions[model].vtt)}
-                      isSelected={selectedModel === model}
-                      audioSrc={audioUrl || undefined}
-                      isLoading={transcriptions[model].loading}
-                    />
-                  ))}
+                  {selectedModels.map((model) => {
+                    const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
+                    
+                    return (
+                      <TranscriptionCard
+                        key={model}
+                        modelName={
+                          model === "openai" 
+                            ? "OpenAI Whisper" 
+                            : model === "gemini-2.0-flash" 
+                              ? "Gemini 2.0 Flash" 
+                              : "Microsoft Phi-4"
+                        }
+                        vttContent={transcription.vtt}
+                        prompt={transcription.prompt}
+                        onSelect={() => handleSelectTranscription(model, transcription.vtt)}
+                        isSelected={selectedModel === model}
+                        audioSrc={audioUrl || undefined}
+                        isLoading={transcription.loading}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <Card className="p-8 flex flex-col items-center justify-center text-center">
