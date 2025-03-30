@@ -10,9 +10,12 @@ import { formatDistanceToNow } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 
+// Define a union type for all possible job statuses
+type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 interface TranscriptionJob {
   id: string;
-  status: string; // Using string type to accommodate all possible statuses
+  status: JobStatus;
   model: string;
   created_at: string;
   updated_at: string;
@@ -79,6 +82,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 updatedJobs[i] = updatedJob as unknown as TranscriptionJob;
                 hasChanges = true;
                 
+                // Fix the type comparison by ensuring proper type handling
                 if (updatedJob.status === 'completed' && job.status !== 'completed') {
                   toast({
                     title: "Transcription completed",
