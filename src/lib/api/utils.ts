@@ -17,7 +17,7 @@ export const API_ENDPOINTS = {
   BRIGHTCOVE_TOKEN: 'https://oauth.brightcove.com/oauth/token',
   BRIGHTCOVE_ADD_CAPTION: 'https://ingest.api.brightcove.com/v1/accounts/{account_id}/videos/{video_id}/texttracks',
   
-  // Adding missing proxy endpoints
+  // Adding proxy endpoints
   SHAREPOINT_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
   BRIGHTCOVE_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy'
 };

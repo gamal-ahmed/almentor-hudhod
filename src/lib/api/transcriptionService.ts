@@ -302,11 +302,10 @@ export async function saveTranscriptionResult(file: File, model: TranscriptionMo
     const { data: jobData, error: jobError } = await supabase
       .from('transcription_jobs')
       .insert({
-        status: 'completed',
-        status_message: 'Transcription completed via synchronous processing',
         file_path: filePath,
         model: model,
         file_name: file.name,
+        status: 'completed',
         result: {
           vttContent,
           prompt

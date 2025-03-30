@@ -31,8 +31,6 @@ export {
   queueTranscription,
   getTranscriptionStatus,
   getTranscriptionJobs,
-  getLatestTranscriptionJob,
-  saveTranscriptionResult,
   
   // SharePoint API
   fetchSharePointFiles,
@@ -41,7 +39,10 @@ export {
   // Brightcove API
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
-  addCaptionToBrightcove
+  addCaptionToBrightcove,
+  
+  // Utils
+  saveTranscriptionResult
 };
 
 // Transcribe audio using selected model - directly uploads the file (synchronous version)
