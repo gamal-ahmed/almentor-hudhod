@@ -22,9 +22,9 @@ export default function TranscriptionDetail() {
   const { data: job, isLoading: isJobLoading, error: jobError } = useQuery({
     queryKey: ['transcription-job', jobId],
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
-    refetchInterval: (queryData) => {
+    refetchInterval: (data) => {
       // Poll every 5 seconds for non-completed jobs
-      if (queryData && (queryData.status === 'pending' || queryData.status === 'processing')) {
+      if (data && (data.status === 'pending' || data.status === 'processing')) {
         return 5000;
       }
       return false;
