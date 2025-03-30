@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +28,7 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
     try {
       setIsLoading(true);
       
-      // Real implementation - fetch files list from SharePoint
+      // Fetch files list from SharePoint via our proxy
       const response = await fetch(`https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy/list-files`, {
         method: 'POST',
         headers: {
@@ -43,28 +42,29 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       });
       
       if (!response.ok) {
-        throw new Error("Failed to fetch files from SharePoint");
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch files: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
       
-      // Filter only mp3 files
-      const mp3Files = data.files.filter((file: any) => 
+      // Filter only audio files
+      const audioFiles = data.files.filter((file: any) => 
         file.name.toLowerCase().endsWith('.mp3') || 
         file.name.toLowerCase().endsWith('.m4a') || 
         file.name.toLowerCase().endsWith('.wav')
       );
       
-      setAvailableFiles(mp3Files);
+      setAvailableFiles(audioFiles);
       
-      if (mp3Files.length === 0) {
+      if (audioFiles.length === 0) {
         toast.warning("No audio files found in this SharePoint folder");
       } else {
-        toast.success(`Found ${mp3Files.length} audio files`);
+        toast.success(`Found ${audioFiles.length} audio files`);
       }
     } catch (error) {
       console.error("Error listing SharePoint files:", error);
-      toast.error("Failed to fetch files from SharePoint");
+      toast.error(`Failed to fetch files: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +106,7 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to download ${file.name}`);
+          throw new Error(`Failed to download ${file.name}: ${response.status}`);
         }
         
         const arrayBuffer = await response.arrayBuffer();
@@ -125,11 +125,18 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       
     } catch (error) {
       console.error("Error downloading from SharePoint:", error);
-      toast.error("Failed to download files from SharePoint");
+      toast.error(`Failed to download files: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsDownloading(false);
     }
   };
+  
+  const helperFunctionUpdate = `
+  // In your src/lib/api.ts file, the fetchSharePointFiles function should look like:
+  export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name: string, url: string}[]> {
+    // ... existing implementation using the updated edge function
+  }
+  `;
   
   return (
     <Card className="overflow-hidden border-t-4 border-t-indigo-500 shadow-md hover:shadow-lg transition-shadow">

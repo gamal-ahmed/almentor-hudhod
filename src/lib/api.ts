@@ -57,12 +57,13 @@ export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch SharePoint files: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch SharePoint files: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
     
-    // Filter only mp3 files
+    // Filter only audio files
     return data.files.filter((file: any) => 
       file.name.toLowerCase().endsWith('.mp3') || 
       file.name.toLowerCase().endsWith('.m4a') || 
@@ -90,7 +91,8 @@ export async function downloadSharePointFile(fileUrl: string): Promise<File> {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to download file: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to download file: ${response.status} - ${errorText}`);
     }
     
     const arrayBuffer = await response.arrayBuffer();
