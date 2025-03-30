@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -246,15 +247,33 @@ const TranscriptionCard = ({
     
     try {
       const startTime = parseTimeToSeconds(vttSegments[index].startTime);
+      
+      // Log debugging information for Gemini model
+      if (modelName.includes("Gemini")) {
+        addLog(`Gemini segment click - attempting to jump to timestamp`, "debug", {
+          source: "TranscriptionCard",
+          details: `Segment index: ${index}, Start time: ${vttSegments[index].startTime}, Seconds: ${startTime}, Audio element exists: ${!!audioRef.current}`
+        });
+      }
+      
+      // Set the current time
       audioRef.current.currentTime = startTime;
       
+      // Start playing if not already playing
       if (!isPlaying) {
         audioRef.current.play().catch(error => {
           console.error('Error playing audio:', error);
+          addLog(`Error playing audio after segment click: ${error.message}`, "error", {
+            source: "TranscriptionCard"
+          });
         });
       }
     } catch (error) {
       console.error('Error jumping to segment:', error);
+      addLog(`Error jumping to segment: ${error.message}`, "error", {
+        source: "TranscriptionCard",
+        details: error.stack
+      });
     }
   };
 
@@ -330,7 +349,10 @@ const TranscriptionCard = ({
                     ? 'bg-primary/20 dark:bg-primary/40' 
                     : 'bg-muted/30 hover:bg-muted/50'
                 }`}
-                onClick={() => audioSrc && jumpToSegment(index)}
+                onClick={() => {
+                  console.log(`Segment clicked: ${index}, Has audio: ${!!audioSrc}`);
+                  if (audioSrc) jumpToSegment(index);
+                }}
               >
                 <div className="vtt-timestamp text-xs text-muted-foreground">{segment.startTime} → {segment.endTime}</div>
                 <div className="vtt-content text-sm mt-1">{segment.text}</div>
