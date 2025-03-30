@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
@@ -26,6 +25,8 @@ serve(async (req) => {
     return await handleStartJob(req);
   } else if (endpoint === 'job-status') {
     return await handleJobStatus(req);
+  } else if (endpoint === 'export-file') {
+    return await handleExportFile(req);
   } else {
     return new Response(
       JSON.stringify({ error: "Invalid endpoint" }),
@@ -322,4 +323,123 @@ function convertTextToVTT(text: string): string {
   });
   
   return vttContent;
+}
+
+// Handle exporting a transcription file
+async function handleExportFile(req: Request) {
+  try {
+    const formData = await req.formData();
+    const content = formData.get("content")?.toString();
+    const format = formData.get("format")?.toString();
+    const fileName = formData.get("fileName")?.toString() || `transcription-${Date.now()}`;
+
+    // Get the user ID from the request if authenticated
+    const authHeader = req.headers.get('Authorization');
+    let userId = 'anonymous';
+    
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (!error && user) {
+        userId = user.id;
+      }
+    }
+
+    // Check if required data is provided
+    if (!content) {
+      throw new Error("No content provided");
+    }
+
+    if (!format) {
+      throw new Error("No format specified");
+    }
+
+    // Process content based on requested format
+    let processedContent = content;
+    const contentType = getContentTypeForFormat(format);
+    
+    console.log(`Exporting file: ${fileName}.${format}`);
+
+    // Create a unique file path in storage
+    const filePath = `exports/${userId}/${Date.now()}_${fileName}.${format}`;
+    
+    // Upload the file to storage
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('transcriptions')
+      .upload(filePath, processedContent, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(`Failed to upload file: ${uploadError.message}`);
+    }
+
+    // Get the public URL for the file
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('transcriptions')
+      .getPublicUrl(filePath);
+
+    // Record export in database
+    const { data: recordData, error: recordError } = await supabase
+      .from('transcription_exports')
+      .insert({
+        user_id: userId,
+        file_name: fileName,
+        format,
+        file_url: publicUrl,
+        file_path: filePath,
+        size_bytes: new TextEncoder().encode(processedContent).length,
+      })
+      .select()
+      .single();
+
+    if (recordError) {
+      console.warn(`Failed to record export, but file was uploaded: ${recordError.message}`);
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        fileUrl: publicUrl,
+        fileName,
+        format
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error exporting file:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+}
+
+// Helper function to determine content type based on format
+function getContentTypeForFormat(format: string): string {
+  switch (format) {
+    case 'vtt':
+      return 'text/vtt';
+    case 'srt':
+      return 'text/plain';
+    case 'txt':
+      return 'text/plain';
+    case 'json':
+      return 'application/json';
+    default:
+      return 'text/plain';
+  }
 }

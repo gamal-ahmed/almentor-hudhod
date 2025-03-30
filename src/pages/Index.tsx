@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +30,8 @@ import { requestNotificationPermission, showNotification } from "@/lib/notificat
 import Header from '@/components/Header';
 import { useAuth } from "@/lib/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ExportsList from "@/components/ExportsList";
+import ExportMenu from "@/components/ExportMenu";
 
 const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
@@ -623,34 +624,48 @@ const Index = () => {
                     disabled={isPublishing || !selectedTranscription}
                   />
                   
-                  <Button 
-                    onClick={publishCaption} 
-                    disabled={isPublishing || !selectedTranscription || !videoId}
-                    className={`w-full ${
-                      selectedTranscription 
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md' 
-                        : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                    }`}
-                  >
-                    {isPublishing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 h-4 w-4" />
-                        Publish to Brightcove
-                      </>
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={publishCaption} 
+                      disabled={isPublishing || !selectedTranscription || !videoId}
+                      className={`flex-1 ${
+                        selectedTranscription 
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md' 
+                          : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                      }`}
+                    >
+                      {isPublishing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Publishing...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          Publish to Brightcove
+                        </>
+                      )}
+                    </Button>
+                    
+                    {selectedTranscription && (
+                      <ExportMenu 
+                        transcriptionContent={selectedTranscription}
+                        disabled={!selectedTranscription}
+                        fileName={`selected-transcription-${selectedModel || 'unknown'}`}
+                      />
                     )}
-                  </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
+            
+            {/* Exports List Card */}
+            <ExportsList />
           </div>
           
           {/* Main content area */}
           <div className="lg:col-span-8 space-y-6">
+            {/* Transcription Results Card */}
             <Card className="border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm overflow-hidden">
               <CardContent className="p-0">
                 <Tabs defaultValue="results" className="w-full">
@@ -726,6 +741,7 @@ const Index = () => {
               </CardContent>
             </Card>
             
+            {/* System Logs Card */}
             <Card className="border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm overflow-hidden">
               <CardContent className="p-0">
                 <details className="group">

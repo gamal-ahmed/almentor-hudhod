@@ -26,7 +26,7 @@ interface VTTSegment {
 
 const TranscriptionCard = ({ 
   modelName, 
-  vttContent = "", // Provide default empty string to prevent undefined
+  vttContent = "", 
   prompt = "",
   onSelect, 
   isSelected,
@@ -396,6 +396,13 @@ const TranscriptionCard = ({
             {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
             {copied ? "Copied" : "Copy"}
           </Button>
+          
+          {/* Add Export Button */}
+          {vttContent && <ExportMenu 
+            transcriptionContent={vttContent} 
+            disabled={isLoading || !vttContent}
+            fileName={`${modelName.replace(/\s+/g, '-').toLowerCase()}-transcription`}
+          />}
         </div>
         <Button size="sm" onClick={onSelect} disabled={isLoading || !vttContent} variant={isSelected ? "secondary" : "default"}>
           {isSelected ? "Selected" : "Select"}
