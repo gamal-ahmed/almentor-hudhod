@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -156,7 +155,6 @@ export default function WorkspacePage() {
       </div>
     );
   }
-  
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
