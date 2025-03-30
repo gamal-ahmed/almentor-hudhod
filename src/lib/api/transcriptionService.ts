@@ -1,8 +1,18 @@
-
-import { TranscriptionModel } from "@/components/ModelSelector";
-import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
-import { useLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
+import { TranscriptionModel } from "@/components/ModelSelector";
+
+type TranscriptionSession = {
+  id?: string;
+  user_id: string;
+  audio_file_name: string | null;
+  selected_models: TranscriptionModel[];
+  transcriptions: Record<string, { vtt: string; prompt: string; loading: boolean }>;
+  selected_model: string | null;
+  selected_transcription: string | null;
+  video_id?: string;
+  last_updated?: string;
+  created_at?: string;
+};
 
 const getLogsStore = () => useLogsStore.getState();
 
@@ -249,7 +259,7 @@ export async function saveTranscriptionSession(
   selectedModel: string | null,
   selectedTranscription: string | null,
   videoId: string = ""
-) {
+): Promise<TranscriptionSession | null> {
   try {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id;
@@ -259,23 +269,22 @@ export async function saveTranscriptionSession(
       return null;
     }
     
+    const sessionData: TranscriptionSession = {
+      user_id: userId,
+      audio_file_name: audioFileName,
+      selected_models: selectedModels,
+      transcriptions: transcriptions,
+      selected_model: selectedModel,
+      selected_transcription: selectedTranscription,
+      video_id: videoId
+    };
+    
     // Check if a session already exists for this user
     const { data: existingSession, error: fetchError } = await supabase
       .from('transcription_sessions')
       .select('*')
       .eq('user_id', userId)
       .single();
-    
-    const sessionData = {
-      audio_file_name: audioFileName,
-      selected_models: selectedModels,
-      transcriptions: transcriptions,
-      selected_model: selectedModel,
-      selected_transcription: selectedTranscription,
-      video_id: videoId,
-      user_id: userId,
-      last_updated: new Date().toISOString()
-    };
     
     let result;
     
@@ -285,8 +294,9 @@ export async function saveTranscriptionSession(
         .from('transcription_sessions')
         .update(sessionData)
         .eq('user_id', userId)
-        .select();
-        
+        .select()
+        .single();
+      
       if (error) throw error;
       result = data;
     } else {
@@ -294,8 +304,9 @@ export async function saveTranscriptionSession(
       const { data, error } = await supabase
         .from('transcription_sessions')
         .insert(sessionData)
-        .select();
-        
+        .select()
+        .single();
+      
       if (error) throw error;
       result = data;
     }
@@ -308,13 +319,12 @@ export async function saveTranscriptionSession(
 }
 
 // Get the latest transcription session for the current user
-export async function getLatestTranscriptionSession() {
+export async function getLatestTranscriptionSession(): Promise<TranscriptionSession | null> {
   try {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id;
     
     if (!userId) {
-      // If user is not authenticated, return null
       return null;
     }
     

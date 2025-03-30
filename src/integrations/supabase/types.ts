@@ -385,6 +385,45 @@ export type Database = {
         }
         Relationships: []
       }
+      transcription_sessions: {
+        Row: {
+          audio_file_name: string | null
+          created_at: string
+          id: string
+          last_updated: string
+          selected_model: string | null
+          selected_models: string[]
+          selected_transcription: string | null
+          transcriptions: Json
+          user_id: string
+          video_id: string | null
+        }
+        Insert: {
+          audio_file_name?: string | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          selected_model?: string | null
+          selected_models?: string[]
+          selected_transcription?: string | null
+          transcriptions?: Json
+          user_id: string
+          video_id?: string | null
+        }
+        Update: {
+          audio_file_name?: string | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          selected_model?: string | null
+          selected_models?: string[]
+          selected_transcription?: string | null
+          transcriptions?: Json
+          user_id?: string
+          video_id?: string | null
+        }
+        Relationships: []
+      }
       transcriptions: {
         Row: {
           created_at: string
