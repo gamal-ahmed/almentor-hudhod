@@ -1,6 +1,6 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
+import { useLogsStore } from "@/lib/useLogsStore";
 
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
@@ -11,6 +11,9 @@ const SHAREPOINT_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions
 
 // Supabase API key for authentication
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk';
+
+// Get logs store outside of component to use in this service file
+const getLogsStore = () => useLogsStore.getState();
 
 // Fetch Brightcove keys from Supabase
 export async function fetchBrightcoveKeys() {
@@ -111,18 +114,33 @@ export async function downloadSharePointFile(fileUrl: string): Promise<File> {
 
 // Transcribe audio using selected model - directly uploads the file
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = DEFAULT_TRANSCRIPTION_PROMPT) {
+  const addLog = getLogsStore().addLog;
+  const startTimedLog = getLogsStore().startTimedLog;
+  
+  const logOperation = startTimedLog(`Transcribing with ${model}`, "info", model);
+  
   try {
+    addLog(`Starting transcription with ${model} model`, "info", {
+      source: model,
+      details: `File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`
+    });
+    
     if (model === 'phi4') {
+      addLog(`Using browser-based Phi-4 model`, "info", { source: "phi4" });
       const result = await phi4Transcribe(file);
       
       if (result.chunks) {
+        addLog(`Received ${result.chunks.length} chunks from Phi-4`, "info", { source: "phi4" });
         const vttContent = convertChunksToVTT(result.chunks);
+        logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${vttContent.length} characters of VTT content`);
         return {
           vttContent,
           prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
         };
       } else {
+        addLog(`Received text result from Phi-4`, "info", { source: "phi4" });
         const vttContent = convertTextToVTT(result.text);
+        logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${vttContent.length} characters of VTT content`);
         return {
           vttContent,
           prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
@@ -149,6 +167,11 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
         url = OPENAI_TRANSCRIBE_URL;
     }
     
+    addLog(`Sending request to ${model} endpoint`, "info", { 
+      source: model,
+      details: `Endpoint: ${url}, File size: ${file.size} bytes`
+    });
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -158,17 +181,50 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       body: formData,
     });
     
+    addLog(`Received response from ${model} endpoint`, "info", {
+      source: model,
+      details: `Status: ${response.status} ${response.statusText}`
+    });
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      addLog(`Error response from ${model}`, "error", {
+        source: model,
+        details: `Status: ${response.status}, Response: ${errorText}`
+      });
+      logOperation.error(`Failed with status ${response.status}`, errorText);
       throw new Error(`Transcription failed: ${response.statusText}`);
     }
     
     const data = await response.json();
+    
+    if (!data.vttContent) {
+      addLog(`Invalid response format from ${model}`, "error", {
+        source: model,
+        details: `Response did not contain vttContent: ${JSON.stringify(data)}`
+      });
+      logOperation.error("Invalid response format", `Response did not contain vttContent: ${JSON.stringify(data)}`);
+      throw new Error(`Invalid response from ${model}: missing vttContent`);
+    }
+    
+    addLog(`Successfully transcribed with ${model}`, "success", {
+      source: model,
+      details: `Generated ${data.vttContent.length} characters of VTT content`
+    });
+    
+    logOperation.complete(`Completed ${model} transcription`, `Generated ${data.vttContent.length} characters of VTT content`);
+    
     return {
       vttContent: data.vttContent,
       prompt
     };
   } catch (error) {
+    addLog(`Error in ${model} transcription: ${error.message}`, "error", {
+      source: model,
+      details: error.stack
+    });
     console.error(`Error in ${model} transcription:`, error);
+    logOperation.error(`${error.message}`, error.stack);
     throw error;
   }
 }

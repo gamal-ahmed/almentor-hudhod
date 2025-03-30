@@ -1,6 +1,7 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { useLogsStore } from "@/lib/useLogsStore";
 
 export type TranscriptionModel = "openai" | "gemini" | "phi4" | "google-speech";
 
@@ -11,17 +12,33 @@ interface ModelSelectorProps {
 }
 
 const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelectorProps) => {
+  const addLog = useLogsStore(state => state.addLog);
+
   const handleModelToggle = (model: TranscriptionModel) => {
     try {
+      // Log the action
+      addLog(`Toggling model: ${model}`, "info", { source: "ModelSelector" });
+      
       // Ensure selectedModels is always an array
       const currentModels = Array.isArray(selectedModels) ? selectedModels : [];
       
+      // Log current selection state
+      addLog(`Current selected models: ${currentModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
+      
       if (currentModels.includes(model)) {
-        onModelChange(currentModels.filter(m => m !== model));
+        const updatedModels = currentModels.filter(m => m !== model);
+        addLog(`Removing ${model}, new selection: ${updatedModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
+        onModelChange(updatedModels);
       } else {
-        onModelChange([...currentModels, model]);
+        const updatedModels = [...currentModels, model];
+        addLog(`Adding ${model}, new selection: ${updatedModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
+        onModelChange(updatedModels);
       }
     } catch (error) {
+      addLog(`Error toggling model: ${error.message}`, "error", { 
+        source: "ModelSelector", 
+        details: error.stack 
+      });
       console.error("Error toggling model:", error);
     }
   };
