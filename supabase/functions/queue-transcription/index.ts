@@ -35,6 +35,7 @@ serve(async (req) => {
     const formData = await req.formData();
     const audioFile = formData.get("audio");
     const model = formData.get("model")?.toString() || "openai";
+    const fileName = formData.get("fileName")?.toString() || audioFile?.name || "audio-file";
 
     // Validate request
     if (!audioFile || !(audioFile instanceof File)) {
@@ -45,7 +46,7 @@ serve(async (req) => {
       throw new Error("Invalid model specified");
     }
 
-    console.log(`Queueing transcription for file: ${audioFile.name}, using model: ${model}`);
+    console.log(`Queueing transcription for file: ${fileName}, using model: ${model}`);
 
     // Generate a unique file path in storage
     const timestamp = new Date().getTime();
@@ -69,12 +70,14 @@ serve(async (req) => {
 
     // Create a new transcription job
     const { data: job, error: jobError } = await supabase
-      .from('transcriptions')
+      .from('transcription_jobs')
       .insert({
         user_id: user.id,
         file_path: storagePath,
+        file_name: fileName,
         model: model,
         status: 'pending',
+        status_message: 'Job queued and waiting to be processed'
       })
       .select()
       .single();
@@ -95,7 +98,7 @@ serve(async (req) => {
     // Return job information
     return new Response(
       JSON.stringify({
-        job_id: job.id,
+        jobId: job.id,
         status: job.status,
         message: "Transcription job queued successfully",
       }),

@@ -69,17 +69,17 @@ serve(async (req) => {
       throw new Error('You do not have permission to access this job');
     }
 
+    // Return the job status with all necessary information
     return new Response(
       JSON.stringify({
-        job: {
-          id: job.id,
-          status: job.status,
-          model: job.model,
-          created_at: job.created_at,
-          updated_at: job.updated_at,
-          status_message: job.status_message,
-          result: job.result,
-        }
+        status: job.status,
+        status_message: job.status_message || job.status,
+        error: job.error,
+        result: job.result,
+        file_name: job.file_name,
+        created_at: job.created_at,
+        updated_at: job.updated_at,
+        model: job.model
       }),
       {
         headers: {

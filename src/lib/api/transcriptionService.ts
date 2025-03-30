@@ -23,6 +23,7 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
     const formData = new FormData();
     formData.append('audio', file);
     formData.append('model', model);
+    formData.append('fileName', file.name);
     
     addLog(`Sending request to queue-transcription endpoint`, "info", { 
       source: model,
@@ -57,13 +58,13 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
     
     addLog(`Successfully queued transcription job`, "success", {
       source: model,
-      details: `Job ID: ${data.job_id}`
+      details: `Job ID: ${data.jobId}`
     });
     
-    logOperation.complete(`Completed queueing ${model} transcription`, `Job ID: ${data.job_id}`);
+    logOperation.complete(`Completed queueing ${model} transcription`, `Job ID: ${data.jobId}`);
     
     return {
-      jobId: data.job_id,
+      jobId: data.jobId,
       status: data.status,
       message: data.message
     };
@@ -107,12 +108,21 @@ export async function getTranscriptionStatus(jobId: string) {
     
     const data = await response.json();
     
-    addLog(`Retrieved transcription job status: ${data.job.status}`, "info", {
+    addLog(`Retrieved transcription job status: ${data.status}`, "info", {
       source: "TranscriptionService",
-      details: `Job ID: ${jobId}, Status: ${data.job.status}`
+      details: `Job ID: ${jobId}, Status: ${data.status}`
     });
     
-    return data.job;
+    return {
+      status: data.status,
+      status_message: data.status_message,
+      error: data.error,
+      result: data.result,
+      file_name: data.file_name,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      model: data.model
+    };
   } catch (error) {
     addLog(`Error checking transcription status: ${error.message}`, "error", {
       source: "TranscriptionService",

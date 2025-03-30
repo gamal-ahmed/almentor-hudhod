@@ -23,9 +23,10 @@ async function resetStuckJobs(supabase) {
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   
   const { data, error } = await supabase
-    .from('transcriptions')
+    .from('transcription_jobs')
     .update({ 
       status: 'pending',
+      status_message: 'Previous processing attempt timed out',
       error: 'Previous processing attempt timed out'
     })
     .match({ status: 'processing' })
@@ -43,7 +44,7 @@ async function resetStuckJobs(supabase) {
 async function processNextJob(supabase) {
   // First check if there's a job in progress
   const { data: processingJobs } = await supabase
-    .from('transcriptions')
+    .from('transcription_jobs')
     .select('id')
     .eq('status', 'processing')
     .limit(1);
@@ -55,7 +56,7 @@ async function processNextJob(supabase) {
   
   // Find the oldest pending job
   const { data: pendingJobs, error: queryError } = await supabase
-    .from('transcriptions')
+    .from('transcription_jobs')
     .select('*')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
@@ -78,8 +79,12 @@ async function processNextJob(supabase) {
   try {
     // Update job status to processing
     const { error: updateError } = await supabase
-      .from('transcriptions')
-      .update({ status: 'processing' })
+      .from('transcription_jobs')
+      .update({ 
+        status: 'processing',
+        status_message: 'Processing transcription...',
+        updated_at: new Date().toISOString()
+      })
       .eq('id', job.id);
     
     if (updateError) {
@@ -112,6 +117,16 @@ async function processNextJob(supabase) {
     
     // Call the appropriate transcription service
     console.log(`Calling transcription service: ${job.model}`);
+    
+    // Update status to indicate progress
+    await supabase
+      .from('transcription_jobs')
+      .update({ 
+        status_message: `Transcribing with ${job.model} model...`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+    
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -129,9 +144,10 @@ async function processNextJob(supabase) {
     
     // Update the job with the result
     const { error: resultUpdateError } = await supabase
-      .from('transcriptions')
+      .from('transcription_jobs')
       .update({
         status: 'completed',
+        status_message: 'Transcription completed successfully',
         result: result,
         updated_at: new Date().toISOString()
       })
@@ -148,9 +164,10 @@ async function processNextJob(supabase) {
     
     // Update job status to failed
     const { error: failureUpdateError } = await supabase
-      .from('transcriptions')
+      .from('transcription_jobs')
       .update({
         status: 'failed',
+        status_message: 'Transcription failed',
         error: error.message,
         updated_at: new Date().toISOString()
       })

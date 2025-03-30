@@ -185,22 +185,6 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
     };
   }, []);
   
-  // Check for stored job ID in localStorage on component mount
-  useEffect(() => {
-    const storedJobId = localStorage.getItem(`transcription_job_${file?.name}`);
-    if (storedJobId && status === 'idle') {
-      setJobId(storedJobId);
-      startPolling(storedJobId);
-    }
-  }, [file]);
-  
-  // Store job ID in localStorage when it changes
-  useEffect(() => {
-    if (jobId && file) {
-      localStorage.setItem(`transcription_job_${file.name}`, jobId);
-    }
-  }, [jobId, file]);
-  
   // Display a result card if transcription is complete
   const renderResult = () => {
     if (status === 'completed' && result && result.vttContent) {
@@ -267,11 +251,11 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
             <Progress value={progress} className="h-2" />
           </div>
           
-          {/* Status message for returning users */}
+          {/* Status message for async transcription */}
           {jobId && (status === 'pending' || status === 'processing') && (
             <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm">
               <p className="text-blue-700 dark:text-blue-400">
-                Transcription in progress. You can close this window and return later - your progress will be saved.
+                Transcription in progress. Your job is being processed on the server - you can return later to check the progress.
               </p>
             </div>
           )}
