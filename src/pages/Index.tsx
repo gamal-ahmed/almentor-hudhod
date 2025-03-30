@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,15 +14,19 @@ import VideoIdInput from "@/components/VideoIdInput";
 import PromptOptions from "@/components/PromptOptions";
 import SharePointDownloader from "@/components/SharePointDownloader";
 import FileQueue from "@/components/FileQueue";
+import TranscriptionJobs from "@/components/TranscriptionJobs";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
   transcribeAudio, 
+  createTranscriptionJob,
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
   addCaptionToBrightcove
 } from "@/lib/api";
 import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 import Header from '@/components/Header';
+import { useAuth } from "@/lib/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
@@ -34,6 +39,7 @@ const Index = () => {
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
+  const [refreshJobsTrigger, setRefreshJobsTrigger] = useState<number>(0);
   
   // SharePoint and Queue state
   const [fileQueue, setFileQueue] = useState<File[]>([]);
@@ -59,6 +65,9 @@ const Index = () => {
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
+  
+  // Auth state
+  const { isAuthenticated } = useAuth();
 
   // Request notification permission when notifications are enabled
   useEffect(() => {
@@ -235,12 +244,21 @@ const Index = () => {
     }
   };
   
-  // Process transcriptions with selected models
+  // Process transcriptions with selected models - now creates background jobs
   const processTranscriptions = async () => {
     if (!file) {
       toast.toast({
         title: "No File Selected",
         description: "Please upload an audio file first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!isAuthenticated) {
+      toast.toast({
+        title: "Authentication Required",
+        description: "Please sign in to create transcription jobs.",
         variant: "destructive",
       });
       return;
@@ -261,127 +279,49 @@ const Index = () => {
       
       updatePromptFromOptions();
       
-      const updatedTranscriptions = { ...transcriptions };
-      selectedModels.forEach(model => {
-        updatedTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: true };
-      });
-      setTranscriptions(updatedTranscriptions);
+      mainLog.update(`Starting transcription jobs with models: ${selectedModels.join(", ")}`);
       
-      addLog(`Processing transcriptions with models: ${selectedModels.join(", ")}`, "info", {
+      addLog(`Creating transcription jobs with models: ${selectedModels.join(", ")}`, "info", {
         details: `File: ${file.name} | Size: ${Math.round(file.size / 1024)} KB | Prompt: "${transcriptionPrompt}"`,
         source: "Transcription"
       });
       
-      const transcriptionPromises = selectedModels.map(async (model) => {
-        const modelLog = startTimedLog(`${model.toUpperCase()} Transcription`, "info", model.toUpperCase());
-        
-        try {
-          modelLog.update(`Sending audio to ${model} with prompt: "${transcriptionPrompt}"`);
-          const result = await transcribeAudio(file, model, transcriptionPrompt);
-          
-          if (model === 'gemini-2.0-flash') {
-            addLog(`Gemini transcription result received`, "debug", {
-              source: "gemini-2.0-flash",
-              details: `VTT Content length: ${result.vttContent.length}, First 100 chars: ${result.vttContent.substring(0, 100)}...`
-            });
-          }
-          
-          const wordCount = result.vttContent.split(/\s+/).length;
-          modelLog.complete(
-            `${model.toUpperCase()} transcription successful`, 
-            `Generated ${wordCount} words | VTT format | Length: ${result.vttContent.length} characters`
-          );
-          
-          return { model, vtt: result.vttContent, prompt: result.prompt || transcriptionPrompt };
-        } catch (error) {
-          modelLog.error(
-            `${model.toUpperCase()} transcription failed`,
-            error instanceof Error ? error.message : String(error)
-          );
-          throw error;
-        }
+      // Create a job for each selected model
+      const jobPromises = selectedModels.map(model => 
+        createTranscriptionJob(file, model, transcriptionPrompt)
+      );
+      
+      await Promise.all(jobPromises);
+      
+      // Trigger refresh of jobs list
+      setRefreshJobsTrigger(prev => prev + 1);
+      
+      mainLog.complete(
+        `Transcription jobs created`, 
+        `Created ${selectedModels.length} transcription jobs`
+      );
+      
+      toast.toast({
+        title: "Transcription Jobs Created",
+        description: `Created ${selectedModels.length} transcription jobs. Check the 'Jobs' tab for status.`,
       });
       
-      const results = await Promise.allSettled(transcriptionPromises);
-      
-      const finalTranscriptions = { ...transcriptions };
-      
-      results.forEach((result) => {
-        if (result.status === "fulfilled") {
-          const { model, vtt, prompt } = result.value;
-          
-          if (model === 'gemini-2.0-flash') {
-            addLog(`Updating Gemini transcription in state`, "debug", {
-              source: "gemini-2.0-flash",
-              details: `VTT length: ${vtt.length}, First 100 chars: ${vtt.substring(0, 100)}...`
-            });
-          }
-          
-          finalTranscriptions[model] = { vtt, prompt, loading: false };
-        } else {
-          const failedModelIndex = results.findIndex(r => r === result);
-          if (failedModelIndex >= 0 && failedModelIndex < selectedModels.length) {
-            const model = selectedModels[failedModelIndex];
-            finalTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: false };
-          }
-        }
-      });
-      
-      addLog(`Updating transcriptions state with results`, "debug", {
-        source: "Transcription",
-        details: `Models processed: ${selectedModels.join(', ')}`
-      });
-      
-      setTranscriptions(finalTranscriptions);
-      
-      if (selectedModels.includes('gemini-2.0-flash')) {
-        addLog(`Gemini state after update: ${finalTranscriptions['gemini-2.0-flash']?.vtt ? 'Has content' : 'No content'}`, "debug", {
-          source: "gemini-2.0-flash",
-          details: `VTT length: ${finalTranscriptions['gemini-2.0-flash']?.vtt?.length || 0}`
-        });
-      }
-      
-      const successfulTranscriptions = results.filter(r => r.status === "fulfilled").length;
-      
-      if (successfulTranscriptions > 0) {
-        mainLog.complete(
-          `Transcription process completed`, 
-          `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
-        );
-        
-        toast.toast({
-          title: "Transcription Complete",
-          description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
-        });
-        
-        if (notificationsEnabled) {
-          showNotification("Transcription Complete", {
-            body: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
-            tag: "transcription-complete"
-          });
-        }
-      } else {
-        mainLog.error(
-          `Transcription process failed`,
-          `All ${selectedModels.length} transcription attempts failed`
-        );
-        
-        toast.toast({
-          title: "Transcription Failed",
-          description: "All transcription attempts failed. Please try again.",
-          variant: "destructive",
+      if (notificationsEnabled) {
+        showNotification("Transcription Jobs Created", {
+          body: `${selectedModels.length} transcription jobs have been started and will continue processing in the background.`,
+          tag: "transcription-jobs-created"
         });
       }
     } catch (error) {
-      console.error("Error processing transcriptions:", error);
-      addLog(`Error in transcription process`, "error", {
+      console.error("Error creating transcription jobs:", error);
+      addLog(`Error creating transcription jobs`, "error", {
         details: error instanceof Error ? error.message : String(error),
         source: "Transcription"
       });
       
       toast.toast({
-        title: "Processing Error",
-        description: "There was a problem processing your transcriptions.",
+        title: "Error Creating Jobs",
+        description: "There was a problem creating your transcription jobs.",
         variant: "destructive",
       });
     } finally {
@@ -389,11 +329,11 @@ const Index = () => {
     }
   };
   
-  // When a transcription is selected
-  const handleSelectTranscription = (model: string, vtt: string) => {
+  // When a transcription is selected from jobs or cards
+  const handleSelectTranscription = (vtt: string, model: string) => {
     setSelectedTranscription(vtt);
     setSelectedModel(model);
-    addLog(`Selected ${model.toUpperCase()} transcription for publishing`, "info", {
+    addLog(`Selected ${model} transcription for publishing`, "info", {
       source: "Selection",
       details: `VTT length: ${vtt.length} characters | Word count: ${vtt.split(/\s+/).length} words`
     });
@@ -670,47 +610,61 @@ const Index = () => {
             </div>
             
             <div className="lg:col-span-9 space-y-4">
-              <div className="space-y-3">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <Check className="mr-2 h-5 w-5 text-violet-500" />
-                  Transcription Results
-                </h2>
+              <Tabs defaultValue="results" className="w-full">
+                <TabsList className="mb-2">
+                  <TabsTrigger value="results">Transcription Results</TabsTrigger>
+                  <TabsTrigger value="jobs">Background Jobs</TabsTrigger>
+                </TabsList>
                 
-                {selectedModels.length > 0 ? (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {selectedModels.map((model) => {
-                      const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
-                      
-                      return (
-                        <TranscriptionCard
-                          key={model}
-                          modelName={
-                            model === "openai" 
-                              ? "OpenAI Whisper" 
-                              : model === "gemini-2.0-flash" 
-                                ? "Gemini 2.0 Flash" 
-                                : "Microsoft Phi-4"
-                          }
-                          vttContent={transcription.vtt}
-                          prompt={transcription.prompt}
-                          onSelect={() => handleSelectTranscription(model, transcription.vtt)}
-                          isSelected={selectedModel === model}
-                          audioSrc={audioUrl || undefined}
-                          isLoading={transcription.loading}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <Card className="p-8 flex flex-col items-center justify-center text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
-                    <p className="text-muted-foreground max-w-md">
-                      Upload an audio file and select at least one transcription model to see results here.
-                    </p>
-                  </Card>
-                )}
-              </div>
+                <TabsContent value="results" className="space-y-3">
+                  <h2 className="text-xl font-semibold flex items-center">
+                    <Check className="mr-2 h-5 w-5 text-violet-500" />
+                    Transcription Results
+                  </h2>
+                  
+                  {selectedModels.length > 0 ? (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {selectedModels.map((model) => {
+                        const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
+                        
+                        return (
+                          <TranscriptionCard
+                            key={model}
+                            modelName={
+                              model === "openai" 
+                                ? "OpenAI Whisper" 
+                                : model === "gemini-2.0-flash" 
+                                  ? "Gemini 2.0 Flash" 
+                                  : "Microsoft Phi-4"
+                            }
+                            vttContent={transcription.vtt}
+                            prompt={transcription.prompt}
+                            onSelect={() => handleSelectTranscription(transcription.vtt, model)}
+                            isSelected={selectedModel === model}
+                            audioSrc={audioUrl || undefined}
+                            isLoading={transcription.loading}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Card className="p-8 flex flex-col items-center justify-center text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        Upload an audio file and select at least one transcription model to see results here.
+                      </p>
+                    </Card>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="jobs">
+                  <TranscriptionJobs 
+                    onSelectTranscription={handleSelectTranscription}
+                    refreshTrigger={refreshJobsTrigger}
+                  />
+                </TabsContent>
+              </Tabs>
               
               <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
                 <summary className="cursor-pointer font-medium flex items-center text-sm">
