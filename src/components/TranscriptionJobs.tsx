@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -157,7 +156,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   
   const handleSelectTranscription = (job: TranscriptionJob) => {
     if (job.status === 'completed' && job.result && onSelectTranscription) {
-      // Check if result is in the expected format
       const result = job.result as any;
       if (result.vttContent) {
         onSelectTranscription(result.vttContent, job.model);
