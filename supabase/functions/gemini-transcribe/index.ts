@@ -55,8 +55,8 @@ serve(async (req) => {
     // Read the audio file as an array buffer
     const arrayBuffer = await audioFile.arrayBuffer();
     
-    // Use a more reliable method to encode to base64
-    const base64Audio = await encodeAudioToBase64(arrayBuffer);
+    // Use a properly formatted base64 encoding method
+    const base64Audio = await properlyEncodedBase64(arrayBuffer, audioFile.type);
     
     console.log(`Audio conversion complete, base64 length: ${base64Audio.length}`);
     
@@ -184,28 +184,25 @@ serve(async (req) => {
   }
 });
 
-// Improved base64 encoding function that properly handles large files
-async function encodeAudioToBase64(buffer: ArrayBuffer): Promise<string> {
-  // Create a Uint8Array from the array buffer
+// Properly encode to base64 for Gemini API
+async function properlyEncodedBase64(buffer: ArrayBuffer, mimeType: string): Promise<string> {
   const bytes = new Uint8Array(buffer);
   
-  // Use the chunk size that works well with Deno's memory limits
-  const chunkSize = 1024 * 512; // 512KB chunks
-  let base64 = '';
+  // Convert to a binary string first
+  let binary = '';
+  const chunkSize = 1024; // Use small chunks to avoid stack issues
   
-  // Process the file in chunks to avoid memory issues
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.slice(i, Math.min(i + chunkSize, bytes.length));
-    // Create a binary string from the chunk
-    let binaryString = '';
     for (let j = 0; j < chunk.length; j++) {
-      binaryString += String.fromCharCode(chunk[j]);
+      binary += String.fromCharCode(chunk[j]);
     }
-    // Convert the binary string to base64 and append to result
-    base64 += btoa(binaryString);
   }
   
-  return base64;
+  // Use btoa for standard base64 encoding
+  // This needs to be called once on the complete binary string
+  // to ensure proper padding and formatting
+  return btoa(binary);
 }
 
 // Helper function to convert text to VTT format
