@@ -45,15 +45,25 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
   try {
     // For Phi-4, use client-side transcription
     if (model === 'phi4') {
-      // Get the raw text from Phi-4
+      // Get the result from Phi-4
       const result = await phi4Transcribe(file);
       
-      // Convert to VTT format for consistency with other models
-      const vttContent = convertTextToVTT(result.text);
-      return {
-        vttContent,
-        prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
-      };
+      // The phi4Transcribe function now returns chunks with timestamps if available
+      if (result.chunks) {
+        // If we have chunks, convert them to VTT format
+        const vttContent = convertChunksToVTT(result.chunks);
+        return {
+          vttContent,
+          prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
+        };
+      } else {
+        // If no chunks, convert plain text to VTT
+        const vttContent = convertTextToVTT(result.text);
+        return {
+          vttContent,
+          prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
+        };
+      }
     }
     
     // For other models, use the server-side functions
@@ -97,7 +107,7 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
   }
 }
 
-// Helper function to convert plain text to VTT format
+// Helper function to convert text to VTT format
 function convertTextToVTT(text: string): string {
   let vttContent = 'WEBVTT\n\n';
   
@@ -109,6 +119,19 @@ function convertTextToVTT(text: string): string {
     const startTime = formatVTTTime(index * 5);
     const endTime = formatVTTTime((index + 1) * 5);
     vttContent += `${startTime} --> ${endTime}\n${sentence.trim()}\n\n`;
+  });
+  
+  return vttContent;
+}
+
+// Helper function to convert chunks with timestamps to VTT format
+function convertChunksToVTT(chunks: Array<{ text: string; timestamp: [number, number] }>): string {
+  let vttContent = 'WEBVTT\n\n';
+  
+  chunks.forEach((chunk) => {
+    const startTime = formatVTTTime(chunk.timestamp[0]);
+    const endTime = formatVTTTime(chunk.timestamp[1]);
+    vttContent += `${startTime} --> ${endTime}\n${chunk.text.trim()}\n\n`;
   });
   
   return vttContent;

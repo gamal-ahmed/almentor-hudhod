@@ -1,4 +1,3 @@
-
 import { pipeline } from "@huggingface/transformers";
 import { toast } from "sonner";
 
@@ -45,12 +44,24 @@ export async function transcribeAudio(audioFile: File): Promise<TranscriptionRes
     if (Array.isArray(result)) {
       // If it's an array, we'll join the text from each item
       const combinedText = result.map(item => item.text || "").join(" ");
+      
+      // Generate VTT content from the combined text
+      const vttContent = convertTextToVTT(combinedText);
+      
       return { 
         text: combinedText,
         prompt: "No prompt supported in browser-based Phi-4 model" 
       };
     } else {
-      // If it's a single object
+      // If it's a single object with chunks, convert to VTT format
+      let vttContent = "";
+      
+      if (Array.isArray(result.chunks) && result.chunks.length > 0) {
+        vttContent = convertChunksToVTT(result.chunks);
+      } else {
+        vttContent = convertTextToVTT(result.text || "");
+      }
+      
       return {
         text: result.text || "",
         prompt: "No prompt supported in browser-based Phi-4 model",
@@ -124,4 +135,50 @@ function extractTextFromVTT(vttContent: string): string {
   }
   
   return textLines.join(' ').trim();
+}
+
+/**
+ * Convert plain text to VTT format
+ */
+function convertTextToVTT(text: string): string {
+  let vttContent = 'WEBVTT\n\n';
+  
+  // Split text into sentences or chunks (simple splitting by punctuation)
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  
+  // Create a VTT cue for each sentence with appropriate timestamps
+  sentences.forEach((sentence, index) => {
+    const startTime = formatVTTTime(index * 5);
+    const endTime = formatVTTTime((index + 1) * 5);
+    vttContent += `${startTime} --> ${endTime}\n${sentence.trim()}\n\n`;
+  });
+  
+  return vttContent;
+}
+
+/**
+ * Convert chunks with timestamps to VTT format
+ */
+function convertChunksToVTT(chunks: Array<{ text: string; timestamp: [number, number] }>): string {
+  let vttContent = 'WEBVTT\n\n';
+  
+  chunks.forEach((chunk) => {
+    const startTime = formatVTTTime(chunk.timestamp[0]);
+    const endTime = formatVTTTime(chunk.timestamp[1]);
+    vttContent += `${startTime} --> ${endTime}\n${chunk.text.trim()}\n\n`;
+  });
+  
+  return vttContent;
+}
+
+/**
+ * Format time in seconds to VTT timestamp format (HH:MM:SS.mmm)
+ */
+function formatVTTTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const milliseconds = Math.floor((seconds % 1) * 1000);
+  
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
 }
