@@ -88,9 +88,9 @@ serve(async (req) => {
 
     console.log('Sending request to Gemini API');
     
-    // Make the request to the Gemini API
+    // Make the request to the Gemini API with the updated model
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
       {
         method: "POST",
         headers: {
