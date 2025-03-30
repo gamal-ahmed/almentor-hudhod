@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 
@@ -41,7 +42,7 @@ export async function fetchBrightcoveKeys() {
 }
 
 // Fetch MP3 files from SharePoint
-export async function fetchSharePointFiles(sharePointUrl: string): Promise<File[]> {
+export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name: string, url: string}[]> {
   try {
     const response = await fetch(`${SHAREPOINT_PROXY_URL}/list-files`, {
       method: 'POST',
@@ -61,15 +62,46 @@ export async function fetchSharePointFiles(sharePointUrl: string): Promise<File[
     
     const data = await response.json();
     
-    const mockFiles = [
-      new File([new ArrayBuffer(10000)], "interview1.mp3", { type: "audio/mpeg" }),
-      new File([new ArrayBuffer(10000)], "meeting_notes.mp3", { type: "audio/mpeg" }),
-      new File([new ArrayBuffer(10000)], "conference_call.mp3", { type: "audio/mpeg" })
-    ];
-    
-    return mockFiles;
+    // Filter only mp3 files
+    return data.files.filter((file: any) => 
+      file.name.toLowerCase().endsWith('.mp3') || 
+      file.name.toLowerCase().endsWith('.m4a') || 
+      file.name.toLowerCase().endsWith('.wav')
+    );
   } catch (error) {
     console.error('Error fetching SharePoint files:', error);
+    throw error;
+  }
+}
+
+// Download a single file from SharePoint
+export async function downloadSharePointFile(fileUrl: string): Promise<File> {
+  try {
+    const response = await fetch(`${SHAREPOINT_PROXY_URL}/download-file`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        fileUrl
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Extract file name from URL
+    const fileName = fileUrl.split('/').pop() || 'audio.mp3';
+    
+    // Create a File object from the array buffer
+    return new File([arrayBuffer], fileName, { type: 'audio/mpeg' });
+  } catch (error) {
+    console.error('Error downloading SharePoint file:', error);
     throw error;
   }
 }
