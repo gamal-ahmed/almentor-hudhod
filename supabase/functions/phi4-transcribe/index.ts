@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -30,9 +31,21 @@ serve(async (req) => {
     
     console.log(`Processing audio file: ${audioFile.name}, size: ${audioFile.size} bytes, type: ${audioFile.type}`);
     
-    // Convert audio file to ArrayBuffer
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const audioB64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    // Convert audio file to base64 in a more efficient way
+    const buffer = await audioFile.arrayBuffer();
+    // Use chunks to avoid stack overflow
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 1024; // Process in smaller chunks
+    
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.slice(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    
+    const audioB64 = btoa(binary);
+    
+    console.log(`Audio converted to base64, sending to Hugging Face API...`);
     
     // Create a transcription request to Hugging Face Inference API
     // Using the microsoft/Phi-4-multimodal-instruct model
