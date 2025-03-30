@@ -26,7 +26,7 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     const { data: jobData, error: jobError } = await supabase
       .from('transcription_jobs')
       .insert({
-        model: model,
+        model: model as string, // Cast to string for the database
         file_path: fileName,
         status: 'pending',
         status_message: 'Job created, uploading file'

@@ -1,7 +1,5 @@
 
-// Common utilities and constants for API operations
-
-// API endpoints using Supabase Edge Functions
+// API endpoints (using Supabase Edge Functions)
 export const API_ENDPOINTS = {
   OPENAI_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe',
   GEMINI_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe',

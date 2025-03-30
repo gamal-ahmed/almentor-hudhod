@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -11,8 +10,8 @@ import { TranscriptionModel } from './ModelSelector';
 
 interface TranscriptionJob {
   id: string;
-  status: string; // Changed from enum-like type to string for flexibility
-  model: TranscriptionModel;
+  status: string;
+  model: string;
   created_at: string;
   updated_at: string;
   status_message: string;
@@ -38,7 +37,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     try {
       setLoading(true);
       const jobsData = await getUserTranscriptionJobs();
-      setJobs(jobsData);
+      setJobs(jobsData as TranscriptionJob[]);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast({
@@ -51,7 +50,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     }
   };
   
-  // Poll for job updates
   useEffect(() => {
     if (jobs.some(job => job.status === 'pending' || job.status === 'processing')) {
       setPolling(true);
@@ -71,10 +69,9 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 updatedJob.status !== job.status || 
                 updatedJob.status_message !== job.status_message
               ) {
-                updatedJobs[i] = updatedJob;
+                updatedJobs[i] = updatedJob as TranscriptionJob;
                 hasChanges = true;
                 
-                // Fixed comparison issue using equality instead of strict equality
                 if (updatedJob.status === 'completed' && job.status !== 'completed') {
                   toast({
                     title: "Transcription completed",
@@ -98,12 +95,11 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
           setJobs(updatedJobs);
         }
         
-        // Stop polling if no jobs are pending or processing
         if (!updatedJobs.some(job => job.status === 'pending' || job.status === 'processing')) {
           setPolling(false);
           clearInterval(intervalId);
         }
-      }, 5000); // Poll every 5 seconds
+      }, 5000);
       
       return () => clearInterval(intervalId);
     } else {
@@ -111,12 +107,11 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     }
   }, [jobs, toast]);
   
-  // Initial fetch
   useEffect(() => {
     fetchJobs();
   }, [refreshTrigger]);
   
-  const getModelDisplayName = (model: TranscriptionModel) => {
+  const getModelDisplayName = (model: string) => {
     switch (model) {
       case "openai":
         return "OpenAI Whisper";
@@ -246,7 +241,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
               {job.status === 'processing' && (
                 <Progress 
                   className="h-2" 
-                  value={70} // Indeterminate progress value
+                  value={70}
                 />
               )}
               
@@ -274,7 +269,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                   size="sm"
                   className="w-full text-xs"
                   onClick={() => {
-                    // Here you would implement retry logic
                     toast({
                       title: "Retry functionality",
                       description: "Retry feature will be implemented soon",

@@ -26,5 +26,7 @@ export {
 export {
   convertTextToVTT,
   convertChunksToVTT,
-  formatVTTTime
+  formatVTTTime,
+  API_ENDPOINTS,
+  SUPABASE_KEY
 } from './utils';
