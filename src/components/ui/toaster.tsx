@@ -1,5 +1,5 @@
 
-import { useToast } from "@/components/ui/use-toast" // Fixed import
+import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
   ToastClose,
