@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -363,8 +362,8 @@ const Index = () => {
         </header>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Main Content - 7 columns wide */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* Main Content - 8 columns wide */}
+          <div className="lg:col-span-8 space-y-6">
             {/* Step 1: Upload */}
             <Card className="overflow-hidden border-t-4 border-t-blue-500 shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">
@@ -553,8 +552,8 @@ const Index = () => {
             </Card>
           </div>
           
-          {/* Log Panel - 5 columns wide */}
-          <div className="lg:col-span-5 lg:sticky lg:top-6 lg:self-start">
+          {/* Log Panel - 4 columns wide */}
+          <div className="lg:col-span-4 lg:sticky lg:top-6 lg:self-start">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
               <FileText className="mr-2 h-5 w-5 text-gray-500" />
               System Logs
