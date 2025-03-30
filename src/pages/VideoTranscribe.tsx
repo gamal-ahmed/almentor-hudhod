@@ -13,6 +13,14 @@ import { Loader2, Upload, Video, FileText, Download, Copy, Check } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
+// Add type definitions for the missing method
+declare global {
+  interface HTMLVideoElement {
+    captureStream?: () => MediaStream;
+    mozCaptureStream?: () => MediaStream;
+  }
+}
+
 const VideoTranscribePage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -105,19 +113,35 @@ const VideoTranscribePage = () => {
         const stream = canvas.captureStream();
         audioDestination = audioContext.createMediaStreamDestination();
         
-        if (video.captureStream) {
+        // Check if captureStream is supported
+        if (video.captureStream || video.mozCaptureStream) {
           // Extract audio from video's media stream if supported
-          const videoStream = video.captureStream();
-          const audioTracks = videoStream.getAudioTracks();
+          const videoStream = video.captureStream 
+            ? video.captureStream() 
+            : (video.mozCaptureStream ? video.mozCaptureStream() : null);
           
-          if (audioTracks.length > 0) {
-            stream.addTrack(audioTracks[0]);
+          if (videoStream && videoStream.getAudioTracks().length > 0) {
+            stream.addTrack(videoStream.getAudioTracks()[0]);
           } else {
-            reject(new Error("No audio track found in video"));
+            // Fall back to just sending the video file directly
+            toast({
+              title: "Audio extraction limited",
+              description: "Could not extract audio track, using video directly.",
+              variant: "default"
+            });
+            URL.revokeObjectURL(video.src);
+            resolve(videoFile);
             return;
           }
         } else {
-          reject(new Error("Browser doesn't support captureStream"));
+          // Browser doesn't support captureStream
+          toast({
+            title: "Audio extraction not supported",
+            description: "Your browser doesn't support audio extraction. Using video file directly.",
+            variant: "default"
+          });
+          URL.revokeObjectURL(video.src);
+          resolve(videoFile);
           return;
         }
         
