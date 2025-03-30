@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Progress } from "@/components/ui/progress";
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { queueTranscriptionJob, checkTranscriptionStatus } from "@/lib/api";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -157,7 +158,7 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
         
         // Don't stop polling on temporary errors
         // But if we've been polling for too long, stop
-        if (error.message.includes('Job not found')) {
+        if (error.message && error.message.includes('Job not found')) {
           clearInterval(interval);
           setPollingInterval(null);
           setStatus('error');
@@ -184,6 +185,22 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
     };
   }, []);
   
+  // Check for stored job ID in localStorage on component mount
+  useEffect(() => {
+    const storedJobId = localStorage.getItem(`transcription_job_${file?.name}`);
+    if (storedJobId && status === 'idle') {
+      setJobId(storedJobId);
+      startPolling(storedJobId);
+    }
+  }, [file]);
+  
+  // Store job ID in localStorage when it changes
+  useEffect(() => {
+    if (jobId && file) {
+      localStorage.setItem(`transcription_job_${file.name}`, jobId);
+    }
+  }, [jobId, file]);
+  
   // Display a result card if transcription is complete
   const renderResult = () => {
     if (status === 'completed' && result && result.vttContent) {
@@ -201,33 +218,34 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
     return null;
   };
 
-  // Status indicator
-  const getStatusIndicator = () => {
-    switch (status) {
-      case 'idle':
-        return <Badge variant="outline">Ready</Badge>;
-      case 'queueing':
-        return <Badge variant="secondary">Preparing</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Queued</Badge>;
-      case 'processing':
-        return <Badge className="bg-blue-500">Processing</Badge>;
-      case 'completed':
-        return <Badge className="bg-green-500">Completed</Badge>;
-      case 'failed':
-      case 'error':
-        return <Badge variant="destructive">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  // Function to refresh status manually
+  const refreshStatus = () => {
+    if (jobId) {
+      startPolling(jobId);
     }
   };
-  
+
   return (
     <Card className="w-full">
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg">Async Transcription</CardTitle>
-          {getStatusIndicator()}
+          <Badge 
+            variant={
+              status === 'completed' 
+                ? "default" 
+                : status === 'error' || status === 'failed' 
+                  ? "destructive" 
+                  : "secondary"
+            }
+          >
+            {status === 'idle' ? 'Ready' : 
+             status === 'queueing' ? 'Preparing' :
+             status === 'pending' ? 'Queued' :
+             status === 'processing' ? 'Processing' :
+             status === 'completed' ? 'Completed' :
+             'Failed'}
+          </Badge>
         </div>
       </CardHeader>
       
@@ -238,25 +256,30 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
             <span className="font-medium">File:</span> {file.name} ({Math.round(file.size / 1024)} KB)
           </div>
           
-          {/* Status message */}
-          <div className="text-sm">
-            <span className="font-medium">Status:</span> {statusMessage || 'Ready to start transcription'}
+          {/* Progress bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span>{statusMessage || 'Ready to start transcription'}</span>
+              {(status === 'pending' || status === 'processing') && (
+                <span className="text-sm font-medium">{progress}%</span>
+              )}
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
           
-          {/* Progress indicator */}
-          {(status === 'pending' || status === 'processing' || status === 'queueing') && (
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mt-2">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-in-out" 
-                style={{ width: `${progress}%` }}
-              ></div>
+          {/* Status message for returning users */}
+          {jobId && (status === 'pending' || status === 'processing') && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm">
+              <p className="text-blue-700 dark:text-blue-400">
+                Transcription in progress. You can close this window and return later - your progress will be saved.
+              </p>
             </div>
           )}
           
           {/* Error message */}
           {error && (
-            <div className="text-sm text-red-500 mt-2">
-              <span className="font-medium">Error:</span> {error}
+            <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-md text-sm">
+              <span className="font-medium text-red-700 dark:text-red-400">Error:</span> {error}
             </div>
           )}
           
@@ -265,9 +288,9 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
         </div>
       </CardContent>
       
-      <CardFooter className="flex justify-end">
+      <CardFooter className="flex justify-between">
         {status === 'idle' && (
-          <Button onClick={queueJob} disabled={isLoading}>
+          <Button onClick={queueJob} disabled={isLoading} className="w-full">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -280,6 +303,23 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
               </>
             )}
           </Button>
+        )}
+        
+        {(status === 'pending' || status === 'processing' || status === 'error') && (
+          <Button 
+            variant="outline" 
+            onClick={refreshStatus}
+            className="flex-1"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh Status
+          </Button>
+        )}
+        
+        {status === 'completed' && (
+          <div className="w-full text-center text-sm text-green-600 dark:text-green-400">
+            Transcription complete! You can use this result in the publication step.
+          </div>
         )}
       </CardFooter>
     </Card>

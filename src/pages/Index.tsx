@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -600,11 +599,11 @@ const Index = () => {
                   <div className="space-y-2">
                     <div className="mb-3">
                       <div className="text-sm font-medium mb-1.5">Processing Mode:</div>
-                      <div className="flex gap-2">
+                      <div className="flex">
                         <Button 
                           variant={processingMode === "sync" ? "default" : "outline"} 
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 mr-2"
                           onClick={() => setProcessingMode("sync")}
                         >
                           Synchronous
@@ -617,6 +616,13 @@ const Index = () => {
                         >
                           Asynchronous
                         </Button>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {processingMode === "sync" ? (
+                          "Process in real-time. Wait for results."
+                        ) : (
+                          "Queue job for background processing. Track progress, can close browser."
+                        )}
                       </div>
                     </div>
                     
@@ -649,16 +655,11 @@ const Index = () => {
                     )}
                     
                     {processingMode === "async" && file && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md">
-                        <div className="text-xs text-muted-foreground mb-1">
-                          Asynchronous mode queues your transcription job for background processing. You can close your browser and check results later.
-                        </div>
-                        <AsyncTranscriber 
-                          file={file}
-                          model="openai" 
-                          onComplete={handleAsyncTranscriptionComplete}
-                        />
-                      </div>
+                      <AsyncTranscriber 
+                        file={file}
+                        model="openai" 
+                        onComplete={handleAsyncTranscriptionComplete}
+                      />
                     )}
                   </div>
                 </CardContent>
