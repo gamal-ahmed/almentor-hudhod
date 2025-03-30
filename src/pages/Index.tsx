@@ -559,25 +559,27 @@ const Index = () => {
               </CardContent>
             </Card>
             
-            {/* Step 4: Publish */}
-            <Card className="overflow-hidden border-l-4 border-l-amber-500 shadow-sm">
+            {/* Step 4: Publish - Now dimmed unless a transcription is selected */}
+            <Card className={`overflow-hidden border-l-4 ${selectedTranscription ? 'border-l-amber-500' : 'border-l-gray-300'} shadow-sm transition-colors duration-300 ${!selectedTranscription ? 'opacity-60' : ''}`}>
               <CardContent className="pt-4 p-3">
-                <h3 className="text-sm font-semibold mb-2 flex items-center">
-                  <Send className="mr-1 h-4 w-4 text-amber-500" />
-                  Publish Options
+                <h3 className={`text-sm font-semibold mb-2 flex items-center ${!selectedTranscription ? 'text-muted-foreground' : ''}`}>
+                  <Send className={`mr-1 h-4 w-4 ${selectedTranscription ? 'text-amber-500' : 'text-gray-400'}`} />
+                  Publish Options {!selectedTranscription && '(Select a transcription first)'}
                 </h3>
                 
                 <div className="space-y-2">
                   <VideoIdInput 
                     videoId={videoId} 
                     onChange={setVideoId}
-                    disabled={isPublishing}
+                    disabled={isPublishing || !selectedTranscription}
                   />
                   
                   <Button 
                     onClick={publishCaption} 
                     disabled={isPublishing || !selectedTranscription || !videoId}
-                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 h-8 text-xs"
+                    className={`w-full ${selectedTranscription 
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' 
+                      : 'bg-gray-400'} h-8 text-xs`}
                   >
                     {isPublishing ? (
                       <>
