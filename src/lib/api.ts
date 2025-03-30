@@ -8,7 +8,9 @@ export {
   getUserTranscriptions,
   saveTranscriptionResult,
   getTranscriptionById,
-  getLatestTranscriptionsByModel
+  getLatestTranscriptionsByModel,
+  saveTranscriptionSession,
+  getLatestTranscriptionSession
 } from './api/transcriptionService';
 
 // API endpoints (using Supabase Edge Functions)

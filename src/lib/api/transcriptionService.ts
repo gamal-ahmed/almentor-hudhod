@@ -240,3 +240,101 @@ export async function getLatestTranscriptionsByModel() {
     return {};
   }
 }
+
+// Save current transcription session for persistence
+export async function saveTranscriptionSession(
+  audioFileName: string | null,
+  selectedModels: TranscriptionModel[],
+  transcriptions: Record<string, { vtt: string, prompt: string, loading: boolean }>,
+  selectedModel: string | null,
+  selectedTranscription: string | null,
+  videoId: string = ""
+) {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      console.log("No user ID available, cannot save session");
+      return null;
+    }
+    
+    // Check if a session already exists for this user
+    const { data: existingSession, error: fetchError } = await supabase
+      .from('transcription_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    const sessionData = {
+      audio_file_name: audioFileName,
+      selected_models: selectedModels,
+      transcriptions: transcriptions,
+      selected_model: selectedModel,
+      selected_transcription: selectedTranscription,
+      video_id: videoId,
+      user_id: userId,
+      last_updated: new Date().toISOString()
+    };
+    
+    let result;
+    
+    if (existingSession) {
+      // Update existing session
+      const { data, error } = await supabase
+        .from('transcription_sessions')
+        .update(sessionData)
+        .eq('user_id', userId)
+        .select();
+        
+      if (error) throw error;
+      result = data;
+    } else {
+      // Create new session
+      const { data, error } = await supabase
+        .from('transcription_sessions')
+        .insert(sessionData)
+        .select();
+        
+      if (error) throw error;
+      result = data;
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("Error saving transcription session:", error);
+    return null;
+  }
+}
+
+// Get the latest transcription session for the current user
+export async function getLatestTranscriptionSession() {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      // If user is not authenticated, return null
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('transcription_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No session found, not an error
+        return null;
+      }
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Error fetching transcription session:", error);
+    return null;
+  }
+}

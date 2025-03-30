@@ -19,15 +19,21 @@ import {
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
-  getLatestTranscriptionsByModel
+  getLatestTranscriptionsByModel,
+  saveTranscriptionSession,
+  getLatestTranscriptionSession
 } from "@/lib/api";
 import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 import Header from '@/components/Header';
 import TranscriptionHistory from "@/components/TranscriptionHistory";
+import { useAuth } from "@/lib/AuthContext";
 
 const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
 const Index = () => {
+  // Auth context
+  const { isAuthenticated, user } = useAuth();
+  
   // Main state
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -59,9 +65,44 @@ const Index = () => {
     phi4: { vtt: "", prompt: "", loading: false }
   });
   const [isLoadingStoredTranscriptions, setIsLoadingStoredTranscriptions] = useState<boolean>(false);
+  const [isRestoringSession, setIsRestoringSession] = useState<boolean>(false);
   
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
+
+  // Session persistence - save session state when it changes
+  useEffect(() => {
+    // Only save session if the user is authenticated and we have some data worth saving
+    if (isAuthenticated && (file || selectedTranscription || Object.values(transcriptions).some(t => t.vtt))) {
+      const saveSession = async () => {
+        try {
+          await saveTranscriptionSession(
+            file?.name || null,
+            selectedModels,
+            transcriptions,
+            selectedModel,
+            selectedTranscription,
+            videoId
+          );
+          
+          addLog("Session state saved", "info", {
+            source: "Session",
+            details: "Saved current transcription state to database"
+          });
+        } catch (error) {
+          console.error("Error saving session:", error);
+          addLog("Failed to save session state", "error", {
+            source: "Session",
+            details: error instanceof Error ? error.message : String(error)
+          });
+        }
+      };
+      
+      // Use debounce to avoid saving on every small change
+      const timeoutId = setTimeout(saveSession, 2000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAuthenticated, file, selectedModels, transcriptions, selectedModel, selectedTranscription, videoId]);
 
   // Request notification permission when notifications are enabled
   useEffect(() => {
@@ -79,13 +120,73 @@ const Index = () => {
     }
   }, [notificationsEnabled]);
   
-  // Load stored transcriptions on component mount
+  // Load stored transcriptions and restore session on component mount
   useEffect(() => {
-    loadStoredTranscriptions();
-  }, []);
+    if (isAuthenticated) {
+      loadStoredTranscriptions();
+      restoreSession();
+    }
+  }, [isAuthenticated]);
+  
+  // Restore session from database
+  const restoreSession = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsRestoringSession(true);
+    try {
+      addLog("Attempting to restore previous session", "info", {
+        source: "Session",
+        details: "Fetching saved transcription session"
+      });
+      
+      const session = await getLatestTranscriptionSession();
+      
+      if (session) {
+        addLog("Found saved session", "info", {
+          source: "Session",
+          details: `Last updated: ${new Date(session.last_updated).toLocaleString()}`
+        });
+        
+        // Restore state from session
+        setSelectedModels(session.selected_models || ["openai", "gemini-2.0-flash", "phi4"]);
+        setTranscriptions(session.transcriptions || {
+          openai: { vtt: "", prompt: "", loading: false },
+          "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
+          phi4: { vtt: "", prompt: "", loading: false }
+        });
+        setSelectedModel(session.selected_model || null);
+        setSelectedTranscription(session.selected_transcription || null);
+        setVideoId(session.video_id || "");
+        
+        toast({
+          title: "Session Restored",
+          description: "Your previous transcription session has been restored.",
+        });
+        
+        addLog("Session restored successfully", "success", {
+          source: "Session",
+          details: `Restored transcriptions for models: ${Object.keys(session.transcriptions || {}).join(", ")}`
+        });
+      } else {
+        addLog("No previous session found", "info", {
+          source: "Session"
+        });
+      }
+    } catch (error) {
+      console.error("Error restoring session:", error);
+      addLog("Failed to restore session", "error", {
+        source: "Session",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      setIsRestoringSession(false);
+    }
+  };
   
   // Load stored transcriptions from the server
   const loadStoredTranscriptions = async () => {
+    if (!isAuthenticated) return;
+    
     setIsLoadingStoredTranscriptions(true);
     try {
       addLog("Loading stored transcriptions", "info", {
@@ -218,14 +319,12 @@ const Index = () => {
       setFile(uploadedFile);
       const newAudioUrl = URL.createObjectURL(uploadedFile);
       setAudioUrl(newAudioUrl);
-      setSelectedTranscription(null);
-      setSelectedModel(null);
       
-      setTranscriptions({
-        openai: { vtt: "", prompt: "", loading: false },
-        "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
-        phi4: { vtt: "", prompt: "", loading: false }
-      });
+      // Don't clear transcriptions if we just restored them
+      if (!isRestoringSession) {
+        setSelectedTranscription(null);
+        setSelectedModel(null);
+      }
       
       addLog(`File selected: ${uploadedFile.name}`, "info", {
         details: `Size: ${Math.round(uploadedFile.size / 1024)} KB | Type: ${uploadedFile.type}`,
@@ -242,6 +341,18 @@ const Index = () => {
           body: "Your audio file is ready for transcription.",
           tag: "file-upload"
         });
+      }
+      
+      // Save session after file upload
+      if (isAuthenticated) {
+        await saveTranscriptionSession(
+          uploadedFile.name,
+          selectedModels,
+          transcriptions,
+          selectedModel,
+          selectedTranscription,
+          videoId
+        );
       }
     } catch (error) {
       console.error("Error handling file:", error);
@@ -568,6 +679,15 @@ const Index = () => {
     <>
       <Header />
       <div className="container py-6">
+        {isRestoringSession && (
+          <div className="max-w-[1440px] mx-auto bg-yellow-50 dark:bg-yellow-900/30 p-3 mb-4 rounded-md flex items-center">
+            <Loader2 className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mr-2 animate-spin" />
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
+              Restoring your previous transcription session...
+            </p>
+          </div>
+        )}
+        
         <div className="max-w-[1440px] mx-auto p-4 md:p-6">
           <header className="text-center mb-6">
             <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">

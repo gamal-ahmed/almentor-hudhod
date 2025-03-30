@@ -7,7 +7,9 @@ export {
   saveTranscriptionResult,
   getUserTranscriptions,
   getTranscriptionById,
-  getLatestTranscriptionsByModel
+  getLatestTranscriptionsByModel,
+  saveTranscriptionSession,
+  getLatestTranscriptionSession
 } from './transcriptionService';
 
 // SharePoint API
