@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -63,13 +64,17 @@ export async function exportTranscription(
     
     logOperation.complete(`Exported transcription as ${format}`, `File saved as ${data.fileName}.${data.format}`);
     
+    // Get current user
+    const userResponse = await supabase.auth.getUser();
+    const userId = userResponse.data.user?.id || 'anonymous';
+    
     return {
       id: data.id || crypto.randomUUID(),
       file_name: data.fileName,
       format: data.format,
       file_url: data.fileUrl,
       created_at: new Date().toISOString(),
-      user_id: supabase.auth.getUser().data.user?.id || 'anonymous',
+      user_id: userId,
       size_bytes: data.sizeBytes
     };
   } catch (error) {
@@ -86,16 +91,28 @@ export async function exportTranscription(
 // Get user's exported transcription files
 export async function getUserExportedFiles(): Promise<ExportFile[]> {
   try {
+    // Since transcription_exports table doesn't exist in the types yet, we need to use a type assertion
     const { data, error } = await supabase
       .from('transcription_exports')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as any;
     
     if (error) {
       throw new Error(`Failed to fetch user exports: ${error.message}`);
     }
     
-    return (data || []) as ExportFile[];
+    // Transform the data to match the ExportFile interface
+    const exportFiles: ExportFile[] = (data || []).map((item: any) => ({
+      id: item.id,
+      file_name: item.file_name,
+      format: item.format,
+      file_url: item.file_url,
+      created_at: item.created_at,
+      user_id: item.user_id,
+      size_bytes: item.size_bytes
+    }));
+    
+    return exportFiles;
   } catch (error) {
     console.error('Error fetching user exported files:', error);
     throw error;

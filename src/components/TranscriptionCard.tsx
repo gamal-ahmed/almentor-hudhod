@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { Check, Copy, Play, Pause, Info } from "lucide-react";
 import { parseVTT } from "@/lib/vttParser";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLogsStore } from "@/lib/useLogsStore";
+import ExportMenu from "@/components/ExportMenu";
 
 interface TranscriptionCardProps {
   modelName: string;
@@ -39,7 +39,6 @@ const TranscriptionCard = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const addLog = useLogsStore(state => state.addLog);
   
-  // Debug log for tracking props
   useEffect(() => {
     console.log(`TranscriptionCard render for ${modelName}:`, { 
       hasContent: !!vttContent, 
@@ -56,7 +55,6 @@ const TranscriptionCard = ({
     }
   }, [vttContent, isLoading, modelName, addLog]);
   
-  // Parse VTT content and log results for debugging
   const parseVttContent = () => {
     if (!vttContent || typeof vttContent !== 'string') {
       console.log(`${modelName}: No VTT content to parse`);
@@ -64,18 +62,14 @@ const TranscriptionCard = ({
     }
     
     try {
-      // First attempt normal VTT parsing
       let segments = parseVTT(vttContent);
       
-      // Special handling for Gemini which may return malformed VTT
       if (segments.length === 0 && vttContent.length > 0 && modelName.includes("Gemini")) {
         addLog(`Gemini VTT parsing issue: attempting fallback parsing`, "warning", {
           source: "TranscriptionCard",
           details: `VTT Content (first 200 chars): ${vttContent.substring(0, 200)}...`
         });
         
-        // Fallback: Try to extract text manually from the VTT content
-        // Some Gemini responses might not be properly formatted VTT
         const lines = vttContent.split('\n');
         let isInCue = false;
         let currentCue = { startTime: "00:00:00.000", endTime: "00:05:00.000", text: "" };
@@ -99,12 +93,10 @@ const TranscriptionCard = ({
           }
         }
         
-        // Add the last segment if there's text
         if (currentCue.text) {
           segments.push(currentCue);
         }
         
-        // If fallback parsing didn't work, create a single segment with all content
         if (segments.length === 0) {
           addLog(`Gemini fallback parsing failed: creating single segment with all content`, "warning", {
             source: "TranscriptionCard"
@@ -135,7 +127,6 @@ const TranscriptionCard = ({
         details: error.stack
       });
       
-      // Return a single segment with the raw content as a fallback
       if (vttContent && vttContent.length > 0) {
         return [{
           startTime: "00:00:00.000",
@@ -150,16 +141,13 @@ const TranscriptionCard = ({
   
   const vttSegments = parseVttContent();
   
-  // Setup audio element and event handling
   useEffect(() => {
     if (audioRef.current) {
-      // Event listeners for tracking playback time and updating active segment
       const handleTimeUpdate = () => {
         if (!audioRef.current) return;
         
         const currentTime = audioRef.current.currentTime;
         
-        // Find the segment that corresponds to the current playback time
         const index = vttSegments.findIndex((segment) => {
           const startSeconds = parseTimeToSeconds(segment.startTime);
           const endSeconds = parseTimeToSeconds(segment.endTime);
@@ -180,13 +168,11 @@ const TranscriptionCard = ({
         setActiveSegment(null);
       };
       
-      // Add event listeners
       audioRef.current.addEventListener('timeupdate', handleTimeUpdate);
       audioRef.current.addEventListener('play', handlePlay);
       audioRef.current.addEventListener('pause', handlePause);
       audioRef.current.addEventListener('ended', handleEnded);
       
-      // Cleanup function
       return () => {
         if (audioRef.current) {
           audioRef.current.removeEventListener('timeupdate', handleTimeUpdate);
@@ -221,7 +207,6 @@ const TranscriptionCard = ({
     }
   };
   
-  // Helper function to convert VTT timestamp to seconds
   const parseTimeToSeconds = (timeString: string): number => {
     if (!timeString) return 0;
     
@@ -241,14 +226,12 @@ const TranscriptionCard = ({
     }
   };
   
-  // Jump to a specific segment when clicked
   const jumpToSegment = (index: number) => {
     if (!audioRef.current || !vttSegments[index]) return;
     
     try {
       const startTime = parseTimeToSeconds(vttSegments[index].startTime);
       
-      // Log debugging information for Gemini model
       if (modelName.includes("Gemini")) {
         addLog(`Gemini segment click - attempting to jump to timestamp`, "debug", {
           source: "TranscriptionCard",
@@ -256,10 +239,8 @@ const TranscriptionCard = ({
         });
       }
       
-      // Set the current time
       audioRef.current.currentTime = startTime;
       
-      // Start playing if not already playing
       if (!isPlaying) {
         audioRef.current.play().catch(error => {
           console.error('Error playing audio:', error);
@@ -277,7 +258,6 @@ const TranscriptionCard = ({
     }
   };
 
-  // Determine the model color
   const getModelColor = () => {
     if (modelName.includes("OpenAI")) return "bg-blue-100 dark:bg-blue-950/30";
     if (modelName.includes("Gemini")) return "bg-green-100 dark:bg-green-950/30";
@@ -286,12 +266,10 @@ const TranscriptionCard = ({
     return "";
   };
 
-  // Calculate word count with safety check
   const wordCount = vttContent && typeof vttContent === 'string'
     ? vttContent.split(/\s+/).filter(word => word.trim().length > 0).length 
     : 0;
 
-  // Extra debugging for Gemini model
   useEffect(() => {
     if (modelName.includes("Gemini") && !isLoading && vttContent) {
       addLog(`Gemini card content update`, "debug", {
@@ -397,7 +375,6 @@ const TranscriptionCard = ({
             {copied ? "Copied" : "Copy"}
           </Button>
           
-          {/* Add Export Button */}
           {vttContent && <ExportMenu 
             transcriptionContent={vttContent} 
             disabled={isLoading || !vttContent}
