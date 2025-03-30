@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast, toast } from "@/components/ui/use-toast";
 import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff, History } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
@@ -62,7 +62,6 @@ const Index = () => {
   
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
-  const { toast } = useToast();
 
   // Request notification permission when notifications are enabled
   useEffect(() => {
@@ -78,7 +77,7 @@ const Index = () => {
         }
       });
     }
-  }, [notificationsEnabled, toast]);
+  }, [notificationsEnabled]);
   
   // Load stored transcriptions on component mount
   useEffect(() => {
@@ -278,14 +277,14 @@ const Index = () => {
       setNotificationsEnabled(granted);
       
       if (granted) {
-        toast.toast({
+        toast({
           title: "Notifications Enabled",
           description: "You will receive browser notifications when processes complete.",
         });
       }
     } else {
       setNotificationsEnabled(false);
-      toast.toast({
+      toast({
         title: "Notifications Disabled",
         description: "You will no longer receive browser notifications.",
       });
@@ -504,7 +503,7 @@ const Index = () => {
           `Video ID: ${videoId} | Language: Arabic`
         );
         
-        toast.toast({
+        toast({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video.",
         });
@@ -520,7 +519,7 @@ const Index = () => {
         source: "Brightcove"
       });
       
-      toast.toast({
+      toast({
         title: "Publishing Failed",
         description: "There was a problem publishing your caption.",
         variant: "destructive",
