@@ -54,7 +54,11 @@ serve(async (req) => {
 
     // Convert the audio file to base64
     const arrayBuffer = await audioFile.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    // Process base64 in chunks to avoid stack overflow
+    const base64Audio = await arrayBufferToBase64(arrayBuffer);
+    
+    console.log("Audio conversion complete, base64 length:", base64Audio.length);
     
     // Define the Gemini API request with system instructions
     const geminiRequestBody = {
@@ -179,6 +183,24 @@ serve(async (req) => {
     );
   }
 });
+
+// Non-recursive base64 conversion to prevent stack overflow
+async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  const chunk_size = 1024 * 1024; // 1MB chunks
+  const uint8Array = new Uint8Array(buffer);
+  let result = '';
+  
+  // Process in chunks to avoid stack overflow
+  for (let i = 0; i < uint8Array.length; i += chunk_size) {
+    const chunk = uint8Array.slice(i, i + chunk_size);
+    const binaryString = Array.from(chunk)
+      .map(byte => String.fromCharCode(byte))
+      .join('');
+    result += btoa(binaryString);
+  }
+  
+  return result;
+}
 
 // Helper function to convert text to VTT format
 function convertTextToVTT(text: string): string {
