@@ -2,7 +2,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
-export type TranscriptionModel = "openai" | "gemini" | "phi4";
+export type TranscriptionModel = "openai" | "gemini" | "phi4" | "google-speech";
 
 interface ModelSelectorProps {
   selectedModels: TranscriptionModel[];
@@ -54,6 +54,17 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
           />
           <Label htmlFor="phi4" className={disabled ? "text-muted-foreground" : ""}>
             Microsoft Phi-4 Multimodal
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id="google-speech" 
+            checked={selectedModels.includes("google-speech")} 
+            onCheckedChange={() => handleModelToggle("google-speech")}
+            disabled={disabled}
+          />
+          <Label htmlFor="google-speech" className={disabled ? "text-muted-foreground" : ""}>
+            Google Speech-to-Text
           </Label>
         </div>
       </div>
