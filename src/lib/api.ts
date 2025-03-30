@@ -1,10 +1,10 @@
 
 import { TranscriptionModel } from "@/components/ModelSelector";
+import { transcribeAudio as phi4Transcribe } from "./phi4TranscriptionService";
 
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
 const GEMINI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
-const PHI4_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
 const BRIGHTCOVE_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy';
 
 // Supabase API key for authentication
@@ -42,26 +42,34 @@ export async function fetchBrightcoveKeys() {
 
 // Transcribe audio using selected model - directly uploads the file
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "") {
-  const formData = new FormData();
-  formData.append('audio', file);
-  formData.append('prompt', prompt);
-  
-  let url;
-  switch (model) {
-    case 'openai':
-      url = OPENAI_TRANSCRIBE_URL;
-      break;
-    case 'gemini':
-      url = GEMINI_TRANSCRIBE_URL;
-      break;
-    case 'phi4':
-      url = PHI4_TRANSCRIBE_URL;
-      break;
-    default:
-      url = OPENAI_TRANSCRIBE_URL;
-  }
-  
   try {
+    // For Phi-4, use client-side transcription
+    if (model === 'phi4') {
+      // Get the raw text from Phi-4
+      const result = await phi4Transcribe(file);
+      
+      // Convert to VTT format for consistency with other models
+      const vttContent = convertTextToVTT(result.text);
+      return vttContent;
+    }
+    
+    // For other models, use the server-side functions
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('prompt', prompt);
+    
+    let url;
+    switch (model) {
+      case 'openai':
+        url = OPENAI_TRANSCRIBE_URL;
+        break;
+      case 'gemini':
+        url = GEMINI_TRANSCRIBE_URL;
+        break;
+      default:
+        url = OPENAI_TRANSCRIBE_URL;
+    }
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -81,6 +89,33 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     console.error(`Error in ${model} transcription:`, error);
     throw error;
   }
+}
+
+// Helper function to convert plain text to VTT format
+function convertTextToVTT(text: string): string {
+  let vttContent = 'WEBVTT\n\n';
+  
+  // Split text into sentences or chunks
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  
+  // Create a VTT cue for each sentence
+  sentences.forEach((sentence, index) => {
+    const startTime = formatVTTTime(index * 5);
+    const endTime = formatVTTTime((index + 1) * 5);
+    vttContent += `${startTime} --> ${endTime}\n${sentence.trim()}\n\n`;
+  });
+  
+  return vttContent;
+}
+
+// Helper function to format time for VTT
+function formatVTTTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const milliseconds = Math.floor((seconds % 1) * 1000);
+  
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
 }
 
 // Get Brightcove Auth Token using our proxy
