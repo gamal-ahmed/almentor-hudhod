@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -6,7 +5,6 @@ import { useLogsStore } from "@/lib/useLogsStore";
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
 const GEMINI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
-const GOOGLE_SPEECH_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/google-speech-transcribe';
 const BRIGHTCOVE_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy';
 const SHAREPOINT_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy';
 
@@ -160,9 +158,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
         break;
       case 'gemini':
         url = GEMINI_TRANSCRIBE_URL;
-        break;
-      case 'google-speech':
-        url = GOOGLE_SPEECH_TRANSCRIBE_URL;
         break;
       default:
         url = OPENAI_TRANSCRIBE_URL;

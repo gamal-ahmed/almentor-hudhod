@@ -28,7 +28,7 @@ const Index = () => {
   // Main state
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini", "phi4", "google-speech"]);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini", "phi4"]);
   const [videoId, setVideoId] = useState<string>("");
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -52,8 +52,7 @@ const Index = () => {
   const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({
     openai: { vtt: "", prompt: "", loading: false },
     gemini: { vtt: "", prompt: "", loading: false },
-    phi4: { vtt: "", prompt: "", loading: false },
-    "google-speech": { vtt: "", prompt: "", loading: false }
+    phi4: { vtt: "", prompt: "", loading: false }
   });
   
   // Logs and notification
@@ -168,8 +167,7 @@ const Index = () => {
       setTranscriptions({
         openai: { vtt: "", prompt: "", loading: false },
         gemini: { vtt: "", prompt: "", loading: false },
-        phi4: { vtt: "", prompt: "", loading: false },
-        "google-speech": { vtt: "", prompt: "", loading: false }
+        phi4: { vtt: "", prompt: "", loading: false }
       });
       
       addLog(`File selected: ${uploadedFile.name}`, "info", {
@@ -685,9 +683,7 @@ const Index = () => {
                           ? "OpenAI Whisper" 
                           : model === "gemini" 
                             ? "Google Gemini" 
-                            : model === "google-speech"
-                              ? "Google Speech-to-Text"
-                              : "Microsoft Phi-4"
+                            : "Microsoft Phi-4"
                       }
                       vttContent={transcriptions[model].vtt}
                       prompt={transcriptions[model].prompt}

@@ -3,7 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useLogsStore } from "@/lib/useLogsStore";
 
-export type TranscriptionModel = "openai" | "gemini" | "phi4" | "google-speech";
+export type TranscriptionModel = "openai" | "gemini" | "phi4";
 
 interface ModelSelectorProps {
   selectedModels: TranscriptionModel[];
@@ -46,8 +46,7 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
   const models: {id: TranscriptionModel, label: string}[] = [
     { id: "openai", label: "OpenAI Whisper" },
     { id: "gemini", label: "Google Gemini" },
-    { id: "phi4", label: "Microsoft Phi-4" },
-    { id: "google-speech", label: "Google Speech-to-Text" }
+    { id: "phi4", label: "Microsoft Phi-4" }
   ];
 
   // Ensure selectedModels is always treated as an array
