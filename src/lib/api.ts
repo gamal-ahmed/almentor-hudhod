@@ -7,6 +7,8 @@ import {
   queueTranscription,
   getTranscriptionStatus,
   getTranscriptionJobs,
+  getLatestTranscriptionJob,
+  saveTranscriptionResult,
   
   // SharePoint API
   fetchSharePointFiles,
@@ -29,6 +31,8 @@ export {
   queueTranscription,
   getTranscriptionStatus,
   getTranscriptionJobs,
+  getLatestTranscriptionJob,
+  saveTranscriptionResult,
   
   // SharePoint API
   fetchSharePointFiles,
@@ -58,4 +62,9 @@ export async function checkTranscriptionStatus(jobId: string) {
 // Get all transcription jobs for the current user
 export async function getMyTranscriptionJobs() {
   return getTranscriptionJobs();
+}
+
+// Get the latest transcription job for the current user
+export async function getLatestTranscriptionJob() {
+  return getLatestTranscriptionJob();
 }

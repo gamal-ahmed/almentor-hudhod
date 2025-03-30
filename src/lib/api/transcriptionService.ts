@@ -188,6 +188,159 @@ export async function getTranscriptionStatus(jobId: string) {
   }
 }
 
+// Get the latest transcription job
+export async function getLatestTranscriptionJob() {
+  const addLog = getLogsStore().addLog;
+  
+  try {
+    addLog(`Checking for latest transcription job`, "info", {
+      source: "TranscriptionService",
+      details: "Retrieving most recent job"
+    });
+    
+    // Get current session token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      const error = new Error("You must be signed in to check transcription status");
+      addLog(`Authentication error: ${error.message}`, "error", {
+        source: "TranscriptionService",
+        details: "No active session found"
+      });
+      throw error;
+    }
+    
+    const accessToken = session.access_token;
+    
+    const response = await fetch(`${API_ENDPOINTS.GET_TRANSCRIPTION_STATUS}/latest`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    
+    if (!response.ok) {
+      let errorDetails = "Unknown error";
+      try {
+        const errorJson = await response.json();
+        errorDetails = errorJson.error || errorJson.message || response.statusText;
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      
+      addLog(`Error checking latest transcription job`, "error", {
+        source: "TranscriptionService",
+        details: `Status: ${response.status}, Response: ${errorDetails}`
+      });
+      
+      if (response.status === 404 || errorDetails.includes('no_jobs')) {
+        return null; // No jobs found is not an error
+      }
+      
+      throw new Error(`Failed to check latest transcription: ${errorDetails}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.status === 'no_jobs') {
+      return null;
+    }
+    
+    addLog(`Retrieved latest transcription job: ${data.id}`, "info", {
+      source: "TranscriptionService",
+      details: `Status: ${data.status}`
+    });
+    
+    return data;
+  } catch (error) {
+    addLog(`Error checking latest transcription: ${error.message}`, "error", {
+      source: "TranscriptionService",
+      details: error.stack
+    });
+    console.error(`Error checking latest transcription:`, error);
+    throw error;
+  }
+}
+
+// Save a synchronous transcription result to the database for persistence
+export async function saveTranscriptionResult(file: File, model: TranscriptionModel, vttContent: string, prompt: string) {
+  const addLog = getLogsStore().addLog;
+  
+  try {
+    addLog(`Saving ${model} transcription result to database`, "info", {
+      source: model,
+      details: `File: ${file.name}, VTT content length: ${vttContent.length}`
+    });
+    
+    // Get current session token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      const error = new Error("You must be signed in to save transcription results");
+      addLog(`Authentication error: ${error.message}`, "error", {
+        source: model,
+        details: "No active session found"
+      });
+      throw error;
+    }
+    
+    // First upload the file to storage
+    const fileName = `${Date.now()}_${file.name}`;
+    const filePath = `sync-transcriptions/${session.user.id}/${fileName}`;
+    
+    // Upload audio file to storage
+    const { error: uploadError } = await supabase.storage
+      .from('transcription-files')
+      .upload(filePath, file);
+      
+    if (uploadError) {
+      addLog(`Error uploading file: ${uploadError.message}`, "error", {
+        source: model,
+        details: uploadError
+      });
+      throw uploadError;
+    }
+    
+    // Create a completed job record
+    const { data: jobData, error: jobError } = await supabase
+      .from('transcription_jobs')
+      .insert({
+        user_id: session.user.id,
+        status: 'completed',
+        status_message: 'Transcription completed via synchronous processing',
+        file_path: filePath,
+        model: model,
+        file_name: file.name,
+        result: {
+          vttContent,
+          prompt
+        }
+      })
+      .select()
+      .single();
+    
+    if (jobError) {
+      addLog(`Error saving transcription job: ${jobError.message}`, "error", {
+        source: model,
+        details: jobError
+      });
+      throw jobError;
+    }
+    
+    addLog(`Successfully saved transcription result`, "success", {
+      source: model,
+      details: `Job ID: ${jobData.id}`
+    });
+    
+    return jobData;
+  } catch (error) {
+    addLog(`Error saving transcription result: ${error.message}`, "error", {
+      source: model,
+      details: error.stack
+    });
+    console.error(`Error saving transcription result:`, error);
+    throw error;
+  }
+}
+
 // Backward compatibility with the older direct transcription method
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
   const addLog = getLogsStore().addLog;
@@ -280,6 +433,17 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     });
     
     logOperation.complete(`Completed ${model} transcription`, `Generated ${data.vttContent.length} characters of VTT content`);
+    
+    // Save the transcription result to the database for persistence
+    try {
+      await saveTranscriptionResult(file, model, data.vttContent, prompt);
+    } catch (saveError) {
+      // Log but don't fail if saving to database fails
+      addLog(`Warning: Failed to save transcription to database: ${saveError.message}`, "warning", {
+        source: model,
+        details: "Transcription was successful but persistence failed"
+      });
+    }
     
     return {
       vttContent: data.vttContent,

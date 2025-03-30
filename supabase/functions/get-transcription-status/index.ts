@@ -88,16 +88,35 @@ serve(async (req) => {
 
       console.log(`Authenticated user: ${user.id}, ${user.email} requesting job: ${jobId}`);
 
-      // Get the job data
-      const { data: job, error: jobError } = await supabase
-        .from('transcription_jobs')
-        .select('*')
-        .eq('id', jobId)
-        .eq('user_id', user.id)  // Only allow users to see their own jobs
-        .single();
+      // Check if this is a UUID format job ID or "latest" request
+      let query = supabase.from('transcription_jobs').select('*');
+      
+      if (jobId === 'latest') {
+        // Get the latest job for this user
+        query = query.eq('user_id', user.id).order('created_at', { ascending: false }).limit(1);
+      } else {
+        // Get the specific job ID
+        query = query.eq('id', jobId).eq('user_id', user.id);
+      }
+      
+      const { data: job, error: jobError } = await query.single();
 
       if (jobError) {
         console.error("Error fetching job:", jobError);
+        
+        if (jobId === 'latest') {
+          // If no jobs found for latest request, return an empty result instead of error
+          return new Response(
+            JSON.stringify({ status: 'no_jobs', message: 'No transcription jobs found' }),
+            {
+              headers: {
+                ...corsHeaders,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+        }
+        
         return new Response(
           JSON.stringify({ error: 'Failed to retrieve job', details: jobError.message }),
           {

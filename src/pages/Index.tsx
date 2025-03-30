@@ -67,20 +67,101 @@ const Index = () => {
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
 
-  // Load user's transcription jobs on mount
+  // New state for loading existing transcriptions
+  const [loadingExistingTranscription, setLoadingExistingTranscription] = useState<boolean>(false);
+
+  // Load user's transcription jobs on mount and check for active jobs
   useEffect(() => {
-    const loadJobs = async () => {
+    const loadJobsAndCheckLatest = async () => {
       try {
+        // Load all jobs
         const jobs = await getMyTranscriptionJobs();
         setTranscriptionJobs(jobs);
+        
+        // If no file is selected, check for the latest job to restore state
+        if (!file) {
+          setLoadingExistingTranscription(true);
+          try {
+            const latestJob = await getLatestTranscriptionJob();
+            
+            if (latestJob && latestJob.status === 'completed' && latestJob.result?.vttContent) {
+              // Restore the transcription from the latest completed job
+              const model = latestJob.model as TranscriptionModel;
+              
+              // Update the transcriptions state with this result
+              const updatedTranscriptions = { ...transcriptions };
+              updatedTranscriptions[model] = { 
+                vtt: latestJob.result.vttContent, 
+                prompt: latestJob.result.prompt || DEFAULT_TRANSCRIPTION_PROMPT, 
+                loading: false 
+              };
+              
+              setTranscriptions(updatedTranscriptions);
+              
+              // Automatically select this transcription
+              setSelectedTranscription(latestJob.result.vttContent);
+              setSelectedModel(model);
+              
+              // Try to download the file from storage if available
+              if (latestJob.file_path) {
+                try {
+                  const { data: fileData, error: downloadError } = await supabase.storage
+                    .from('transcription-files')
+                    .download(latestJob.file_path);
+                  
+                  if (fileData && !downloadError) {
+                    // Create a File object
+                    const restoredFile = new File([fileData], latestJob.file_name || 'audio.mp3', {
+                      type: 'audio/mpeg'
+                    });
+                    
+                    // Set the file and create an audio URL
+                    setFile(restoredFile);
+                    const newAudioUrl = URL.createObjectURL(restoredFile);
+                    setAudioUrl(newAudioUrl);
+                    
+                    toast.toast({
+                      title: "Previous Work Restored",
+                      description: `Restored your previous transcription of "${latestJob.file_name}"`,
+                    });
+                  }
+                } catch (downloadErr) {
+                  console.error("Failed to download audio file:", downloadErr);
+                  // We don't need to show this error to the user
+                }
+              }
+              
+              // Display a notification to the user
+              addLog(`Restored previous transcription from job ${latestJob.id}`, "info", {
+                source: "StateRestoration",
+                details: `Model: ${model}, VTT content length: ${latestJob.result.vttContent.length}`
+              });
+            } else if (latestJob && (latestJob.status === 'pending' || latestJob.status === 'processing')) {
+              // There's a job in progress, notify the user and offer to check its status
+              toast.toast({
+                title: "Transcription In Progress",
+                description: "You have a transcription job currently in progress. Check the Jobs tab to see its status.",
+              });
+              
+              // Switch to the jobs tab
+              document.querySelector('[value="jobs"]')?.dispatchEvent(new Event('click'));
+            }
+          } catch (err) {
+            console.error("Error fetching latest job:", err);
+          } finally {
+            setLoadingExistingTranscription(false);
+          }
+        }
       } catch (error) {
         console.error('Error loading transcription jobs:', error);
       }
     };
     
-    loadJobs();
-  }, []);
-
+    if (isAuthenticated) {
+      loadJobsAndCheckLatest();
+    }
+  }, [isAuthenticated]);
+  
   // Request notification permission when notifications are enabled
   useEffect(() => {
     if (notificationsEnabled) {
@@ -539,6 +620,13 @@ const Index = () => {
               Download MP3 files from SharePoint, transcribe with multiple AI models, and publish captions to Brightcove.
             </p>
           </header>
+          
+          {loadingExistingTranscription && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md flex items-center justify-center space-x-2">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+              <span className="text-sm text-blue-700 dark:text-blue-400">Checking for previous transcriptions...</span>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             <div className="lg:col-span-3 space-y-4">
