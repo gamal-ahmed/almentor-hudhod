@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff } from "lucide-react";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff, History } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
 import TranscriptionCard from "@/components/TranscriptionCard";
@@ -18,10 +18,12 @@ import {
   transcribeAudio, 
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
-  addCaptionToBrightcove
+  addCaptionToBrightcove,
+  getLatestTranscriptionsByModel
 } from "@/lib/api";
 import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 import Header from '@/components/Header';
+import TranscriptionHistory from "@/components/TranscriptionHistory";
 
 const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
@@ -34,6 +36,7 @@ const Index = () => {
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
   
   // SharePoint and Queue state
   const [fileQueue, setFileQueue] = useState<File[]>([]);
@@ -55,17 +58,18 @@ const Index = () => {
     "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
     phi4: { vtt: "", prompt: "", loading: false }
   });
+  const [isLoadingStoredTranscriptions, setIsLoadingStoredTranscriptions] = useState<boolean>(false);
   
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
-  const toast = useToast();
+  const { toast } = useToast();
 
   // Request notification permission when notifications are enabled
   useEffect(() => {
     if (notificationsEnabled) {
       requestNotificationPermission().then(granted => {
         if (!granted) {
-          toast.toast({
+          toast({
             title: "Notification Permission Denied",
             description: "Please enable notifications in your browser settings to receive alerts.",
             variant: "destructive",
@@ -75,6 +79,58 @@ const Index = () => {
       });
     }
   }, [notificationsEnabled, toast]);
+  
+  // Load stored transcriptions on component mount
+  useEffect(() => {
+    loadStoredTranscriptions();
+  }, []);
+  
+  // Load stored transcriptions from the server
+  const loadStoredTranscriptions = async () => {
+    setIsLoadingStoredTranscriptions(true);
+    try {
+      addLog("Loading stored transcriptions", "info", {
+        source: "Database",
+        details: "Fetching previous transcription results"
+      });
+      
+      const latestTranscriptionsByModel = await getLatestTranscriptionsByModel();
+      
+      // If we have stored transcriptions, update the state
+      if (Object.keys(latestTranscriptionsByModel).length > 0) {
+        const updatedTranscriptions = { ...transcriptions };
+        
+        for (const [model, transcription] of Object.entries(latestTranscriptionsByModel)) {
+          if (transcription.result?.vttContent) {
+            updatedTranscriptions[model] = {
+              vtt: transcription.result.vttContent,
+              prompt: transcription.result.prompt || DEFAULT_TRANSCRIPTION_PROMPT,
+              loading: false
+            };
+          }
+        }
+        
+        setTranscriptions(updatedTranscriptions);
+        
+        addLog(`Loaded ${Object.keys(latestTranscriptionsByModel).length} stored transcriptions`, "success", {
+          source: "Database",
+          details: `Models: ${Object.keys(latestTranscriptionsByModel).join(", ")}`
+        });
+      } else {
+        addLog("No stored transcriptions found", "info", {
+          source: "Database"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading stored transcriptions:", error);
+      addLog("Error loading stored transcriptions", "error", {
+        source: "Database",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      setIsLoadingStoredTranscriptions(false);
+    }
+  };
   
   // Update prompt based on options
   const updatePromptFromOptions = () => {
@@ -176,7 +232,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Selected",
         description: "Your audio file is ready for transcription.",
       });
@@ -194,7 +250,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast.toast({
+      toast({
         title: "File Error",
         description: "There was a problem with your file.",
         variant: "destructive",
@@ -238,7 +294,7 @@ const Index = () => {
   // Process transcriptions with selected models
   const processTranscriptions = async () => {
     if (!file) {
-      toast.toast({
+      toast({
         title: "No File Selected",
         description: "Please upload an audio file first.",
         variant: "destructive",
@@ -247,7 +303,7 @@ const Index = () => {
     }
     
     if (!Array.isArray(selectedModels) || selectedModels.length === 0) {
-      toast.toast({
+      toast({
         title: "No Models Selected",
         description: "Please select at least one transcription model.",
         variant: "destructive",
@@ -349,7 +405,7 @@ const Index = () => {
           `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
         );
         
-        toast.toast({
+        toast({
           title: "Transcription Complete",
           description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
         });
@@ -366,7 +422,7 @@ const Index = () => {
           `All ${selectedModels.length} transcription attempts failed`
         );
         
-        toast.toast({
+        toast({
           title: "Transcription Failed",
           description: "All transcription attempts failed. Please try again.",
           variant: "destructive",
@@ -379,7 +435,7 @@ const Index = () => {
         source: "Transcription"
       });
       
-      toast.toast({
+      toast({
         title: "Processing Error",
         description: "There was a problem processing your transcriptions.",
         variant: "destructive",
@@ -473,6 +529,41 @@ const Index = () => {
     }
   };
   
+  // Toggle transcription history panel
+  const toggleHistoryPanel = () => {
+    setShowHistory(!showHistory);
+  };
+  
+  // Load a transcription from history
+  const handleLoadTranscription = (transcription: any) => {
+    if (transcription && transcription.result?.vttContent) {
+      const model = transcription.model as TranscriptionModel;
+      const updatedTranscriptions = { ...transcriptions };
+      
+      updatedTranscriptions[model] = {
+        vtt: transcription.result.vttContent,
+        prompt: transcription.result.prompt || DEFAULT_TRANSCRIPTION_PROMPT,
+        loading: false
+      };
+      
+      setTranscriptions(updatedTranscriptions);
+      setSelectedModel(model);
+      setSelectedTranscription(transcription.result.vttContent);
+      
+      addLog(`Loaded saved transcription from history`, "success", {
+        source: "History",
+        details: `Model: ${model} | File: ${transcription.file_path}`
+      });
+      
+      toast({
+        title: "Transcription Loaded",
+        description: `Loaded ${model} transcription from your history.`,
+      });
+      
+      setShowHistory(false);
+    }
+  };
+  
   return (
     <>
       <Header />
@@ -491,10 +582,21 @@ const Index = () => {
             <div className="lg:col-span-3 space-y-4">
               <Card className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
                 <CardContent className="pt-4 p-3">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center">
-                    <FileAudio className="mr-1 h-4 w-4 text-blue-500" />
-                    Upload Audio
-                  </h3>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-semibold flex items-center">
+                      <FileAudio className="mr-1 h-4 w-4 text-blue-500" />
+                      Upload Audio
+                    </h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 w-7 p-0" 
+                      onClick={toggleHistoryPanel}
+                      title="View Transcription History"
+                    >
+                      <History className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
                   
                   {file && (
@@ -531,6 +633,13 @@ const Index = () => {
                           className="hidden"
                         />
                       )}
+                    </div>
+                  )}
+                  
+                  {isLoadingStoredTranscriptions && (
+                    <div className="mt-2 flex items-center justify-center text-xs text-muted-foreground py-2">
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      Loading saved transcriptions...
                     </div>
                   )}
                 </CardContent>
@@ -670,47 +779,62 @@ const Index = () => {
             </div>
             
             <div className="lg:col-span-9 space-y-4">
-              <div className="space-y-3">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <Check className="mr-2 h-5 w-5 text-violet-500" />
-                  Transcription Results
-                </h2>
-                
-                {selectedModels.length > 0 ? (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {selectedModels.map((model) => {
-                      const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
-                      
-                      return (
-                        <TranscriptionCard
-                          key={model}
-                          modelName={
-                            model === "openai" 
-                              ? "OpenAI Whisper" 
-                              : model === "gemini-2.0-flash" 
-                                ? "Gemini 2.0 Flash" 
-                                : "Microsoft Phi-4"
-                          }
-                          vttContent={transcription.vtt}
-                          prompt={transcription.prompt}
-                          onSelect={() => handleSelectTranscription(model, transcription.vtt)}
-                          isSelected={selectedModel === model}
-                          audioSrc={audioUrl || undefined}
-                          isLoading={transcription.loading}
-                        />
-                      );
-                    })}
+              {showHistory ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-semibold flex items-center">
+                      <History className="mr-2 h-5 w-5 text-violet-500" />
+                      Transcription History
+                    </h2>
+                    <Button variant="outline" size="sm" onClick={toggleHistoryPanel}>
+                      Back to Results
+                    </Button>
                   </div>
-                ) : (
-                  <Card className="p-8 flex flex-col items-center justify-center text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
-                    <p className="text-muted-foreground max-w-md">
-                      Upload an audio file and select at least one transcription model to see results here.
-                    </p>
-                  </Card>
-                )}
-              </div>
+                  <TranscriptionHistory onLoadTranscription={handleLoadTranscription} />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h2 className="text-xl font-semibold flex items-center">
+                    <Check className="mr-2 h-5 w-5 text-violet-500" />
+                    Transcription Results
+                  </h2>
+                  
+                  {selectedModels.length > 0 ? (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {selectedModels.map((model) => {
+                        const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
+                        
+                        return (
+                          <TranscriptionCard
+                            key={model}
+                            modelName={
+                              model === "openai" 
+                                ? "OpenAI Whisper" 
+                                : model === "gemini-2.0-flash" 
+                                  ? "Gemini 2.0 Flash" 
+                                  : "Microsoft Phi-4"
+                            }
+                            vttContent={transcription.vtt}
+                            prompt={transcription.prompt}
+                            onSelect={() => handleSelectTranscription(model, transcription.vtt)}
+                            isSelected={selectedModel === model}
+                            audioSrc={audioUrl || undefined}
+                            isLoading={transcription.loading}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Card className="p-8 flex flex-col items-center justify-center text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        Upload an audio file and select at least one transcription model to see results here.
+                      </p>
+                    </Card>
+                  )}
+                </div>
+              )}
               
               <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
                 <summary className="cursor-pointer font-medium flex items-center text-sm">

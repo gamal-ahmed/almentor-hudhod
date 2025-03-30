@@ -385,6 +385,42 @@ export type Database = {
         }
         Relationships: []
       }
+      transcriptions: {
+        Row: {
+          created_at: string
+          error: string | null
+          file_path: string
+          id: string
+          model: string
+          result: Json | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          file_path: string
+          id?: string
+          model: string
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          file_path?: string
+          id?: string
+          model?: string
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -408,7 +444,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      transcription_jobs: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          file_path: string | null
+          id: string | null
+          model: string | null
+          result: Json | null
+          status: string | null
+          status_message: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          file_path?: string | null
+          id?: string | null
+          model?: string | null
+          result?: Json | null
+          status?: string | null
+          status_message?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          file_path?: string | null
+          id?: string | null
+          model?: string | null
+          result?: Json | null
+          status?: string | null
+          status_message?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {

@@ -2,6 +2,7 @@
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
+import { supabase } from "@/integrations/supabase/client";
 
 const getLogsStore = () => useLogsStore.getState();
 
@@ -90,6 +91,9 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       details: `Content (first 200 chars): ${vttPreview}`
     });
     
+    // Save transcription to Supabase
+    await saveTranscriptionResult(model, data.vttContent, prompt, file.name);
+    
     addLog(`Successfully transcribed with ${model}`, "success", {
       source: model,
       details: `Generated ${data.vttContent.length} characters of VTT content`
@@ -109,5 +113,130 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     console.error(`Error in ${model} transcription:`, error);
     logOperation.error(`${error.message}`, error.stack);
     throw error;
+  }
+}
+
+// Save transcription result to Supabase
+export async function saveTranscriptionResult(
+  model: string, 
+  vttContent: string, 
+  prompt: string, 
+  fileName: string
+) {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      console.log("No user ID available, saving transcription anonymously");
+    }
+    
+    const { data, error } = await supabase
+      .from('transcriptions')
+      .insert({
+        model,
+        result: { vttContent, prompt },
+        status: 'completed',
+        file_path: fileName,
+        user_id: userId || null
+      });
+    
+    if (error) {
+      throw new Error(`Error saving transcription: ${error.message}`);
+    }
+    
+    console.log("Transcription saved to database", data);
+    return data;
+  } catch (error) {
+    console.error("Error saving transcription result:", error);
+    throw error;
+  }
+}
+
+// Get all user transcriptions
+export async function getUserTranscriptions() {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      // If user is not authenticated, return empty array
+      return [];
+    }
+    
+    const { data, error } = await supabase
+      .from('transcriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      throw new Error(`Error fetching transcriptions: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching user transcriptions:", error);
+    return [];
+  }
+}
+
+// Get transcription by ID
+export async function getTranscriptionById(id: string) {
+  try {
+    const { data, error } = await supabase
+      .from('transcriptions')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      throw new Error(`Error fetching transcription: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Error fetching transcription by ID:", error);
+    throw error;
+  }
+}
+
+// Get the latest transcription for each model
+export async function getLatestTranscriptionsByModel() {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    
+    if (!userId) {
+      // If user is not authenticated, return empty object
+      return {};
+    }
+    
+    const { data, error } = await supabase
+      .from('transcriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      throw new Error(`Error fetching transcriptions: ${error.message}`);
+    }
+    
+    // Group by model and get the latest for each
+    const latestByModel = {};
+    if (data) {
+      for (const transcription of data) {
+        const model = transcription.model;
+        if (!latestByModel[model] || new Date(transcription.created_at) > new Date(latestByModel[model].created_at)) {
+          latestByModel[model] = transcription;
+        }
+      }
+    }
+    
+    return latestByModel;
+  } catch (error) {
+    console.error("Error fetching latest transcriptions by model:", error);
+    return {};
   }
 }
