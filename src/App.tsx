@@ -11,6 +11,8 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
+import History from "./pages/History";
+import TranscriptionDetail from "./pages/TranscriptionDetail";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +30,16 @@ const App = () => (
             <Route path="/app" element={
               <AuthGuard>
                 <Index />
+              </AuthGuard>
+            } />
+            <Route path="/app/history" element={
+              <AuthGuard>
+                <History />
+              </AuthGuard>
+            } />
+            <Route path="/app/transcription/:jobId" element={
+              <AuthGuard>
+                <TranscriptionDetail />
               </AuthGuard>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
