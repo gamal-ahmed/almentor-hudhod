@@ -1,11 +1,11 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
-import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "../phi4TranscriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
 const getLogsStore = () => useLogsStore.getState();
 
-export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = DEFAULT_TRANSCRIPTION_PROMPT) {
+export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
   const addLog = getLogsStore().addLog;
   const startTimedLog = getLogsStore().startTimedLog;
   
@@ -17,40 +17,26 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       details: `File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`
     });
     
-    if (model === 'phi4') {
-      addLog(`Using browser-based Phi-4 model`, "info", { source: "phi4" });
-      const result = await phi4Transcribe(file);
-      
-      if (result.chunks) {
-        addLog(`Received ${result.chunks.length} chunks from Phi-4`, "info", { source: "phi4" });
-        const vttContent = convertChunksToVTT(result.chunks);
-        logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${vttContent.length} characters of VTT content`);
-        return {
-          vttContent,
-          prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
-        };
-      } else {
-        addLog(`Received text result from Phi-4`, "info", { source: "phi4" });
-        const vttContent = convertTextToVTT(result.text);
-        logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${vttContent.length} characters of VTT content`);
-        return {
-          vttContent,
-          prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
-        };
-      }
-    }
-    
+    // Prepare FormData for any model
     const formData = new FormData();
     formData.append('audio', file);
     formData.append('prompt', prompt);
     
     let url;
+    let headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    };
+    
     switch (model) {
       case 'openai':
         url = API_ENDPOINTS.OPENAI_TRANSCRIBE;
         break;
       case 'gemini-2.0-flash':
         url = API_ENDPOINTS.GEMINI_TRANSCRIBE;
+        break;
+      case 'phi4':
+        url = API_ENDPOINTS.PHI4_TRANSCRIBE;
         break;
       default:
         url = API_ENDPOINTS.OPENAI_TRANSCRIBE;
@@ -63,10 +49,7 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
+      headers,
       body: formData,
     });
     

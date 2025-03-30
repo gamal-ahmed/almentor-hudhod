@@ -20,9 +20,10 @@ import {
   getBrightcoveAuthToken,
   addCaptionToBrightcove
 } from "@/lib/api";
-import { DEFAULT_TRANSCRIPTION_PROMPT } from "@/lib/phi4TranscriptionService";
 import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 import Header from '@/components/Header';
+
+const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
 const Index = () => {
   // Main state
