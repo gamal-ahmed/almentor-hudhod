@@ -280,6 +280,13 @@ const Index = () => {
           modelLog.update(`Sending audio to ${model} with prompt: "${transcriptionPrompt}"`);
           const result = await transcribeAudio(file, model, transcriptionPrompt);
           
+          if (model === 'gemini') {
+            addLog(`Gemini transcription result received`, "debug", {
+              source: "gemini",
+              details: `VTT Content length: ${result.vttContent.length}, First 100 chars: ${result.vttContent.substring(0, 100)}...`
+            });
+          }
+          
           const wordCount = result.vttContent.split(/\s+/).length;
           modelLog.complete(
             `${model.toUpperCase()} transcription successful`, 
@@ -303,6 +310,14 @@ const Index = () => {
       results.forEach((result) => {
         if (result.status === "fulfilled") {
           const { model, vtt, prompt } = result.value;
+          
+          if (model === 'gemini') {
+            addLog(`Updating Gemini transcription in state`, "debug", {
+              source: "gemini",
+              details: `VTT length: ${vtt.length}, First 100 chars: ${vtt.substring(0, 100)}...`
+            });
+          }
+          
           finalTranscriptions[model] = { vtt, prompt, loading: false };
         } else {
           const failedModelIndex = results.findIndex(r => r === result);
@@ -313,7 +328,19 @@ const Index = () => {
         }
       });
       
+      addLog(`Updating transcriptions state with results`, "debug", {
+        source: "Transcription",
+        details: `Models processed: ${selectedModels.join(', ')}`
+      });
+      
       setTranscriptions(finalTranscriptions);
+      
+      if (selectedModels.includes('gemini')) {
+        addLog(`Gemini state after update: ${finalTranscriptions.gemini?.vtt ? 'Has content' : 'No content'}`, "debug", {
+          source: "gemini",
+          details: `VTT length: ${finalTranscriptions.gemini?.vtt?.length || 0}`
+        });
+      }
       
       const successfulTranscriptions = results.filter(r => r.status === "fulfilled").length;
       

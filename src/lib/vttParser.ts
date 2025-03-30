@@ -9,11 +9,20 @@ export function parseVTT(vttContent: string): VTTSegment[] {
   if (!vttContent || typeof vttContent !== 'string') return [];
   
   try {
+    console.log(`Parsing VTT content (length: ${vttContent.length})`);
+    
+    // If content doesn't start with WEBVTT, try to add it
+    if (!vttContent.trim().startsWith("WEBVTT")) {
+      console.log("VTT content doesn't start with WEBVTT, adding header");
+      vttContent = "WEBVTT\n\n" + vttContent.trim();
+    }
+    
     // Split the content by line breaks
     const lines = vttContent.split("\n");
+    console.log(`VTT split into ${lines.length} lines`);
     
     // Skip the WEBVTT header
-    let currentLine = 1;
+    let currentLine = 0;
     while (currentLine < lines.length && !lines[currentLine].includes("-->")) {
       currentLine++;
     }
@@ -34,6 +43,7 @@ export function parseVTT(vttContent: string): VTTSegment[] {
         
         if (timestampParts.length < 2) {
           // Invalid timestamp line, skip it
+          console.warn(`Invalid timestamp line: ${timestampLine}`);
           currentLine++;
           continue;
         }
@@ -61,13 +71,34 @@ export function parseVTT(vttContent: string): VTTSegment[] {
         }
       } else {
         // Skip unexpected lines
+        console.warn(`Skipping unexpected line: ${lines[currentLine]}`);
         currentLine++;
       }
     }
     
+    console.log(`Successfully parsed ${segments.length} VTT segments`);
     return segments;
   } catch (error) {
     console.error("Error parsing VTT content:", error);
+    
+    // Attempt a fallback parsing for simple content
+    try {
+      console.log("Attempting fallback VTT parsing");
+      const textContent = vttContent.replace(/WEBVTT|-->|\d{2}:\d{2}:\d{2}\.\d{3}/g, '').trim();
+      
+      if (textContent) {
+        console.log("Using fallback plain text parsing");
+        // Create a single segment with the entire text
+        return [{
+          startTime: "00:00:00.000",
+          endTime: "00:01:00.000",
+          text: textContent
+        }];
+      }
+    } catch (fallbackError) {
+      console.error("Fallback parsing also failed:", fallbackError);
+    }
+    
     return [];
   }
 }

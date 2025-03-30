@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,15 +50,41 @@ const TranscriptionCard = ({
     if (modelName.includes("Gemini")) {
       addLog(`Gemini card rendering with content: ${!!vttContent}`, "debug", {
         source: "TranscriptionCard",
-        details: `Content length: ${vttContent?.length || 0}, Loading: ${isLoading}`
+        details: `Content length: ${vttContent?.length || 0}, Loading: ${isLoading}, Content sample: ${vttContent?.substring(0, 100) || 'empty'}`
       });
     }
   }, [vttContent, isLoading, modelName, addLog]);
   
-  // Only attempt to parse VTT if vttContent is not empty and is a string
-  const vttSegments = (vttContent && typeof vttContent === 'string') 
-    ? parseVTT(vttContent) 
-    : [];
+  // Parse VTT content and log results for debugging
+  const parseVttContent = () => {
+    if (!vttContent || typeof vttContent !== 'string') {
+      console.log(`${modelName}: No VTT content to parse`);
+      return [];
+    }
+    
+    try {
+      const segments = parseVTT(vttContent);
+      console.log(`${modelName}: Successfully parsed ${segments.length} VTT segments`);
+      
+      if (modelName.includes("Gemini") && segments.length === 0 && vttContent.length > 0) {
+        addLog(`Gemini VTT parsing issue: content exists but no segments parsed`, "warning", {
+          source: "TranscriptionCard",
+          details: `VTT Content (first 200 chars): ${vttContent.substring(0, 200)}...`
+        });
+      }
+      
+      return segments;
+    } catch (error) {
+      console.error(`Error parsing VTT for ${modelName}:`, error);
+      addLog(`Error parsing VTT for ${modelName}: ${error.message}`, "error", {
+        source: "TranscriptionCard",
+        details: error.stack
+      });
+      return [];
+    }
+  };
+  
+  const vttSegments = parseVttContent();
   
   // Setup audio element and event handling
   useEffect(() => {
@@ -175,7 +200,7 @@ const TranscriptionCard = ({
     if (modelName.includes("OpenAI")) return "bg-blue-100 dark:bg-blue-950/30";
     if (modelName.includes("Gemini")) return "bg-green-100 dark:bg-green-950/30";
     if (modelName.includes("Phi-4")) return "bg-violet-100 dark:bg-violet-950/30";
-    if (modelName.includes("Speech-to-Text")) return "bg-yellow-100 dark:bg-yellow-950/30";
+    if (modelName.includes("Speech-to-Text")) return "bg-yellow-100 dark:bg-yellow-900/30";
     return "";
   };
 
@@ -183,6 +208,16 @@ const TranscriptionCard = ({
   const wordCount = vttContent && typeof vttContent === 'string'
     ? vttContent.split(/\s+/).filter(word => word.trim().length > 0).length 
     : 0;
+
+  // Extra debugging for Gemini model
+  useEffect(() => {
+    if (modelName.includes("Gemini") && !isLoading && vttContent) {
+      addLog(`Gemini card content update`, "debug", {
+        source: "TranscriptionCard",
+        details: `Word count: ${wordCount}, Segments: ${vttSegments.length}, Content sample: ${vttContent.substring(0, 100)}...`
+      });
+    }
+  }, [modelName, vttContent, isLoading, wordCount, vttSegments.length, addLog]);
 
   return (
     <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}`}>
@@ -238,6 +273,16 @@ const TranscriptionCard = ({
                 <div className="vtt-content text-sm mt-1">{segment.text}</div>
               </div>
             ))}
+          </div>
+        ) : vttContent && vttContent.length > 0 ? (
+          <div className="p-2">
+            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-md mb-4 text-xs">
+              <p className="font-medium">VTT parsing issue detected</p>
+              <p className="mt-1">The transcription was received but couldn't be parsed into segments.</p>
+            </div>
+            <div className="vtt-content text-sm border border-dashed p-3 rounded-md max-h-[200px] overflow-y-auto">
+              {vttContent}
+            </div>
           </div>
         ) : (
           <div className="text-center text-muted-foreground flex flex-col items-center justify-center h-full">
