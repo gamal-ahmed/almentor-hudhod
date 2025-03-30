@@ -5,13 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText } from "lucide-react";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle } from "lucide-react";
 
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import LogsPanel from "@/components/LogsPanel";
 import VideoIdInput from "@/components/VideoIdInput";
+import PromptOptions from "@/components/PromptOptions";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
   transcribeAudio, 
@@ -31,6 +32,12 @@ const Index = () => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
   
+  // Prompt options state
+  const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
+  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
+  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
   // Processing state
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,12 +52,43 @@ const Index = () => {
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
   
+  // Update prompt based on options
+  const updatePromptFromOptions = () => {
+    let newPrompt = "";
+    
+    if (preserveEnglish) {
+      newPrompt += "Please preserve all English words exactly as spoken. ";
+    }
+    
+    if (outputFormat === "vtt") {
+      newPrompt += "Generate output with timestamps in VTT format. ";
+    } else {
+      newPrompt += "Generate plain text without timestamps. ";
+    }
+    
+    setTranscriptionPrompt(newPrompt.trim());
+  };
+  
+  // Handle playback of audio file
+  const toggleAudioPlayback = () => {
+    if (!audioRef.current) return;
+    
+    if (isAudioPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    
+    setIsAudioPlaying(!isAudioPlaying);
+  };
+  
   // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
     try {
       // Reset state
       setFile(uploadedFile);
-      setAudioUrl(URL.createObjectURL(uploadedFile));
+      const newAudioUrl = URL.createObjectURL(uploadedFile);
+      setAudioUrl(newAudioUrl);
       setSelectedTranscription(null);
       setSelectedModel(null);
       
@@ -86,6 +124,17 @@ const Index = () => {
       setIsUploading(false);
     }
   };
+
+  // Update options and regenerate prompt
+  const handlePreserveEnglishChange = (checked: boolean) => {
+    setPreserveEnglish(checked);
+    setTimeout(updatePromptFromOptions, 0);
+  };
+  
+  const handleOutputFormatChange = (format: "vtt" | "plain") => {
+    setOutputFormat(format);
+    setTimeout(updatePromptFromOptions, 0);
+  };
   
   // Process transcriptions with selected models
   const processTranscriptions = async () => {
@@ -111,15 +160,18 @@ const Index = () => {
       setIsProcessing(true);
       const mainLog = startTimedLog("Transcription Process", "info", "Transcription");
       
+      // Update prompt based on options before processing
+      updatePromptFromOptions();
+      
       // Reset transcriptions state for selected models
       const updatedTranscriptions = { ...transcriptions };
       selectedModels.forEach(model => {
-        updatedTranscriptions[model] = { vtt: "", prompt: "", loading: true };
+        updatedTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: true };
       });
       setTranscriptions(updatedTranscriptions);
       
       addLog(`Processing transcriptions with models: ${selectedModels.join(", ")}`, "info", {
-        details: `File: ${file.name} | Size: ${Math.round(file.size / 1024)} KB`,
+        details: `File: ${file.name} | Size: ${Math.round(file.size / 1024)} KB | Prompt: "${transcriptionPrompt}"`,
         source: "Transcription"
       });
       
@@ -137,7 +189,7 @@ const Index = () => {
             `Generated ${wordCount} words | VTT format | Length: ${result.vttContent.length} characters`
           );
           
-          return { model, vtt: result.vttContent, prompt: result.prompt };
+          return { model, vtt: result.vttContent, prompt: result.prompt || transcriptionPrompt };
         } catch (error) {
           modelLog.error(
             `${model.toUpperCase()} transcription failed`,
@@ -162,7 +214,7 @@ const Index = () => {
           const failedModelIndex = results.findIndex(r => r === result);
           if (failedModelIndex >= 0 && failedModelIndex < selectedModels.length) {
             const model = selectedModels[failedModelIndex];
-            finalTranscriptions[model] = { vtt: "", prompt: "", loading: false };
+            finalTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: false };
           }
         }
       });
@@ -300,7 +352,7 @@ const Index = () => {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-[1440px] mx-auto p-4 md:p-6">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
             Transcription Pipeline
@@ -310,8 +362,9 @@ const Index = () => {
           </p>
         </header>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Content - 7 columns wide */}
+          <div className="lg:col-span-7 space-y-6">
             {/* Step 1: Upload */}
             <Card className="overflow-hidden border-t-4 border-t-blue-500 shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">
@@ -323,14 +376,49 @@ const Index = () => {
                 
                 {file && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-sm flex items-center">
-                      <Check className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="font-medium">File selected:</span> 
-                      <span className="ml-1">{file.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({Math.round(file.size / 1024)} KB)
-                      </span>
+                    <div className="text-sm flex items-center justify-between">
+                      <div>
+                        <Check className="h-4 w-4 text-green-500 mr-2 inline-block" />
+                        <span className="font-medium">File selected:</span> 
+                        <span className="ml-1">{file.name}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({Math.round(file.size / 1024)} KB)
+                        </span>
+                      </div>
+                      
+                      {audioUrl && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1"
+                          onClick={toggleAudioPlayback}
+                        >
+                          {isAudioPlaying ? (
+                            <>
+                              <PauseCircle className="h-4 w-4" />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="h-4 w-4" />
+                              <span>Play</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
+                    
+                    {/* Hidden audio element for playback */}
+                    {audioUrl && (
+                      <audio 
+                        ref={audioRef} 
+                        src={audioUrl} 
+                        onEnded={() => setIsAudioPlaying(false)}
+                        onPause={() => setIsAudioPlaying(false)}
+                        onPlay={() => setIsAudioPlaying(true)}
+                        className="hidden"
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -348,21 +436,26 @@ const Index = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <label htmlFor="prompt" className="text-sm font-medium">
-                        Transcription Prompt:
+                        Transcription Prompt Options:
                       </label>
                       <div className="flex items-center text-xs text-muted-foreground">
                         <Info className="h-3 w-3 mr-1" />
                         <span>Not all models support prompts</span>
                       </div>
                     </div>
-                    <Textarea 
-                      id="prompt"
-                      value={transcriptionPrompt}
-                      onChange={(e) => setTranscriptionPrompt(e.target.value)}
-                      className="resize-none"
-                      placeholder="Enter instructions for the transcription model..."
-                      rows={2}
+                    
+                    <PromptOptions 
+                      preserveEnglish={preserveEnglish}
+                      onPreserveEnglishChange={handlePreserveEnglishChange}
+                      outputFormat={outputFormat}
+                      onOutputFormatChange={handleOutputFormatChange}
+                      disabled={isProcessing}
                     />
+                    
+                    <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm font-medium">Generated Prompt:</p>
+                      <p className="text-sm text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
+                    </div>
                   </div>
                   
                   <ModelSelector 
@@ -400,7 +493,7 @@ const Index = () => {
               </h2>
               
               {selectedModels.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {selectedModels.map((model) => (
                     <TranscriptionCard
                       key={model}
@@ -460,16 +553,14 @@ const Index = () => {
             </Card>
           </div>
           
-          {/* Log Panel */}
-          <div className="lg:row-span-1">
-            <div className="sticky top-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <FileText className="mr-2 h-5 w-5 text-gray-500" />
-                System Logs
-              </h2>
-              <div className="h-[600px] bg-gradient-to-b from-transparent to-gray-50 dark:to-gray-900 p-1 rounded-lg">
-                <LogsPanel logs={logs} />
-              </div>
+          {/* Log Panel - 5 columns wide */}
+          <div className="lg:col-span-5 lg:sticky lg:top-6 lg:self-start">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <FileText className="mr-2 h-5 w-5 text-gray-500" />
+              System Logs
+            </h2>
+            <div className="h-[750px] bg-gradient-to-b from-transparent to-gray-50 dark:to-gray-900 p-1 rounded-lg">
+              <LogsPanel logs={logs} />
             </div>
           </div>
         </div>
