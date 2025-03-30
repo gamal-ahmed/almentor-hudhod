@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -202,24 +203,59 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
         });
         
         // Parse the text back to JSON
-        const data = JSON.parse(responseText);
+        let data;
+        try {
+          data = JSON.parse(responseText);
+          addLog(`Successfully parsed Gemini JSON response`, "debug", {
+            source: "gemini",
+            details: `Response keys: ${Object.keys(data).join(', ')}`
+          });
+        } catch (parseError) {
+          addLog(`Error parsing Gemini JSON response, will treat as raw text`, "warning", {
+            source: "gemini",
+            details: `Parse error: ${parseError.message}, Raw content: ${responseText.substring(0, 200)}...`
+          });
+          
+          // If not valid JSON, treat the response as raw VTT content
+          const vttContent = responseText.trim().startsWith('WEBVTT') 
+            ? responseText 
+            : convertTextToVTT(responseText);
+            
+          logOperation.complete(`Successfully transcribed with ${model} (raw text)`, `Generated ${vttContent.length} characters of VTT content`);
+          return {
+            vttContent,
+            prompt
+          };
+        }
         
         // Extra validation for Gemini response
         if (!data) {
           throw new Error("Empty response from Gemini");
         }
         
-        addLog(`Parsed Gemini response keys: ${Object.keys(data).join(', ')}`, "debug", {
-          source: "gemini"
-        });
-        
-        if (!data.vttContent) {
-          throw new Error(`Missing vttContent in Gemini response: ${JSON.stringify(data)}`);
+        // If vttContent is missing but text is available, convert text to VTT
+        if (!data.vttContent && data.text) {
+          addLog(`Gemini returned text but no VTT, converting to VTT format`, "info", {
+            source: "gemini",
+            details: `Text length: ${data.text.length}, Sample: ${data.text.substring(0, 200)}...`
+          });
+          
+          data.vttContent = convertTextToVTT(data.text);
         }
         
-        addLog(`Gemini VTT content length: ${data.vttContent.length}`, "debug", {
+        // If response has raw text only (not in expected format)
+        if (!data.vttContent && typeof data === 'string') {
+          addLog(`Gemini returned raw text, converting to VTT format`, "info", {
+            source: "gemini",
+            details: `Text length: ${data.length}, Sample: ${data.substring(0, 200)}...`
+          });
+          
+          data = { vttContent: convertTextToVTT(data), prompt };
+        }
+        
+        addLog(`Gemini VTT content length: ${data.vttContent ? data.vttContent.length : 0}`, "debug", {
           source: "gemini",
-          details: `First 200 chars: ${data.vttContent.substring(0, 200)}...`
+          details: data.vttContent ? `First 200 chars: ${data.vttContent.substring(0, 200)}...` : 'No VTT content'
         });
         
         // Return properly formatted data
@@ -229,7 +265,7 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
           prompt
         };
       } catch (parseError) {
-        addLog(`Error parsing Gemini response: ${parseError.message}`, "error", {
+        addLog(`Error processing Gemini response: ${parseError.message}`, "error", {
           source: "gemini",
           details: parseError.stack
         });

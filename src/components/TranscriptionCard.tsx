@@ -63,7 +63,60 @@ const TranscriptionCard = ({
     }
     
     try {
-      const segments = parseVTT(vttContent);
+      // First attempt normal VTT parsing
+      let segments = parseVTT(vttContent);
+      
+      // Special handling for Gemini which may return malformed VTT
+      if (segments.length === 0 && vttContent.length > 0 && modelName.includes("Gemini")) {
+        addLog(`Gemini VTT parsing issue: attempting fallback parsing`, "warning", {
+          source: "TranscriptionCard",
+          details: `VTT Content (first 200 chars): ${vttContent.substring(0, 200)}...`
+        });
+        
+        // Fallback: Try to extract text manually from the VTT content
+        // Some Gemini responses might not be properly formatted VTT
+        const lines = vttContent.split('\n');
+        let isInCue = false;
+        let currentCue = { startTime: "00:00:00.000", endTime: "00:05:00.000", text: "" };
+        
+        for (const line of lines) {
+          if (line.includes('-->')) {
+            isInCue = true;
+            const timeParts = line.split('-->').map(t => t.trim());
+            if (timeParts.length === 2) {
+              currentCue.startTime = timeParts[0];
+              currentCue.endTime = timeParts[1];
+            }
+          } else if (line.trim() === '' && isInCue) {
+            if (currentCue.text) {
+              segments.push({ ...currentCue });
+              currentCue = { startTime: "00:00:00.000", endTime: "00:05:00.000", text: "" };
+            }
+            isInCue = false;
+          } else if (isInCue && line.trim() !== 'WEBVTT') {
+            currentCue.text += (currentCue.text ? ' ' : '') + line;
+          }
+        }
+        
+        // Add the last segment if there's text
+        if (currentCue.text) {
+          segments.push(currentCue);
+        }
+        
+        // If fallback parsing didn't work, create a single segment with all content
+        if (segments.length === 0) {
+          addLog(`Gemini fallback parsing failed: creating single segment with all content`, "warning", {
+            source: "TranscriptionCard"
+          });
+          
+          segments = [{
+            startTime: "00:00:00.000",
+            endTime: "00:10:00.000",
+            text: vttContent.replace('WEBVTT', '').trim()
+          }];
+        }
+      }
+      
       console.log(`${modelName}: Successfully parsed ${segments.length} VTT segments`);
       
       if (modelName.includes("Gemini") && segments.length === 0 && vttContent.length > 0) {
@@ -80,6 +133,16 @@ const TranscriptionCard = ({
         source: "TranscriptionCard",
         details: error.stack
       });
+      
+      // Return a single segment with the raw content as a fallback
+      if (vttContent && vttContent.length > 0) {
+        return [{
+          startTime: "00:00:00.000",
+          endTime: "00:10:00.000",
+          text: vttContent.replace('WEBVTT', '').trim()
+        }];
+      }
+      
       return [];
     }
   };
