@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileAudio, Clock, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "@/components/ui/use-toast";
 
 interface TranscriptionHistoryProps {
   onLoadTranscription: (transcription: any) => void;
@@ -29,6 +30,11 @@ const TranscriptionHistory = ({ onLoadTranscription }: TranscriptionHistoryProps
     } catch (error) {
       console.error("Error loading transcriptions:", error);
       setError("Failed to load transcriptions. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to load your transcription history.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
