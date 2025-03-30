@@ -1,5 +1,10 @@
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { transcribeAudio as serverTranscribeAudio } from "./api/transcriptionService";
+import { 
+  transcribeAudio as serverTranscribeAudio,
+  createTranscriptionJob,
+  checkTranscriptionJobStatus,
+  getUserTranscriptionJobs
+} from "./api/transcriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
 // API endpoints (using Supabase Edge Functions)
@@ -14,6 +19,13 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // Get logs store outside of component to use in this service file
 const getLogsStore = () => useLogsStore.getState();
+
+// Re-export transcription service functions
+export {
+  createTranscriptionJob,
+  checkTranscriptionJobStatus,
+  getUserTranscriptionJobs
+};
 
 // Fetch Brightcove keys from Supabase
 export async function fetchBrightcoveKeys() {

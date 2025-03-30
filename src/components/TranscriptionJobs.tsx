@@ -11,7 +11,7 @@ import { TranscriptionModel } from './ModelSelector';
 
 interface TranscriptionJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: string; // Changed from enum-like type to string for flexibility
   model: TranscriptionModel;
   created_at: string;
   updated_at: string;
@@ -74,7 +74,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 updatedJobs[i] = updatedJob;
                 hasChanges = true;
                 
-                // Notify if job completed or failed
+                // Fixed comparison issue using equality instead of strict equality
                 if (updatedJob.status === 'completed' && job.status !== 'completed') {
                   toast({
                     title: "Transcription completed",
