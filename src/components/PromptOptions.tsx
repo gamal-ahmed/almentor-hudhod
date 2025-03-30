@@ -1,7 +1,6 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bell } from "lucide-react";
 
 interface PromptOptionsProps {
@@ -37,21 +36,36 @@ const PromptOptions = ({
         </Label>
       </div>
       
-      <div className="flex flex-col space-y-2">
-        <Label htmlFor="outputFormat">Output Format</Label>
-        <Select
-          value={outputFormat}
-          onValueChange={(value) => onOutputFormatChange(value as "vtt" | "plain")}
-          disabled={disabled}
-        >
-          <SelectTrigger id="outputFormat" className="w-full">
-            <SelectValue placeholder="Select format" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="vtt">VTT with timestamps</SelectItem>
-            <SelectItem value="plain">Plain text</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="space-y-2">
+        <Label>Output Format</Label>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="vttFormat"
+              checked={outputFormat === "vtt"}
+              onCheckedChange={(checked) => 
+                checked ? onOutputFormatChange("vtt") : onOutputFormatChange("plain")
+              }
+              disabled={disabled}
+            />
+            <Label htmlFor="vttFormat" className="cursor-pointer">
+              VTT with timestamps
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="plainFormat"
+              checked={outputFormat === "plain"}
+              onCheckedChange={(checked) => 
+                checked ? onOutputFormatChange("plain") : onOutputFormatChange("vtt")
+              }
+              disabled={disabled}
+            />
+            <Label htmlFor="plainFormat" className="cursor-pointer">
+              Plain text
+            </Label>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center space-x-2 pt-2 border-t border-gray-200 dark:border-gray-800">
