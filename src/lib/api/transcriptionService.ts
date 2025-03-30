@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -294,16 +293,15 @@ export async function saveTranscriptionResult(file: File, model: TranscriptionMo
     if (uploadError) {
       addLog(`Error uploading file: ${uploadError.message}`, "error", {
         source: model,
-        details: uploadError
+        details: uploadError.message
       });
-      throw uploadError;
+      throw new Error(uploadError.message);
     }
     
     // Create a completed job record
     const { data: jobData, error: jobError } = await supabase
       .from('transcription_jobs')
       .insert({
-        user_id: session.user.id,
         status: 'completed',
         status_message: 'Transcription completed via synchronous processing',
         file_path: filePath,
@@ -320,9 +318,9 @@ export async function saveTranscriptionResult(file: File, model: TranscriptionMo
     if (jobError) {
       addLog(`Error saving transcription job: ${jobError.message}`, "error", {
         source: model,
-        details: jobError
+        details: jobError.message
       });
-      throw jobError;
+      throw new Error(jobError.message);
     }
     
     addLog(`Successfully saved transcription result`, "success", {

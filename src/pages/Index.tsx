@@ -21,17 +21,21 @@ import {
   queueTranscriptionJob,
   checkTranscriptionStatus,
   getMyTranscriptionJobs,
+  getMyLatestTranscriptionJob,
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
   addCaptionToBrightcove
 } from "@/lib/api";
 import { requestNotificationPermission, showNotification } from "@/lib/notifications";
 import Header from '@/components/Header';
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/AuthContext";
 
 const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
 const Index = () => {
-  // Main state
+  const { isAuthenticated } = useAuth();
+  
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini-2.0-flash", "phi4"]);
@@ -42,18 +46,15 @@ const Index = () => {
   const [processingMode, setProcessingMode] = useState<"sync" | "async">("sync");
   const [transcriptionJobs, setTranscriptionJobs] = useState<any[]>([]);
   
-  // SharePoint and Queue state
   const [fileQueue, setFileQueue] = useState<File[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(0);
   
-  // Prompt options state
   const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Processing state
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -63,32 +64,25 @@ const Index = () => {
     phi4: { vtt: "", prompt: "", loading: false }
   });
   
-  // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
-  const toast = useToast();
+  const { toast } = useToast();
 
-  // New state for loading existing transcriptions
   const [loadingExistingTranscription, setLoadingExistingTranscription] = useState<boolean>(false);
 
-  // Load user's transcription jobs on mount and check for active jobs
   useEffect(() => {
     const loadJobsAndCheckLatest = async () => {
       try {
-        // Load all jobs
         const jobs = await getMyTranscriptionJobs();
         setTranscriptionJobs(jobs);
         
-        // If no file is selected, check for the latest job to restore state
         if (!file) {
           setLoadingExistingTranscription(true);
           try {
-            const latestJob = await getLatestTranscriptionJob();
+            const latestJob = await getMyLatestTranscriptionJob();
             
             if (latestJob && latestJob.status === 'completed' && latestJob.result?.vttContent) {
-              // Restore the transcription from the latest completed job
               const model = latestJob.model as TranscriptionModel;
               
-              // Update the transcriptions state with this result
               const updatedTranscriptions = { ...transcriptions };
               updatedTranscriptions[model] = { 
                 vtt: latestJob.result.vttContent, 
@@ -98,11 +92,9 @@ const Index = () => {
               
               setTranscriptions(updatedTranscriptions);
               
-              // Automatically select this transcription
               setSelectedTranscription(latestJob.result.vttContent);
               setSelectedModel(model);
               
-              // Try to download the file from storage if available
               if (latestJob.file_path) {
                 try {
                   const { data: fileData, error: downloadError } = await supabase.storage
@@ -110,40 +102,34 @@ const Index = () => {
                     .download(latestJob.file_path);
                   
                   if (fileData && !downloadError) {
-                    // Create a File object
                     const restoredFile = new File([fileData], latestJob.file_name || 'audio.mp3', {
                       type: 'audio/mpeg'
                     });
                     
-                    // Set the file and create an audio URL
                     setFile(restoredFile);
                     const newAudioUrl = URL.createObjectURL(restoredFile);
                     setAudioUrl(newAudioUrl);
                     
-                    toast.toast({
+                    toast({
                       title: "Previous Work Restored",
                       description: `Restored your previous transcription of "${latestJob.file_name}"`,
                     });
                   }
                 } catch (downloadErr) {
                   console.error("Failed to download audio file:", downloadErr);
-                  // We don't need to show this error to the user
                 }
               }
               
-              // Display a notification to the user
               addLog(`Restored previous transcription from job ${latestJob.id}`, "info", {
                 source: "StateRestoration",
                 details: `Model: ${model}, VTT content length: ${latestJob.result.vttContent.length}`
               });
             } else if (latestJob && (latestJob.status === 'pending' || latestJob.status === 'processing')) {
-              // There's a job in progress, notify the user and offer to check its status
-              toast.toast({
+              toast({
                 title: "Transcription In Progress",
                 description: "You have a transcription job currently in progress. Check the Jobs tab to see its status.",
               });
               
-              // Switch to the jobs tab
               document.querySelector('[value="jobs"]')?.dispatchEvent(new Event('click'));
             }
           } catch (err) {
@@ -162,7 +148,6 @@ const Index = () => {
     }
   }, [isAuthenticated]);
   
-  // Request notification permission when notifications are enabled
   useEffect(() => {
     if (notificationsEnabled) {
       requestNotificationPermission().then(granted => {
@@ -178,7 +163,6 @@ const Index = () => {
     }
   }, [notificationsEnabled, toast]);
   
-  // Update prompt based on options
   const updatePromptFromOptions = () => {
     let newPrompt = "";
     
@@ -195,7 +179,6 @@ const Index = () => {
     setTranscriptionPrompt(newPrompt.trim());
   };
   
-  // Handle playback of audio file
   const toggleAudioPlayback = () => {
     if (!audioRef.current) return;
     
@@ -208,7 +191,6 @@ const Index = () => {
     setIsAudioPlaying(!isAudioPlaying);
   };
   
-  // Handle SharePoint files being queued
   const handleFilesQueued = (files: File[]) => {
     setFileQueue(files);
     setCurrentQueueIndex(0);
@@ -225,7 +207,6 @@ const Index = () => {
     }
   };
   
-  // Process the next file in the queue
   const processNextInQueue = async () => {
     if (currentQueueIndex >= fileQueue.length) {
       return;
@@ -236,7 +217,6 @@ const Index = () => {
     setCurrentQueueIndex(prev => prev + 1);
   };
   
-  // Skip the current file in the queue
   const skipCurrentInQueue = () => {
     addLog(`Skipped file: ${fileQueue[currentQueueIndex]?.name}`, "info", {
       source: "FileQueue"
@@ -244,7 +224,6 @@ const Index = () => {
     setCurrentQueueIndex(prev => prev + 1);
   };
   
-  // Reset the queue
   const resetQueue = () => {
     setFileQueue([]);
     setCurrentQueueIndex(0);
@@ -258,7 +237,6 @@ const Index = () => {
     });
   };
   
-  // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
     try {
       setFile(uploadedFile);
@@ -306,7 +284,6 @@ const Index = () => {
     }
   };
 
-  // Update options and regenerate prompt
   const handlePreserveEnglishChange = (checked: boolean) => {
     setPreserveEnglish(checked);
     setTimeout(updatePromptFromOptions, 0);
@@ -337,7 +314,6 @@ const Index = () => {
     }
   };
   
-  // Process transcriptions with selected models (synchronous version)
   const processTranscriptions = async () => {
     if (!file) {
       toast.toast({
@@ -491,7 +467,6 @@ const Index = () => {
     }
   };
   
-  // When a transcription is selected
   const handleSelectTranscription = (model: string, vtt: string) => {
     setSelectedTranscription(vtt);
     setSelectedModel(model);
@@ -501,7 +476,6 @@ const Index = () => {
     });
   };
   
-  // Handle async transcription completion
   const handleAsyncTranscriptionComplete = (vttContent: string, jobId: string) => {
     setSelectedTranscription(vttContent);
     setSelectedModel(`job-${jobId}`);
@@ -512,7 +486,6 @@ const Index = () => {
     });
   };
   
-  // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
       toast.toast({
@@ -586,7 +559,6 @@ const Index = () => {
     }
   };
   
-  // Refresh the list of transcription jobs
   const refreshTranscriptionJobs = async () => {
     try {
       const jobs = await getMyTranscriptionJobs();

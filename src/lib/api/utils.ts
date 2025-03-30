@@ -1,3 +1,4 @@
+
 export const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk";
 
 export const API_ENDPOINTS = {
@@ -14,7 +15,11 @@ export const API_ENDPOINTS = {
 
   BRIGHTCOVE_KEYS: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-keys',
   BRIGHTCOVE_TOKEN: 'https://oauth.brightcove.com/oauth/token',
-  BRIGHTCOVE_ADD_CAPTION: 'https://ingest.api.brightcove.com/v1/accounts/{account_id}/videos/{video_id}/texttracks'
+  BRIGHTCOVE_ADD_CAPTION: 'https://ingest.api.brightcove.com/v1/accounts/{account_id}/videos/{video_id}/texttracks',
+  
+  // Adding missing proxy endpoints
+  SHAREPOINT_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
+  BRIGHTCOVE_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy'
 };
 
 export function convertTextToVTT(text: string, timeOffset = 3): string {

@@ -65,6 +65,6 @@ export async function getMyTranscriptionJobs() {
 }
 
 // Get the latest transcription job for the current user
-export async function getLatestTranscriptionJob() {
+export async function getMyLatestTranscriptionJob() {
   return getLatestTranscriptionJob();
 }

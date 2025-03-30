@@ -6,7 +6,9 @@ export {
   transcribeAudio,
   queueTranscription,
   getTranscriptionStatus,
-  getTranscriptionJobs 
+  getTranscriptionJobs,
+  getLatestTranscriptionJob,
+  saveTranscriptionResult
 } from './transcriptionService';
 
 // SharePoint API
