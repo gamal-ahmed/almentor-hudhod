@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
-import { TranscriptionModel } from './ModelSelector';
+import { Json } from '@/integrations/supabase/types';
 
 interface TranscriptionJob {
   id: string;
@@ -16,7 +17,11 @@ interface TranscriptionJob {
   updated_at: string;
   status_message: string;
   error?: string;
-  result?: { vttContent: string; text: string; prompt: string };
+  result?: { 
+    vttContent: string; 
+    text: string; 
+    prompt: string;
+  } | Json;
 }
 
 interface TranscriptionJobsProps {
@@ -37,7 +42,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     try {
       setLoading(true);
       const jobsData = await getUserTranscriptionJobs();
-      setJobs(jobsData as TranscriptionJob[]);
+      setJobs(jobsData as unknown as TranscriptionJob[]);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast({
@@ -69,7 +74,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 updatedJob.status !== job.status || 
                 updatedJob.status_message !== job.status_message
               ) {
-                updatedJobs[i] = updatedJob as TranscriptionJob;
+                updatedJobs[i] = updatedJob as unknown as TranscriptionJob;
                 hasChanges = true;
                 
                 if (updatedJob.status === 'completed' && job.status !== 'completed') {
@@ -151,8 +156,12 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   };
   
   const handleSelectTranscription = (job: TranscriptionJob) => {
-    if (job.status === 'completed' && job.result?.vttContent && onSelectTranscription) {
-      onSelectTranscription(job.result.vttContent, job.model);
+    if (job.status === 'completed' && job.result && onSelectTranscription) {
+      // Check if result is in the expected format
+      const result = job.result as any;
+      if (result.vttContent) {
+        onSelectTranscription(result.vttContent, job.model);
+      }
     }
   };
   

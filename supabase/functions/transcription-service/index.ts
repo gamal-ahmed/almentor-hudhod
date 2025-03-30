@@ -56,7 +56,7 @@ async function handleStartJob(req: Request) {
 
     console.log(`Processing job ${jobId}: file: ${audioFile.name}, size: ${audioFile.size} bytes`);
 
-    // Update job status
+    // Update job status - use the base table instead of the view
     await updateJobStatus(jobId.toString(), 'processing', 'Transcription in progress');
 
     // Process transcription in the background
@@ -99,7 +99,7 @@ async function handleJobStatus(req: Request) {
       throw new Error("No job ID provided");
     }
 
-    // Get job from database
+    // Get job from database using the transcription_jobs view
     const { data: job, error } = await supabase
       .from('transcription_jobs')
       .select('*')
@@ -134,7 +134,7 @@ async function handleJobStatus(req: Request) {
   }
 }
 
-// Update job status in the database
+// Update job status in the database - modify to use the transcriptions table directly
 async function updateJobStatus(
   jobId: string, 
   status: 'pending' | 'processing' | 'completed' | 'failed',
@@ -144,7 +144,6 @@ async function updateJobStatus(
 ) {
   const updateData: any = {
     status,
-    status_message: statusMessage,
     updated_at: new Date().toISOString()
   };
 
@@ -156,8 +155,9 @@ async function updateJobStatus(
     updateData.result = result;
   }
 
+  // Update the transcriptions table directly - avoid using the view
   const { error: updateError } = await supabase
-    .from('transcription_jobs')
+    .from('transcriptions')
     .update(updateData)
     .eq('id', jobId);
 
@@ -174,7 +174,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
   try {
     console.log(`Starting background transcription for job ${jobId}`);
     
-    // Get job information from database
+    // Get job information from database - use the view for reading
     const { data: job, error: jobError } = await supabase
       .from('transcription_jobs')
       .select('*')

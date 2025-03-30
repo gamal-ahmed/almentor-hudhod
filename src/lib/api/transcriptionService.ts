@@ -22,14 +22,13 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
       details: `File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`
     });
     
-    // Create job record in the database first
+    // Create job record in the database first - using the actual table, not the view
     const { data: jobData, error: jobError } = await supabase
-      .from('transcription_jobs')
+      .from('transcriptions')
       .insert({
-        model: model as string, // Cast to string for the database
+        model: model as string, // Cast model to string
         file_path: fileName,
-        status: 'pending',
-        status_message: 'Job created, uploading file'
+        status: 'pending'
       })
       .select()
       .single();
@@ -37,6 +36,14 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     if (jobError) {
       throw new Error(`Failed to create transcription job: ${jobError.message}`);
     }
+    
+    // Now update the status message in a separate query
+    await supabase
+      .from('transcriptions')
+      .update({
+        error: null // Clear any previous errors
+      })
+      .eq('id', jobData.id);
     
     // Prepare FormData for the transcription request
     const formData = new FormData();
