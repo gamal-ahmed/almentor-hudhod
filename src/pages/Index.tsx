@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,11 +19,7 @@ import {
   transcribeAudio, 
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
-  addCaptionToBrightcove,
-  saveTranscriptionState,
-  getTranscriptionState,
-  clearTranscriptionState,
-  updateTranscriptionResult
+  addCaptionToBrightcove
 } from "@/lib/api";
 import { DEFAULT_TRANSCRIPTION_PROMPT } from "@/lib/phi4TranscriptionService";
 import { requestNotificationPermission, showNotification } from "@/lib/notifications";
@@ -60,90 +55,16 @@ const Index = () => {
     phi4: { vtt: "", prompt: "", loading: false }
   });
   
-  // Recovery state
-  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState<boolean>(false);
-  const [recoveryState, setRecoveryState] = useState<any>(null);
-  
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
-  const { toast } = useToast();
-
-  // Check for in-progress transcription on mount
-  useEffect(() => {
-    const savedState = getTranscriptionState();
-    if (savedState) {
-      console.log('Found saved transcription state:', savedState);
-      setRecoveryState(savedState);
-      setShowRecoveryPrompt(true);
-    }
-  }, []);
-  
-  // Handle recovery confirmation
-  const handleRecoverTranscription = async () => {
-    if (!recoveryState) return;
-    
-    try {
-      addLog(`Recovering transcription session from ${new Date(recoveryState.timestamp).toLocaleString()}`, "info", {
-        source: "Recovery",
-        details: `File: ${recoveryState.fileName}, Models: ${recoveryState.selectedModels.join(', ')}`
-      });
-      
-      // Set all the state from the recovered data
-      setSelectedModels(recoveryState.selectedModels);
-      setTranscriptionPrompt(recoveryState.prompt);
-      setTranscriptions(recoveryState.results);
-      
-      // Check if all transcriptions are complete
-      const allComplete = Object.values(recoveryState.results).every((result: any) => !result.loading);
-      
-      if (!allComplete) {
-        // Re-process any incomplete transcriptions
-        toast({
-          title: "Transcription Recovery",
-          description: "Continuing previously started transcription process...",
-        });
-      } else {
-        toast({
-          title: "Transcription Recovered",
-          description: "Previously completed transcription has been restored.",
-        });
-      }
-      
-      setShowRecoveryPrompt(false);
-    } catch (error) {
-      console.error('Error recovering transcription:', error);
-      toast({
-        title: "Recovery Failed",
-        description: "Could not recover the previous transcription.",
-        variant: "destructive",
-      });
-      clearTranscriptionState();
-      setShowRecoveryPrompt(false);
-    }
-  };
-  
-  // Discard saved transcription
-  const handleDiscardTranscription = () => {
-    clearTranscriptionState();
-    setShowRecoveryPrompt(false);
-    setRecoveryState(null);
-    
-    addLog("Previous transcription session discarded", "info", {
-      source: "Recovery"
-    });
-    
-    toast({
-      title: "Transcription Discarded",
-      description: "Previous transcription has been cleared.",
-    });
-  };
+  const toast = useToast();
 
   // Request notification permission when notifications are enabled
   useEffect(() => {
     if (notificationsEnabled) {
       requestNotificationPermission().then(granted => {
         if (!granted) {
-          toast({
+          toast.toast({
             title: "Notification Permission Denied",
             description: "Please enable notifications in your browser settings to receive alerts.",
             variant: "destructive",
@@ -254,7 +175,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast({
+      toast.toast({
         title: "File Selected",
         description: "Your audio file is ready for transcription.",
       });
@@ -272,7 +193,7 @@ const Index = () => {
         source: "FileUpload"
       });
       
-      toast({
+      toast.toast({
         title: "File Error",
         description: "There was a problem with your file.",
         variant: "destructive",
@@ -299,14 +220,14 @@ const Index = () => {
       setNotificationsEnabled(granted);
       
       if (granted) {
-        toast({
+        toast.toast({
           title: "Notifications Enabled",
           description: "You will receive browser notifications when processes complete.",
         });
       }
     } else {
       setNotificationsEnabled(false);
-      toast({
+      toast.toast({
         title: "Notifications Disabled",
         description: "You will no longer receive browser notifications.",
       });
@@ -316,7 +237,7 @@ const Index = () => {
   // Process transcriptions with selected models
   const processTranscriptions = async () => {
     if (!file) {
-      toast({
+      toast.toast({
         title: "No File Selected",
         description: "Please upload an audio file first.",
         variant: "destructive",
@@ -325,7 +246,7 @@ const Index = () => {
     }
     
     if (!Array.isArray(selectedModels) || selectedModels.length === 0) {
-      toast({
+      toast.toast({
         title: "No Models Selected",
         description: "Please select at least one transcription model.",
         variant: "destructive",
@@ -338,9 +259,6 @@ const Index = () => {
       const mainLog = startTimedLog("Transcription Process", "info", "Transcription");
       
       updatePromptFromOptions();
-      
-      // Save transcription state to localStorage for persistence
-      saveTranscriptionState(file, selectedModels, transcriptionPrompt);
       
       const updatedTranscriptions = { ...transcriptions };
       selectedModels.forEach(model => {
@@ -430,7 +348,7 @@ const Index = () => {
           `${successfulTranscriptions} out of ${selectedModels.length} transcriptions successful`
         );
         
-        toast({
+        toast.toast({
           title: "Transcription Complete",
           description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
         });
@@ -441,18 +359,13 @@ const Index = () => {
             tag: "transcription-complete"
           });
         }
-        
-        // Clear persistence state after successful completion
-        if (successfulTranscriptions === selectedModels.length) {
-          clearTranscriptionState();
-        }
       } else {
         mainLog.error(
           `Transcription process failed`,
           `All ${selectedModels.length} transcription attempts failed`
         );
         
-        toast({
+        toast.toast({
           title: "Transcription Failed",
           description: "All transcription attempts failed. Please try again.",
           variant: "destructive",
@@ -465,7 +378,7 @@ const Index = () => {
         source: "Transcription"
       });
       
-      toast({
+      toast.toast({
         title: "Processing Error",
         description: "There was a problem processing your transcriptions.",
         variant: "destructive",
@@ -488,7 +401,7 @@ const Index = () => {
   // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
-      toast({
+      toast.toast({
         title: "Missing Information",
         description: "Please select a transcription and enter a video ID.",
         variant: "destructive",
@@ -533,7 +446,7 @@ const Index = () => {
           `Video ID: ${videoId} | Language: Arabic`
         );
         
-        toast({
+        toast.toast({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video.",
         });
@@ -549,7 +462,7 @@ const Index = () => {
         source: "Brightcove"
       });
       
-      toast({
+      toast.toast({
         title: "Publishing Failed",
         description: "There was a problem publishing your caption.",
         variant: "destructive",
@@ -570,39 +483,6 @@ const Index = () => {
             Download MP3 files from SharePoint, transcribe with multiple AI models, and publish captions to Brightcove.
           </p>
         </header>
-        
-        {showRecoveryPrompt && recoveryState && (
-          <Card className="mb-6 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20">
-            <CardContent className="p-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h3 className="font-semibold text-yellow-800 dark:text-yellow-300">
-                    Continue Previous Transcription?
-                  </h3>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                    A transcription was in progress when you last used this app ({new Date(recoveryState.timestamp).toLocaleTimeString()} on {new Date(recoveryState.timestamp).toLocaleDateString()}).
-                    Would you like to continue from where you left off?
-                  </p>
-                </div>
-                <div className="flex gap-2 self-end md:self-auto">
-                  <Button 
-                    variant="outline" 
-                    className="border-yellow-600 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:bg-yellow-900/40"
-                    onClick={handleDiscardTranscription}
-                  >
-                    Discard
-                  </Button>
-                  <Button 
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                    onClick={handleRecoverTranscription}
-                  >
-                    Restore
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-3 space-y-4">

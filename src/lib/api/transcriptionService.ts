@@ -7,114 +7,6 @@ import { useLogsStore } from "@/lib/useLogsStore";
 // Get logs store outside of component to use in this service file
 const getLogsStore = () => useLogsStore.getState();
 
-// Storage keys for persisting transcription state
-const STORAGE_KEYS = {
-  IN_PROGRESS: 'transcription_in_progress',
-  FILE_NAME: 'transcription_file_name',
-  FILE_SIZE: 'transcription_file_size',
-  FILE_TYPE: 'transcription_file_type',
-  SELECTED_MODELS: 'transcription_selected_models',
-  PROMPT: 'transcription_prompt',
-  RESULTS: 'transcription_results',
-  TIMESTAMP: 'transcription_timestamp'
-};
-
-// Save transcription state to localStorage
-export function saveTranscriptionState(file: File, models: TranscriptionModel[], prompt: string) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.IN_PROGRESS, 'true');
-    localStorage.setItem(STORAGE_KEYS.FILE_NAME, file.name);
-    localStorage.setItem(STORAGE_KEYS.FILE_SIZE, file.size.toString());
-    localStorage.setItem(STORAGE_KEYS.FILE_TYPE, file.type);
-    localStorage.setItem(STORAGE_KEYS.SELECTED_MODELS, JSON.stringify(models));
-    localStorage.setItem(STORAGE_KEYS.PROMPT, prompt);
-    localStorage.setItem(STORAGE_KEYS.TIMESTAMP, Date.now().toString());
-    
-    // Initialize results object
-    const results = models.reduce((acc, model) => {
-      acc[model] = { vtt: "", prompt: prompt, loading: true };
-      return acc;
-    }, {} as Record<string, any>);
-    
-    localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
-    
-    console.log('Transcription state saved to localStorage');
-  } catch (error) {
-    console.error('Error saving transcription state:', error);
-  }
-}
-
-// Update results for a specific model
-export function updateTranscriptionResult(model: TranscriptionModel, vttContent: string, prompt: string) {
-  try {
-    const resultsJson = localStorage.getItem(STORAGE_KEYS.RESULTS);
-    if (resultsJson) {
-      const results = JSON.parse(resultsJson);
-      results[model] = { vtt: vttContent, prompt, loading: false };
-      localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
-      console.log(`Updated transcription result for ${model}`);
-    }
-  } catch (error) {
-    console.error('Error updating transcription result:', error);
-  }
-}
-
-// Check if there's a transcription in progress
-export function getTranscriptionState(): null | {
-  inProgress: boolean;
-  fileName: string;
-  fileSize: number;
-  fileType: string;
-  selectedModels: TranscriptionModel[];
-  prompt: string;
-  results: Record<string, { vtt: string; prompt: string; loading: boolean }>;
-  timestamp: number;
-} {
-  try {
-    const inProgress = localStorage.getItem(STORAGE_KEYS.IN_PROGRESS) === 'true';
-    
-    if (!inProgress) return null;
-    
-    const fileName = localStorage.getItem(STORAGE_KEYS.FILE_NAME);
-    const fileSize = localStorage.getItem(STORAGE_KEYS.FILE_SIZE);
-    const fileType = localStorage.getItem(STORAGE_KEYS.FILE_TYPE);
-    const selectedModelsJson = localStorage.getItem(STORAGE_KEYS.SELECTED_MODELS);
-    const prompt = localStorage.getItem(STORAGE_KEYS.PROMPT);
-    const resultsJson = localStorage.getItem(STORAGE_KEYS.RESULTS);
-    const timestamp = localStorage.getItem(STORAGE_KEYS.TIMESTAMP);
-    
-    if (!fileName || !fileSize || !fileType || !selectedModelsJson || !prompt || !resultsJson || !timestamp) {
-      clearTranscriptionState();
-      return null;
-    }
-    
-    return {
-      inProgress,
-      fileName,
-      fileSize: parseInt(fileSize, 10),
-      fileType,
-      selectedModels: JSON.parse(selectedModelsJson),
-      prompt,
-      results: JSON.parse(resultsJson),
-      timestamp: parseInt(timestamp, 10)
-    };
-  } catch (error) {
-    console.error('Error getting transcription state:', error);
-    clearTranscriptionState();
-    return null;
-  }
-}
-
-// Clear transcription state from localStorage
-export function clearTranscriptionState() {
-  try {
-    Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
-    console.log('Transcription state cleared from localStorage');
-  } catch (error) {
-    console.error('Error clearing transcription state:', error);
-  }
-}
-
 // Transcribe audio using selected model - directly uploads the file
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = DEFAULT_TRANSCRIPTION_PROMPT) {
   const addLog = getLogsStore().addLog;
@@ -136,10 +28,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
         addLog(`Received ${result.chunks.length} chunks from Phi-4`, "info", { source: "phi4" });
         const vttContent = convertChunksToVTT(result.chunks);
         logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${vttContent.length} characters of VTT content`);
-        
-        // Update result in localStorage
-        updateTranscriptionResult(model, vttContent, result.prompt || "No prompt supported in browser-based Phi-4 model");
-        
         return {
           vttContent,
           prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
@@ -148,10 +36,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
         addLog(`Received text result from Phi-4`, "info", { source: "phi4" });
         const vttContent = convertTextToVTT(result.text);
         logOperation.complete(`Successfully transcribed with ${model}`, `Generated ${vttContent.length} characters of VTT content`);
-        
-        // Update result in localStorage
-        updateTranscriptionResult(model, vttContent, result.prompt || "No prompt supported in browser-based Phi-4 model");
-        
         return {
           vttContent,
           prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
@@ -234,9 +118,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     });
     
     logOperation.complete(`Completed ${model} transcription`, `Generated ${data.vttContent.length} characters of VTT content`);
-    
-    // Update result in localStorage
-    updateTranscriptionResult(model, data.vttContent, prompt);
     
     return {
       vttContent: data.vttContent,
