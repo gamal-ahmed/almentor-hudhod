@@ -1,16 +1,19 @@
-
+import { supabase } from "@/integrations/supabase/client";
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { supabase } from "@/integrations/supabase/client";
 
 const getLogsStore = () => useLogsStore.getState();
 
 export type ExportFormat = 'vtt' | 'srt' | 'txt' | 'json';
 
-interface ExportResponse {
-  fileUrl: string;
-  fileName: string;
+export interface ExportFile {
+  id: string;
+  file_name: string;
   format: ExportFormat;
+  file_url: string;
+  created_at: string;
+  user_id: string;
+  size_bytes?: number;
 }
 
 // Export transcription to server and get a download URL
@@ -18,7 +21,7 @@ export async function exportTranscription(
   transcriptionContent: string, 
   format: ExportFormat,
   fileName: string = `transcription-${Date.now()}`
-): Promise<ExportResponse> {
+): Promise<ExportFile> {
   const addLog = getLogsStore().addLog;
   const startTimedLog = getLogsStore().startTimedLog;
   
@@ -60,7 +63,15 @@ export async function exportTranscription(
     
     logOperation.complete(`Exported transcription as ${format}`, `File saved as ${data.fileName}.${data.format}`);
     
-    return data;
+    return {
+      id: data.id || crypto.randomUUID(),
+      file_name: data.fileName,
+      format: data.format,
+      file_url: data.fileUrl,
+      created_at: new Date().toISOString(),
+      user_id: supabase.auth.getUser().data.user?.id || 'anonymous',
+      size_bytes: data.sizeBytes
+    };
   } catch (error) {
     addLog(`Error exporting transcription: ${error.message}`, "error", {
       source: "Export",
@@ -73,7 +84,7 @@ export async function exportTranscription(
 }
 
 // Get user's exported transcription files
-export async function getUserExportedFiles() {
+export async function getUserExportedFiles(): Promise<ExportFile[]> {
   try {
     const { data, error } = await supabase
       .from('transcription_exports')
@@ -84,14 +95,14 @@ export async function getUserExportedFiles() {
       throw new Error(`Failed to fetch user exports: ${error.message}`);
     }
     
-    return data || [];
+    return (data || []) as ExportFile[];
   } catch (error) {
     console.error('Error fetching user exported files:', error);
     throw error;
   }
 }
 
-// Convert VTT to SRT format
+// Conversion utilities (kept from previous implementation)
 export function convertVttToSrt(vttContent: string): string {
   if (!vttContent.trim()) return '';
   
@@ -122,7 +133,6 @@ export function convertVttToSrt(vttContent: string): string {
   }).join('\n\n');
 }
 
-// Convert VTT to plain text
 export function convertVttToText(vttContent: string): string {
   if (!vttContent.trim()) return '';
   
@@ -146,7 +156,6 @@ export function convertVttToText(vttContent: string): string {
   }).join(' ');
 }
 
-// Convert VTT to JSON format
 export function convertVttToJson(vttContent: string): string {
   if (!vttContent.trim()) return '[]';
   

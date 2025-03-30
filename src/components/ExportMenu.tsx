@@ -49,13 +49,13 @@ const ExportMenu = ({
       
       toast({
         title: "Export Successful",
-        description: `Your transcription has been exported as ${result.fileName}.${result.format}`,
+        description: `Your transcription has been exported as ${result.file_name}.${result.format}`,
       });
       
       // Create a temporary download link
       const downloadLink = document.createElement('a');
-      downloadLink.href = result.fileUrl;
-      downloadLink.download = `${result.fileName}.${result.format}`;
+      downloadLink.href = result.file_url;
+      downloadLink.download = `${result.file_name}.${result.format}`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);

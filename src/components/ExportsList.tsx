@@ -1,22 +1,11 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Download, RefreshCw, FileText, FileJson, File } from "lucide-react";
-import { getUserExportedFiles } from "@/lib/api/exportService";
+import { getUserExportedFiles, ExportFile } from "@/lib/api/exportService";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface ExportFile {
-  id: string;
-  file_name: string;
-  format: string;
-  file_url: string;
-  created_at: string;
-  user_id: string;
-  size_bytes?: number;
-}
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
