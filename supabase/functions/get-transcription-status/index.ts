@@ -44,6 +44,7 @@ serve(async (req) => {
     // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("No Authorization header provided");
       return new Response(
         JSON.stringify({ error: 'Authorization header is required' }),
         {
@@ -61,102 +62,122 @@ serve(async (req) => {
     const supabaseKey = authHeader.replace('Bearer ', '');
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get user session - use getUser() to validate the JWT token
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError) {
-      console.error("Authentication error:", userError);
-      return new Response(
-        JSON.stringify({ error: 'Authentication failed', details: userError.message }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-    
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Query the job status
-    const { data: job, error: jobError } = await supabase
-      .from('transcription_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .maybeSingle();
-
-    if (jobError) {
-      return new Response(
-        JSON.stringify({ error: `Failed to fetch job: ${jobError.message}` }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    if (!job) {
-      return new Response(
-        JSON.stringify({ error: `Job not found with ID: ${jobId}` }),
-        {
-          status: 404,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // If user_id is set, verify that the current user owns the job
-    if (job.user_id && job.user_id !== user.id) {
-      return new Response(
-        JSON.stringify({ error: 'You do not have permission to access this job' }),
-        {
-          status: 403,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Return the job status with all necessary information
-    return new Response(
-      JSON.stringify({
-        status: job.status,
-        status_message: job.status_message || job.status,
-        error: job.error,
-        result: job.result,
-        file_name: job.file_name,
-        created_at: job.created_at,
-        updated_at: job.updated_at,
-        model: job.model
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+    try {
+      // Get user session - use getUser() to validate the JWT token
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error("Authentication error:", userError);
+        return new Response(
+          JSON.stringify({ error: 'Authentication failed', details: userError.message }),
+          {
+            status: 401,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
       }
-    );
+      
+      if (!user) {
+        console.error("User not found in token");
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      // Query the job status
+      const { data: job, error: jobError } = await supabase
+        .from('transcription_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .maybeSingle();
+
+      if (jobError) {
+        console.error("Database query error:", jobError);
+        return new Response(
+          JSON.stringify({ error: `Failed to fetch job: ${jobError.message}` }),
+          {
+            status: 500,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      if (!job) {
+        console.error(`Job not found: ${jobId}`);
+        return new Response(
+          JSON.stringify({ error: `Job not found with ID: ${jobId}` }),
+          {
+            status: 404,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      // If user_id is set, verify that the current user owns the job
+      if (job.user_id && job.user_id !== user.id) {
+        console.error(`User ${user.id} attempted to access job ${jobId} owned by ${job.user_id}`);
+        return new Response(
+          JSON.stringify({ error: 'You do not have permission to access this job' }),
+          {
+            status: 403,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      console.log(`Retrieved job ${jobId} for user ${user.id}, status: ${job.status}`);
+
+      // Return the job status with all necessary information
+      return new Response(
+        JSON.stringify({
+          status: job.status,
+          status_message: job.status_message || job.status,
+          error: job.error,
+          result: job.result,
+          file_name: job.file_name,
+          created_at: job.created_at,
+          updated_at: job.updated_at,
+          model: job.model
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } catch (authError) {
+      console.error("Authentication error:", authError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', details: authError.message }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
   } catch (error) {
     console.error("Error in get-transcription-status function:", error);
     return new Response(

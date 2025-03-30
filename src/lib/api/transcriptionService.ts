@@ -22,7 +22,13 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
     // Get current session token
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      throw new Error("You must be signed in to use async transcription");
+      const error = new Error("You must be signed in to use async transcription");
+      addLog(`Authentication error: ${error.message}`, "error", {
+        source: model,
+        details: "No active session found"
+      });
+      logOperation.error(`Failed to authenticate`, error.message);
+      throw error;
     }
     
     // Prepare FormData
@@ -36,11 +42,17 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
       details: `File size: ${file.size} bytes`
     });
     
-    // Use the user's JWT token instead of the anon key
+    // Use the user's JWT token
+    const accessToken = session.access_token;
+    addLog(`Using authentication token`, "debug", { 
+      source: model,
+      details: `Token type: ${session.token_type}, Token length: ${accessToken.length} chars`
+    });
+    
     const response = await fetch(`${API_ENDPOINTS.QUEUE_TRANSCRIPTION}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: formData,
     });
@@ -110,13 +122,24 @@ export async function getTranscriptionStatus(jobId: string) {
     // Get current session token
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      throw new Error("You must be signed in to check transcription status");
+      const error = new Error("You must be signed in to check transcription status");
+      addLog(`Authentication error: ${error.message}`, "error", {
+        source: "TranscriptionService",
+        details: "No active session found"
+      });
+      throw error;
     }
+    
+    const accessToken = session.access_token;
+    addLog(`Using authentication token for status check`, "debug", { 
+      source: "TranscriptionService",
+      details: `Token type: ${session.token_type}, Token length: ${accessToken.length} chars`
+    });
     
     const response = await fetch(`${API_ENDPOINTS.GET_TRANSCRIPTION_STATUS}/${jobId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
     
