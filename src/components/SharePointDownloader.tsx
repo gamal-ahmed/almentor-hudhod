@@ -1,23 +1,33 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Cloud, Download, Loader2, FileAudio, RefreshCw } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Cloud, Download, Loader2, FileAudio, RefreshCw, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { fetchSharePointFiles } from "@/lib/api";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface SharePointDownloaderProps {
   onFilesQueued: (files: File[]) => void;
   isProcessing: boolean;
 }
 
+interface SharePointFile {
+  name: string;
+  url: string;
+  size: number;
+  lastModified: string;
+}
+
 const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloaderProps) => {
   const [sharePointUrl, setSharePointUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [availableFiles, setAvailableFiles] = useState<{name: string, url: string}[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<{name: string, url: string}[]>([]);
+  const [availableFiles, setAvailableFiles] = useState<SharePointFile[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<SharePointFile[]>([]);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const handleListFiles = async () => {
     if (!sharePointUrl) {
@@ -27,29 +37,13 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
     
     try {
       setIsLoading(true);
+      setErrorMessage(null);
       
       // Fetch files list from SharePoint via our proxy
-      const response = await fetch(`https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy/list-files`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk`,
-        },
-        body: JSON.stringify({
-          sharePointUrl
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch files: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
+      const files = await fetchSharePointFiles(sharePointUrl);
       
       // Filter only audio files
-      const audioFiles = data.files.filter((file: any) => 
+      const audioFiles = files.filter((file) => 
         file.name.toLowerCase().endsWith('.mp3') || 
         file.name.toLowerCase().endsWith('.m4a') || 
         file.name.toLowerCase().endsWith('.wav')
@@ -64,13 +58,15 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       }
     } catch (error) {
       console.error("Error listing SharePoint files:", error);
-      toast.error(`Failed to fetch files: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setErrorMessage(`Failed to fetch files: ${errorMsg}`);
+      toast.error(`Failed to fetch files: ${errorMsg}`);
     } finally {
       setIsLoading(false);
     }
   };
   
-  const toggleFileSelection = (file: {name: string, url: string}) => {
+  const toggleFileSelection = (file: SharePointFile) => {
     if (selectedFiles.some(f => f.url === file.url)) {
       setSelectedFiles(selectedFiles.filter(f => f.url !== file.url));
     } else {
@@ -86,6 +82,7 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
     
     try {
       setIsDownloading(true);
+      setErrorMessage(null);
       
       const downloadedFiles: File[] = [];
       
@@ -125,18 +122,30 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       
     } catch (error) {
       console.error("Error downloading from SharePoint:", error);
-      toast.error(`Failed to download files: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setErrorMessage(`Failed to download files: ${errorMsg}`);
+      toast.error(`Failed to download files: ${errorMsg}`);
     } finally {
       setIsDownloading(false);
     }
   };
   
-  const helperFunctionUpdate = `
-  // In your src/lib/api.ts file, the fetchSharePointFiles function should look like:
-  export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name: string, url: string}[]> {
-    // ... existing implementation using the updated edge function
-  }
-  `;
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+  
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString();
+    } catch (e) {
+      return dateStr;
+    }
+  };
   
   return (
     <Card className="overflow-hidden border-t-4 border-t-indigo-500 shadow-md hover:shadow-lg transition-shadow">
@@ -145,6 +154,9 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
           <Cloud className="mr-2 h-5 w-5 text-indigo-500" />
           SharePoint Audio Files
         </CardTitle>
+        <CardDescription>
+          Enter a SharePoint shared folder URL to access audio files
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -179,6 +191,16 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
             </div>
           </div>
           
+          {errorMessage && (
+            <Alert variant="destructive" className="my-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {errorMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {availableFiles.length > 0 && (
             <div className="space-y-2">
               <Label>Available Audio Files ({availableFiles.length})</Label>
@@ -186,21 +208,27 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
                 {availableFiles.map((file, index) => (
                   <div 
                     key={index} 
-                    className={`p-2 flex items-center space-x-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer rounded ${
+                    className={`p-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer rounded ${
                       selectedFiles.some(f => f.url === file.url) 
                         ? 'bg-indigo-50 dark:bg-indigo-900/20' 
                         : ''
                     }`}
                     onClick={() => toggleFileSelection(file)}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedFiles.some(f => f.url === file.url)}
-                      onChange={() => toggleFileSelection(file)}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <FileAudio className="h-4 w-4 text-indigo-500" />
-                    <span className="text-sm truncate">{file.name}</span>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedFiles.some(f => f.url === file.url)}
+                        onChange={() => toggleFileSelection(file)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <FileAudio className="h-4 w-4 text-indigo-500" />
+                      <span className="text-sm truncate max-w-xs">{file.name}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex flex-col items-end">
+                      <span>{formatFileSize(file.size)}</span>
+                      <span>{formatDate(file.lastModified)}</span>
+                    </div>
                   </div>
                 ))}
               </div>

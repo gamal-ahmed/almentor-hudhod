@@ -42,8 +42,9 @@ export async function fetchBrightcoveKeys() {
 }
 
 // Fetch MP3 files from SharePoint
-export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name: string, url: string}[]> {
+export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name: string, url: string, size: number, lastModified: string}[]> {
   try {
+    console.log(`Fetching SharePoint files from: ${sharePointUrl}`);
     const response = await fetch(`${SHAREPOINT_PROXY_URL}/list-files`, {
       method: 'POST',
       headers: {
@@ -63,12 +64,10 @@ export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name
     
     const data = await response.json();
     
-    // Filter only audio files
-    return data.files.filter((file: any) => 
-      file.name.toLowerCase().endsWith('.mp3') || 
-      file.name.toLowerCase().endsWith('.m4a') || 
-      file.name.toLowerCase().endsWith('.wav')
-    );
+    console.log(`Received ${data.files.length} files from SharePoint proxy`);
+    
+    // Return all files, filtering will be done in the component
+    return data.files;
   } catch (error) {
     console.error('Error fetching SharePoint files:', error);
     throw error;
@@ -78,6 +77,7 @@ export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name
 // Download a single file from SharePoint
 export async function downloadSharePointFile(fileUrl: string): Promise<File> {
   try {
+    console.log(`Downloading file from: ${fileUrl}`);
     const response = await fetch(`${SHAREPOINT_PROXY_URL}/download-file`, {
       method: 'POST',
       headers: {

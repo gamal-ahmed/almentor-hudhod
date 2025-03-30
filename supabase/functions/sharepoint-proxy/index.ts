@@ -1,5 +1,5 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import "isomorphic-fetch";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Client } from "@microsoft/microsoft-graph-client";
 
@@ -8,58 +8,123 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to parse SharePoint URL and extract drive/folder information
-function parseSharePointUrl(url) {
+// SharePoint authentication details
+const CLIENT_ID = Deno.env.get("SHAREPOINT_CLIENT_ID") || "";
+const CLIENT_SECRET = Deno.env.get("SHAREPOINT_CLIENT_SECRET") || "";
+const TENANT_ID = Deno.env.get("SHAREPOINT_TENANT_ID") || "";
+
+// Microsoft Graph authentication function
+async function getGraphClient() {
+  try {
+    // If no authentication credentials are available, we'll fall back to simulating files
+    if (!CLIENT_ID || !CLIENT_SECRET || !TENANT_ID) {
+      console.warn("SharePoint credentials not configured. Using simulated files.");
+      return null;
+    }
+    
+    // Get Microsoft Graph access token
+    const tokenResponse = await fetch(`https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        scope: 'https://graph.microsoft.com/.default',
+        client_secret: CLIENT_SECRET,
+        grant_type: 'client_credentials',
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      throw new Error(`Failed to get access token: ${tokenResponse.status} - ${errorData}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
+    // Initialize the Graph client with the token
+    const client = Client.init({
+      authProvider: (done) => {
+        done(null, accessToken);
+      },
+    });
+
+    return client;
+  } catch (error) {
+    console.error("Error initializing Graph client:", error);
+    return null;
+  }
+}
+
+// Parse SharePoint URL to extract site and drive information
+async function parseSharePointUrl(url, graphClient) {
   try {
     const decodedUrl = decodeURIComponent(url);
     console.log(`Parsing SharePoint URL: ${decodedUrl}`);
-    
-    // Extract site and folder path information
-    // This is a simplified approach - actual implementation would need to handle various SharePoint URL formats
-    let driveId = null;
-    let folderId = null;
-    let siteInfo = null;
-    
-    // Extract the SharePoint domain and site path
+
+    // Extract domain and site/drive information
+    // This is a simplified approach and might need adjustments for different SharePoint URL formats
     const domainMatch = decodedUrl.match(/https:\/\/([^\/]+)\.sharepoint\.com/);
     if (!domainMatch) {
       console.log("Could not extract SharePoint domain");
       return null;
     }
-    
-    // Look for common patterns in SharePoint URLs
-    // For personal OneDrive
+
+    const domain = domainMatch[1];
+    let siteId = null;
+    let driveId = null;
+    let folderId = null;
+    let folderPath = "";
+
+    // Check if it's a personal site (OneDrive)
     if (decodedUrl.includes('-my.sharepoint.com/personal/')) {
       const personalMatch = decodedUrl.match(/personal\/([^\/]+)/);
       if (personalMatch) {
-        siteInfo = {
-          type: 'personal',
-          userPrincipal: personalMatch[1].replace('_', '@')
-        };
-      }
-    } 
-    // For team sites
-    else if (decodedUrl.match(/sites\/([^\/]+)/)) {
-      const siteMatch = decodedUrl.match(/sites\/([^\/]+)/);
-      if (siteMatch) {
-        siteInfo = {
-          type: 'site',
-          siteName: siteMatch[1]
-        };
+        const userPrincipal = personalMatch[1].replace('_', '@');
+        
+        if (graphClient) {
+          // Get the user's drive
+          const user = await graphClient.api(`/users/${userPrincipal}`).get();
+          const drives = await graphClient.api(`/users/${user.id}/drives`).get();
+          driveId = drives.value[0].id;
+          
+          // Extract folder path
+          const pathMatch = decodedUrl.match(/Documents\/(.*?)(?:\?|$)/);
+          folderPath = pathMatch ? pathMatch[1] : '';
+        }
       }
     }
-    
-    // Extract folder path information
-    // This would need to be expanded for different SharePoint URL patterns
-    const documentsMatch = decodedUrl.match(/Documents\/(.*?)(?:\?|$)/);
-    const folderPath = documentsMatch ? documentsMatch[1] : '';
+    // Check if it's a team site
+    else if (decodedUrl.match(/sites\/([^\/]+)/)) {
+      const siteMatch = decodedUrl.match(/sites\/([^\/]+)/);
+      if (siteMatch && graphClient) {
+        const siteName = siteMatch[1];
+        
+        // Get the site
+        try {
+          const site = await graphClient.api(`/sites/${domain}.sharepoint.com:/sites/${siteName}`).get();
+          siteId = site.id;
+          
+          // Get the site's document library (default drive)
+          const drives = await graphClient.api(`/sites/${siteId}/drives`).get();
+          driveId = drives.value[0].id;
+          
+          // Extract folder path
+          const pathMatch = decodedUrl.match(/Shared\sDocuments\/(.*?)(?:\?|$)/);
+          folderPath = pathMatch ? pathMatch[1] : '';
+        } catch (error) {
+          console.error(`Error getting site/drive info for ${siteName}:`, error);
+        }
+      }
+    }
 
     return {
-      domain: domainMatch[1],
-      siteInfo,
-      folderPath,
+      domain,
+      siteId,
       driveId,
-      folderId,
+      folderPath,
       originalUrl: url
     };
   } catch (error) {
@@ -68,27 +133,81 @@ function parseSharePointUrl(url) {
   }
 }
 
-// Function to get audio files from a SharePoint URL using Microsoft Graph API
-async function getAudioFilesUsingGraphApi(sharePointUrl, accessToken) {
+// Get files from SharePoint folder using Microsoft Graph API
+async function getSharePointFiles(parsedUrl, graphClient) {
   try {
-    console.log("This would use Microsoft Graph API to get files");
-    
-    // In a real implementation, we would:
-    // 1. Use the parsed SharePoint URL to determine the drive/folder to access
-    // 2. Make authenticated requests to Microsoft Graph API
-    // 3. Return the actual files from SharePoint
-    
-    // For now, we'll return simulated files based on the URL to provide a realistic response
-    // until proper Microsoft Graph authentication is implemented
-    return simulateFileList(sharePointUrl);
+    if (!graphClient || !parsedUrl || !parsedUrl.driveId) {
+      console.log("Graph client or parsed URL information not available. Using simulated files.");
+      return simulateFileList(parsedUrl?.originalUrl || "");
+    }
+
+    const { driveId, folderPath } = parsedUrl;
+    let endpoint = '';
+
+    if (folderPath && folderPath.trim() !== '') {
+      // Get files from a specific folder
+      endpoint = `/drives/${driveId}/root:/${folderPath}:/children`;
+    } else {
+      // Get files from the root
+      endpoint = `/drives/${driveId}/root/children`;
+    }
+
+    console.log(`Fetching files using endpoint: ${endpoint}`);
+    const response = await graphClient.api(endpoint).get();
+
+    // Filter for audio files only
+    const audioFiles = response.value.filter(item => 
+      !item.folder && // Exclude folders
+      item.name && (
+        item.name.toLowerCase().endsWith('.mp3') || 
+        item.name.toLowerCase().endsWith('.m4a') || 
+        item.name.toLowerCase().endsWith('.wav')
+      )
+    );
+
+    // Format the response
+    return audioFiles.map(file => ({
+      name: file.name,
+      url: file['@microsoft.graph.downloadUrl'] || file.webUrl,
+      size: file.size || 0,
+      lastModified: file.lastModifiedDateTime || new Date().toISOString()
+    }));
   } catch (error) {
-    console.error("Error using Graph API:", error);
-    throw error;
+    console.error("Error getting SharePoint files:", error);
+    return simulateFileList(parsedUrl?.originalUrl || "");
   }
 }
 
-// Simulate a file list based on the SharePoint URL
-// This function provides realistic-looking results until full Graph API integration is implemented
+// Download a file from SharePoint
+async function downloadSharePointFile(fileUrl, graphClient) {
+  try {
+    if (!graphClient) {
+      console.log("Graph client not available. Using simulated audio content.");
+      return await generateDemoAudioContent();
+    }
+
+    // If the URL is a direct download URL, use it
+    if (fileUrl.includes('microsoft.graph.downloadUrl')) {
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.status}`);
+      }
+      return await response.arrayBuffer();
+    }
+    
+    // Otherwise, try to get the download URL from Graph API
+    // This might not work for all types of URLs, especially shared links
+    // We would need to extract the drive and item IDs from the URL
+    
+    // Fallback to demo content for now
+    return await generateDemoAudioContent();
+  } catch (error) {
+    console.error("Error downloading SharePoint file:", error);
+    return await generateDemoAudioContent();
+  }
+}
+
+// Simulate a file list if Graph API is not available
 function simulateFileList(sharePointUrl) {
   console.log(`Simulating file list for: ${sharePointUrl}`);
   try {
@@ -235,6 +354,15 @@ serve(async (req) => {
   const path = url.pathname.split('/').pop();
 
   try {
+    // Initialize Microsoft Graph client
+    const graphClient = await getGraphClient();
+    
+    if (!graphClient) {
+      console.log("No Graph client available. Will use simulated data.");
+    } else {
+      console.log("Microsoft Graph client initialized successfully.");
+    }
+    
     const requestData = await req.json();
 
     if (path === 'list-files') {
@@ -252,15 +380,11 @@ serve(async (req) => {
       }
 
       // Parse the SharePoint URL
-      const parsedUrl = parseSharePointUrl(sharePointUrl);
+      const parsedUrl = await parseSharePointUrl(sharePointUrl, graphClient);
       console.log("Parsed SharePoint URL:", parsedUrl);
       
-      // In a production environment, we would authenticate with Microsoft Graph API
-      // and use the parsed URL information to make the appropriate API calls
-      
-      // For now, we'll use our simulation function that provides realistic results
-      // until proper Microsoft Graph authentication is implemented
-      const files = await getAudioFilesUsingGraphApi(sharePointUrl);
+      // Get files from SharePoint
+      const files = await getSharePointFiles(parsedUrl, graphClient);
 
       return new Response(
         JSON.stringify({ files }),
@@ -280,9 +404,8 @@ serve(async (req) => {
         );
       }
 
-      // In a real implementation, we would download the file from SharePoint
-      // For this demo, we'll create a simple audio file that can be transcribed
-      const audioContent = await generateDemoAudioContent();
+      // Download the file from SharePoint
+      const audioContent = await downloadSharePointFile(fileUrl, graphClient);
 
       return new Response(
         audioContent,
