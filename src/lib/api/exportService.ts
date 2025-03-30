@@ -1,208 +1,183 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
-import { useLogsStore } from "@/lib/useLogsStore";
-
-const getLogsStore = () => useLogsStore.getState();
-
-export type ExportFormat = 'vtt' | 'srt' | 'txt' | 'json';
+import { SUPABASE_KEY } from './utils';
+import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 export interface ExportFile {
   id: string;
   file_name: string;
-  format: ExportFormat;
+  format: string;
   file_url: string;
-  created_at: string;
   user_id: string;
+  created_at: string;
   size_bytes?: number;
 }
 
-// Export transcription to server and get a download URL
+export type ExportFormat = 'vtt' | 'srt' | 'txt' | 'json';
+
+/**
+ * Export transcription to file and save it in storage
+ */
 export async function exportTranscription(
-  transcriptionContent: string, 
-  format: ExportFormat,
+  content: string,
+  format: ExportFormat = 'vtt',
   fileName: string = `transcription-${Date.now()}`
 ): Promise<ExportFile> {
-  const addLog = getLogsStore().addLog;
-  const startTimedLog = getLogsStore().startTimedLog;
-  
-  const logOperation = startTimedLog(`Exporting transcription as ${format}`, "info", "Export");
-  
-  try {
-    // Prepare FormData for the export request
-    const formData = new FormData();
-    formData.append('content', transcriptionContent);
-    formData.append('format', format);
-    formData.append('fileName', fileName);
-    
-    addLog(`Exporting transcription as ${format}`, "info", {
-      source: "Export",
-      details: `File: ${fileName}.${format}`
-    });
-    
-    // Send request to save file on server
-    const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/export-file`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to export transcription: ${response.status} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    
-    addLog(`Successfully exported transcription`, "success", {
-      source: "Export",
-      details: `Generated file: ${data.fileName}.${data.format}`
-    });
-    
-    logOperation.complete(`Exported transcription as ${format}`, `File saved as ${data.fileName}.${data.format}`);
-    
-    // Get current user
-    const userResponse = await supabase.auth.getUser();
-    const userId = userResponse.data.user?.id || 'anonymous';
-    
-    return {
-      id: data.id || crypto.randomUUID(),
-      file_name: data.fileName,
-      format: data.format,
-      file_url: data.fileUrl,
-      created_at: new Date().toISOString(),
-      user_id: userId,
-      size_bytes: data.sizeBytes
-    };
-  } catch (error) {
-    addLog(`Error exporting transcription: ${error.message}`, "error", {
-      source: "Export",
-      details: error.stack
-    });
-    console.error(`Error exporting transcription:`, error);
-    logOperation.error(`${error.message}`, error.stack);
-    throw error;
+  const formData = new FormData();
+  formData.append('content', content);
+  formData.append('format', format);
+  formData.append('fileName', fileName);
+
+  // Get authorization token
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || '';
+
+  // Make request to edge function
+  const response = await fetch('https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/transcription-service/export-file', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'apikey': SUPABASE_KEY,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to export transcription');
   }
+
+  const data = await response.json();
+  
+  return {
+    id: data.id,
+    file_name: data.fileName,
+    format: data.format,
+    file_url: data.fileUrl,
+    user_id: 'current', // This will be set by the edge function
+    created_at: new Date().toISOString(),
+    size_bytes: data.sizeBytes
+  };
 }
 
-// Get user's exported transcription files
+/**
+ * Get all exported files for the current user
+ */
 export async function getUserExportedFiles(): Promise<ExportFile[]> {
   try {
-    // Since transcription_exports table doesn't exist in the types yet, we need to use a type assertion
+    // Since transcription_exports is not in the generated type, we need to use string literal
     const { data, error } = await supabase
       .from('transcription_exports')
       .select('*')
-      .order('created_at', { ascending: false }) as any;
-    
+      .order('created_at', { ascending: false });
+
     if (error) {
-      throw new Error(`Failed to fetch user exports: ${error.message}`);
+      console.error('Error fetching exported files:', error);
+      throw error;
     }
-    
-    // Transform the data to match the ExportFile interface
-    const exportFiles: ExportFile[] = (data || []).map((item: any) => ({
-      id: item.id,
-      file_name: item.file_name,
-      format: item.format,
-      file_url: item.file_url,
-      created_at: item.created_at,
-      user_id: item.user_id,
-      size_bytes: item.size_bytes
-    }));
-    
-    return exportFiles;
+
+    return (data || []) as ExportFile[];
   } catch (error) {
-    console.error('Error fetching user exported files:', error);
+    console.error('Failed to get user exported files:', error);
     throw error;
   }
 }
 
-// Conversion utilities (kept from previous implementation)
+/**
+ * Convert VTT to SRT format
+ */
 export function convertVttToSrt(vttContent: string): string {
-  if (!vttContent.trim()) return '';
+  // Simple conversion logic - in a real app, this would be more sophisticated
+  const lines = vttContent.split('\n');
+  let srtContent = '';
+  let counter = 1;
   
-  // Remove WEBVTT header and notes
-  let content = vttContent.replace(/^WEBVTT.*$/m, '').trim();
+  // Skip the WEBVTT header
+  let i = 1;
+  while (i < lines.length) {
+    if (lines[i].match(/\d\d:\d\d:\d\d\.\d\d\d --> \d\d:\d\d:\d\d\.\d\d\d/)) {
+      // Add counter
+      srtContent += counter + '\n';
+      counter++;
+      
+      // Convert timestamp format from HH:MM:SS.mmm --> HH:MM:SS.mmm to HH:MM:SS,mmm --> HH:MM:SS,mmm
+      const timestamp = lines[i].replace(/\./g, ',');
+      srtContent += timestamp + '\n';
+      
+      // Add text content
+      i++;
+      while (i < lines.length && lines[i].trim() !== '') {
+        srtContent += lines[i] + '\n';
+        i++;
+      }
+      
+      // Add a blank line between entries
+      srtContent += '\n';
+    }
+    i++;
+  }
   
-  // Split by double newline to get cues
-  const cues = content.split(/\n\s*\n/).filter(cue => cue.trim());
-  
-  // Process each cue
-  return cues.map((cue, index) => {
-    // Split by line
-    const lines = cue.trim().split('\n');
-    
-    // Extract timestamp line (should contain -->)
-    const timestampLine = lines.find(line => line.includes('-->'));
-    if (!timestampLine) return '';
-    
-    // Convert timestamp format from HH:MM:SS.mmm to HH:MM:SS,mmm
-    const convertedTimestamp = timestampLine.replace(/(\d+):(\d+):(\d+)\.(\d+)/g, '$1:$2:$3,$4');
-    
-    // Get all lines after timestamp (these are the text content)
-    const startIndex = lines.indexOf(timestampLine) + 1;
-    const textContent = lines.slice(startIndex).join('\n');
-    
-    // Format as SRT
-    return `${index + 1}\n${convertedTimestamp}\n${textContent}`;
-  }).join('\n\n');
+  return srtContent;
 }
 
+/**
+ * Convert VTT to plain text format
+ */
 export function convertVttToText(vttContent: string): string {
-  if (!vttContent.trim()) return '';
+  // Simple conversion logic - in a real app, this would be more sophisticated
+  const lines = vttContent.split('\n');
+  let textContent = '';
   
-  // Remove WEBVTT header and notes
-  let content = vttContent.replace(/^WEBVTT.*$/m, '').trim();
+  // Skip the WEBVTT header
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].match(/^\d\d:\d\d:\d\d\.\d\d\d --> \d\d:\d\d:\d\d\.\d\d\d/) && 
+        lines[i].trim() !== '' && 
+        !lines[i].startsWith('WEBVTT')) {
+      textContent += lines[i] + ' ';
+    }
+  }
   
-  // Split by double newline to get cues
-  const cues = content.split(/\n\s*\n/).filter(cue => cue.trim());
-  
-  // Process each cue
-  return cues.map(cue => {
-    // Split by line
-    const lines = cue.trim().split('\n');
-    
-    // Find the timestamp line
-    const timestampLineIndex = lines.findIndex(line => line.includes('-->'));
-    if (timestampLineIndex === -1) return '';
-    
-    // Extract text (all lines after timestamp line)
-    return lines.slice(timestampLineIndex + 1).join(' ');
-  }).join(' ');
+  return textContent.trim();
 }
 
+/**
+ * Convert VTT to JSON format
+ */
 export function convertVttToJson(vttContent: string): string {
-  if (!vttContent.trim()) return '[]';
+  // Simple conversion logic - in a real app, this would be more sophisticated
+  const lines = vttContent.split('\n');
+  const segments: Array<{text: string, startTime: string, endTime: string}> = [];
   
-  // Remove WEBVTT header and notes
-  let content = vttContent.replace(/^WEBVTT.*$/m, '').trim();
+  let currentText = '';
+  let currentStartTime = '';
+  let currentEndTime = '';
   
-  // Split by double newline to get cues
-  const cues = content.split(/\n\s*\n/).filter(cue => cue.trim());
+  for (let i = 0; i < lines.length; i++) {
+    const timestampMatch = lines[i].match(/(\d\d:\d\d:\d\d\.\d\d\d) --> (\d\d:\d\d:\d\d\.\d\d\d)/);
+    
+    if (timestampMatch) {
+      currentStartTime = timestampMatch[1];
+      currentEndTime = timestampMatch[2];
+      currentText = '';
+      
+      // Collect all text lines until empty line
+      i++;
+      while (i < lines.length && lines[i].trim() !== '') {
+        if (currentText) currentText += ' ';
+        currentText += lines[i].trim();
+        i++;
+      }
+      
+      segments.push({
+        startTime: currentStartTime,
+        endTime: currentEndTime,
+        text: currentText
+      });
+    }
+  }
   
-  // Process each cue into a JSON object
-  const jsonCues = cues.map(cue => {
-    // Split by line
-    const lines = cue.trim().split('\n');
-    
-    // Find and parse timestamp line
-    const timestampLine = lines.find(line => line.includes('-->'));
-    if (!timestampLine) return null;
-    
-    const [startTime, endTime] = timestampLine.split('-->').map(t => t.trim());
-    
-    // Extract text (all lines after timestamp line)
-    const startIndex = lines.indexOf(timestampLine) + 1;
-    const text = lines.slice(startIndex).join(' ');
-    
-    return {
-      startTime,
-      endTime,
-      text
-    };
-  }).filter(Boolean);
-  
-  return JSON.stringify(jsonCues, null, 2);
+  return JSON.stringify({
+    type: "transcription",
+    segments
+  }, null, 2);
 }

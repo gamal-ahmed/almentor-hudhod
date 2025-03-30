@@ -361,6 +361,36 @@ export type Database = {
         }
         Relationships: []
       }
+      transcription_exports: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_url: string
+          format: string
+          id: string
+          size_bytes: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_url: string
+          format: string
+          id?: string
+          size_bytes?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_url?: string
+          format?: string
+          id?: string
+          size_bytes?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       transcription_integrations: {
         Row: {
           created_at: string | null
