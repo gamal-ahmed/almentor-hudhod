@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -79,19 +78,23 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 updatedJob.status !== job.status || 
                 updatedJob.status_message !== job.status_message
               ) {
-                updatedJobs[i] = updatedJob as unknown as TranscriptionJob;
+                const typedUpdatedJob = {
+                  ...updatedJob,
+                  status: updatedJob.status as JobStatus
+                };
+                
+                updatedJobs[i] = typedUpdatedJob as unknown as TranscriptionJob;
                 hasChanges = true;
                 
-                // Fix the type comparison by ensuring proper type handling
-                if (updatedJob.status === 'completed' && job.status !== 'completed') {
+                if (typedUpdatedJob.status === 'completed' && job.status !== 'completed') {
                   toast({
                     title: "Transcription completed",
-                    description: `${getModelDisplayName(updatedJob.model)} transcription is now ready.`,
+                    description: `${getModelDisplayName(typedUpdatedJob.model)} transcription is now ready.`,
                   });
-                } else if (updatedJob.status === 'failed' && job.status !== 'failed') {
+                } else if (typedUpdatedJob.status === 'failed' && job.status !== 'failed') {
                   toast({
                     title: "Transcription failed",
-                    description: updatedJob.error || "An unknown error occurred",
+                    description: typedUpdatedJob.error || "An unknown error occurred",
                     variant: "destructive",
                   });
                 }
