@@ -1,6 +1,9 @@
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { transcribeAudio as serverTranscribeAudio } from "./api/transcriptionService";
+import { transcribeAudio as directTranscribeAudio, queueTranscription, getTranscriptionStatus, getTranscriptionJobs } from "./api/transcriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
+
+// Get logs store outside of component to use in this service file
+const getLogsStore = () => useLogsStore.getState();
 
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
@@ -11,9 +14,6 @@ const SHAREPOINT_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions
 
 // Supabase API key for authentication
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk';
-
-// Get logs store outside of component to use in this service file
-const getLogsStore = () => useLogsStore.getState();
 
 // Fetch Brightcove keys from Supabase
 export async function fetchBrightcoveKeys() {
@@ -112,9 +112,24 @@ export async function downloadSharePointFile(fileUrl: string): Promise<File> {
   }
 }
 
-// Transcribe audio using selected model - directly uploads the file
+// Transcribe audio using selected model - directly uploads the file (synchronous version)
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
-  return serverTranscribeAudio(file, model, prompt);
+  return directTranscribeAudio(file, model, prompt);
+}
+
+// Queue a transcription job for async processing
+export async function queueTranscriptionJob(file: File, model: TranscriptionModel) {
+  return queueTranscription(file, model);
+}
+
+// Check the status of a transcription job
+export async function checkTranscriptionStatus(jobId: string) {
+  return getTranscriptionStatus(jobId);
+}
+
+// Get all transcription jobs for the current user
+export async function getMyTranscriptionJobs() {
+  return getTranscriptionJobs();
 }
 
 // Helper function to convert text to VTT format

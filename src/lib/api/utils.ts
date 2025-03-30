@@ -8,6 +8,8 @@ export const API_ENDPOINTS = {
   PHI4_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe',
   BRIGHTCOVE_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy',
   SHAREPOINT_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
+  QUEUE_TRANSCRIPTION: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/queue-transcription',
+  GET_TRANSCRIPTION_STATUS: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/get-transcription-status',
 };
 
 // Supabase API key for authentication

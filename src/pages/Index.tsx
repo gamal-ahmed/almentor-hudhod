@@ -1,10 +1,11 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff } from "lucide-react";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText, PlayCircle, PauseCircle, Bell, BellOff, ListFilter, Clock } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
 import TranscriptionCard from "@/components/TranscriptionCard";
@@ -13,9 +14,13 @@ import VideoIdInput from "@/components/VideoIdInput";
 import PromptOptions from "@/components/PromptOptions";
 import SharePointDownloader from "@/components/SharePointDownloader";
 import FileQueue from "@/components/FileQueue";
+import AsyncTranscriber from "@/components/AsyncTranscriber";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
   transcribeAudio, 
+  queueTranscriptionJob,
+  checkTranscriptionStatus,
+  getMyTranscriptionJobs,
   fetchBrightcoveKeys,
   getBrightcoveAuthToken,
   addCaptionToBrightcove
@@ -34,6 +39,8 @@ const Index = () => {
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
+  const [processingMode, setProcessingMode] = useState<"sync" | "async">("sync");
+  const [transcriptionJobs, setTranscriptionJobs] = useState<any[]>([]);
   
   // SharePoint and Queue state
   const [fileQueue, setFileQueue] = useState<File[]>([]);
@@ -59,6 +66,20 @@ const Index = () => {
   // Logs and notification
   const { logs, addLog, startTimedLog } = useLogsStore();
   const toast = useToast();
+
+  // Load user's transcription jobs on mount
+  useEffect(() => {
+    const loadJobs = async () => {
+      try {
+        const jobs = await getMyTranscriptionJobs();
+        setTranscriptionJobs(jobs);
+      } catch (error) {
+        console.error('Error loading transcription jobs:', error);
+      }
+    };
+    
+    loadJobs();
+  }, []);
 
   // Request notification permission when notifications are enabled
   useEffect(() => {
@@ -235,7 +256,7 @@ const Index = () => {
     }
   };
   
-  // Process transcriptions with selected models
+  // Process transcriptions with selected models (synchronous version)
   const processTranscriptions = async () => {
     if (!file) {
       toast.toast({
@@ -399,6 +420,17 @@ const Index = () => {
     });
   };
   
+  // Handle async transcription completion
+  const handleAsyncTranscriptionComplete = (vttContent: string, jobId: string) => {
+    setSelectedTranscription(vttContent);
+    setSelectedModel(`job-${jobId}`);
+    
+    addLog(`Selected async transcription result for publishing`, "info", {
+      source: "AsyncTranscriber",
+      details: `Job ID: ${jobId} | VTT length: ${vttContent.length} characters`
+    });
+  };
+  
   // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
@@ -473,6 +505,27 @@ const Index = () => {
     }
   };
   
+  // Refresh the list of transcription jobs
+  const refreshTranscriptionJobs = async () => {
+    try {
+      const jobs = await getMyTranscriptionJobs();
+      setTranscriptionJobs(jobs);
+      
+      toast.toast({
+        title: "Jobs Refreshed",
+        description: `Found ${jobs.length} transcription jobs`,
+      });
+    } catch (error) {
+      console.error('Error refreshing transcription jobs:', error);
+      
+      toast.toast({
+        title: "Refresh Failed",
+        description: "Could not refresh transcription jobs",
+        variant: "destructive",
+      });
+    }
+  };
+  
   return (
     <>
       <Header />
@@ -544,29 +597,68 @@ const Index = () => {
                   </h3>
                   
                   <div className="space-y-2">
-                    <ModelSelector 
-                      selectedModels={selectedModels} 
-                      onModelChange={setSelectedModels}
-                      disabled={isProcessing || !file}
-                    />
+                    <div className="mb-3">
+                      <div className="text-sm font-medium mb-1.5">Processing Mode:</div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant={processingMode === "sync" ? "default" : "outline"} 
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setProcessingMode("sync")}
+                        >
+                          Synchronous
+                        </Button>
+                        <Button 
+                          variant={processingMode === "async" ? "default" : "outline"} 
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setProcessingMode("async")}
+                        >
+                          Asynchronous
+                        </Button>
+                      </div>
+                    </div>
                     
-                    <Button 
-                      onClick={processTranscriptions} 
-                      disabled={isProcessing || !file || selectedModels.length === 0}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-8 text-xs"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="mr-1 h-3 w-3" />
-                          Generate Transcriptions
-                        </>
-                      )}
-                    </Button>
+                    {processingMode === "sync" && (
+                      <>
+                        <ModelSelector 
+                          selectedModels={selectedModels} 
+                          onModelChange={setSelectedModels}
+                          disabled={isProcessing || !file}
+                        />
+                        
+                        <Button 
+                          onClick={processTranscriptions} 
+                          disabled={isProcessing || !file || selectedModels.length === 0}
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 h-8 text-xs"
+                        >
+                          {isProcessing ? (
+                            <>
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="mr-1 h-3 w-3" />
+                              Generate Transcriptions
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+                    
+                    {processingMode === "async" && file && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          Asynchronous mode queues your transcription job for background processing. You can close your browser and check results later.
+                        </div>
+                        <AsyncTranscriber 
+                          file={file}
+                          model="openai" 
+                          onComplete={handleAsyncTranscriptionComplete}
+                        />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -670,47 +762,141 @@ const Index = () => {
             </div>
             
             <div className="lg:col-span-9 space-y-4">
-              <div className="space-y-3">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <Check className="mr-2 h-5 w-5 text-violet-500" />
-                  Transcription Results
-                </h2>
+              <Tabs defaultValue="transcriptions" className="w-full">
+                <TabsList className="grid grid-cols-2 mb-4">
+                  <TabsTrigger value="transcriptions" className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Transcription Results
+                  </TabsTrigger>
+                  <TabsTrigger value="jobs" className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Transcription Jobs
+                  </TabsTrigger>
+                </TabsList>
                 
-                {selectedModels.length > 0 ? (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {selectedModels.map((model) => {
-                      const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
-                      
-                      return (
-                        <TranscriptionCard
-                          key={model}
-                          modelName={
-                            model === "openai" 
-                              ? "OpenAI Whisper" 
-                              : model === "gemini-2.0-flash" 
-                                ? "Gemini 2.0 Flash" 
-                                : "Microsoft Phi-4"
-                          }
-                          vttContent={transcription.vtt}
-                          prompt={transcription.prompt}
-                          onSelect={() => handleSelectTranscription(model, transcription.vtt)}
-                          isSelected={selectedModel === model}
-                          audioSrc={audioUrl || undefined}
-                          isLoading={transcription.loading}
-                        />
-                      );
-                    })}
+                <TabsContent value="transcriptions" className="space-y-4">
+                  {selectedModels.length > 0 && processingMode === "sync" ? (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {selectedModels.map((model) => {
+                        const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
+                        
+                        return (
+                          <TranscriptionCard
+                            key={model}
+                            modelName={
+                              model === "openai" 
+                                ? "OpenAI Whisper" 
+                                : model === "gemini-2.0-flash" 
+                                  ? "Gemini 2.0 Flash" 
+                                  : "Microsoft Phi-4"
+                            }
+                            vttContent={transcription.vtt}
+                            prompt={transcription.prompt}
+                            onSelect={() => handleSelectTranscription(model, transcription.vtt)}
+                            isSelected={selectedModel === model}
+                            audioSrc={audioUrl || undefined}
+                            isLoading={transcription.loading}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : processingMode === "async" ? (
+                    <Card className="p-8 flex flex-col items-center justify-center text-center">
+                      <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Async Transcription Mode</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        In this mode, your transcription will be processed in the background. You can check the "Transcription Jobs" tab to see the status of your jobs.
+                      </p>
+                    </Card>
+                  ) : (
+                    <Card className="p-8 flex flex-col items-center justify-center text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        Upload an audio file and select at least one transcription model to see results here.
+                      </p>
+                    </Card>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="jobs" className="space-y-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-xl font-semibold">Transcription Jobs</h2>
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      onClick={refreshTranscriptionJobs}
+                    >
+                      <ListFilter className="h-4 w-4 mr-2" />
+                      Refresh Jobs
+                    </Button>
                   </div>
-                ) : (
-                  <Card className="p-8 flex flex-col items-center justify-center text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No Transcriptions Yet</h3>
-                    <p className="text-muted-foreground max-w-md">
-                      Upload an audio file and select at least one transcription model to see results here.
-                    </p>
-                  </Card>
-                )}
-              </div>
+                  
+                  {transcriptionJobs.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {transcriptionJobs.map(job => (
+                        <Card key={job.id} className="overflow-hidden">
+                          <CardHeader className="pb-2">
+                            <div className="flex justify-between items-center">
+                              <CardTitle className="text-lg flex items-center">
+                                Job: {job.id.slice(0, 8)}...
+                              </CardTitle>
+                              <Badge 
+                                variant={job.status === "completed" ? "default" : 
+                                        job.status === "failed" ? "destructive" : 
+                                        "secondary"}
+                              >
+                                {job.status_message}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              <span className="font-medium">Model:</span> {job.model} | 
+                              <span className="font-medium ml-1">Created:</span> {new Date(job.created_at).toLocaleString()}
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pb-4">
+                            {job.status === "completed" && job.result ? (
+                              <div className="flex flex-col space-y-2">
+                                <div className="text-sm text-muted-foreground">
+                                  Transcription completed successfully
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => {
+                                    if (job.result.vttContent) {
+                                      handleAsyncTranscriptionComplete(job.result.vttContent, job.id);
+                                    }
+                                  }}
+                                  disabled={!job.result.vttContent}
+                                >
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Use this transcription
+                                </Button>
+                              </div>
+                            ) : job.status === "failed" ? (
+                              <div className="text-sm text-red-500">
+                                <span className="font-medium">Error:</span> {job.error || "Unknown error"}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-muted-foreground">
+                                Job is {job.status}...
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <Card className="p-8 flex flex-col items-center justify-center text-center">
+                      <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No Transcription Jobs</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        You haven't created any async transcription jobs yet. Upload an audio file and use the Async mode to create jobs.
+                      </p>
+                    </Card>
+                  )}
+                </TabsContent>
+              </Tabs>
               
               <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
                 <summary className="cursor-pointer font-medium flex items-center text-sm">
