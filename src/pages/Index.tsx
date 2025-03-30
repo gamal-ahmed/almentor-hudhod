@@ -101,10 +101,11 @@ const Index = () => {
         const updatedTranscriptions = { ...transcriptions };
         
         for (const [model, transcription] of Object.entries(latestTranscriptionsByModel)) {
-          if (transcription.result?.vttContent) {
-            updatedTranscriptions[model] = {
-              vtt: transcription.result.vttContent,
-              prompt: transcription.result.prompt || DEFAULT_TRANSCRIPTION_PROMPT,
+          const typedTranscription = transcription as any; // Type assertion to avoid TS errors
+          if (typedTranscription.result?.vttContent) {
+            updatedTranscriptions[model as TranscriptionModel] = {
+              vtt: typedTranscription.result.vttContent,
+              prompt: typedTranscription.result.prompt || DEFAULT_TRANSCRIPTION_PROMPT,
               loading: false
             };
           }
@@ -458,7 +459,7 @@ const Index = () => {
   // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
-      toast.toast({
+      toast({
         title: "Missing Information",
         description: "Please select a transcription and enter a video ID.",
         variant: "destructive",
