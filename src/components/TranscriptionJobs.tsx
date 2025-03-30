@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Json } from '@/integrations/supabase/types';
 
 interface TranscriptionJob {
   id: string;
-  status: string; // Changed from a restricted type to allow all possible statuses
+  status: 'pending' | 'processing' | 'completed' | 'failed'; // Updated to include all possible status values
   model: string;
   created_at: string;
   updated_at: string;
