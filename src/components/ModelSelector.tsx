@@ -13,10 +13,13 @@ interface ModelSelectorProps {
 const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelectorProps) => {
   const handleModelToggle = (model: TranscriptionModel) => {
     try {
-      if (selectedModels.includes(model)) {
-        onModelChange(selectedModels.filter(m => m !== model));
+      // Ensure selectedModels is always an array
+      const currentModels = Array.isArray(selectedModels) ? selectedModels : [];
+      
+      if (currentModels.includes(model)) {
+        onModelChange(currentModels.filter(m => m !== model));
       } else {
-        onModelChange([...selectedModels, model]);
+        onModelChange([...currentModels, model]);
       }
     } catch (error) {
       console.error("Error toggling model:", error);
@@ -37,7 +40,7 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
           <div key={model.id} className="flex items-center space-x-1.5">
             <Checkbox 
               id={model.id} 
-              checked={selectedModels.includes(model.id)} 
+              checked={Array.isArray(selectedModels) && selectedModels.includes(model.id)} 
               onCheckedChange={() => handleModelToggle(model.id)}
               disabled={disabled}
               className="h-3 w-3"

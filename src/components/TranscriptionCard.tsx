@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,8 +36,8 @@ const TranscriptionCard = ({
   const [activeSegment, setActiveSegment] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Only attempt to parse VTT if vttContent is not empty
-  const vttSegments = vttContent ? parseVTT(vttContent) : [];
+  // Only attempt to parse VTT if vttContent is not empty and is a string
+  const vttSegments = vttContent && typeof vttContent === 'string' ? parseVTT(vttContent) : [];
   
   // Setup audio element and event handling
   useEffect(() => {
@@ -140,8 +139,8 @@ const TranscriptionCard = ({
     return "";
   };
 
-  // Calculate word count
-  const wordCount = vttContent 
+  // Calculate word count with safety check
+  const wordCount = vttContent && typeof vttContent === 'string'
     ? vttContent.split(/\s+/).filter(word => word.trim().length > 0).length 
     : 0;
 
