@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,26 +108,39 @@ const TranscriptionCard = ({
   
   // Helper function to convert VTT timestamp to seconds
   const parseTimeToSeconds = (timeString: string): number => {
-    const [hours, minutes, seconds] = timeString.split(':').map(part => {
-      if (part.includes('.')) {
-        const [secs, ms] = part.split('.');
-        return parseFloat(`${secs}.${ms}`);
-      }
-      return parseInt(part, 10);
-    });
+    if (!timeString) return 0;
     
-    return hours * 3600 + minutes * 60 + seconds;
+    try {
+      const [hours, minutes, seconds] = timeString.split(':').map(part => {
+        if (part.includes('.')) {
+          const [secs, ms] = part.split('.');
+          return parseFloat(`${secs}.${ms}`);
+        }
+        return parseInt(part, 10);
+      });
+      
+      return hours * 3600 + minutes * 60 + seconds;
+    } catch (error) {
+      console.error('Error parsing timestamp:', error);
+      return 0;
+    }
   };
   
   // Jump to a specific segment when clicked
   const jumpToSegment = (index: number) => {
     if (!audioRef.current || !vttSegments[index]) return;
     
-    const startTime = parseTimeToSeconds(vttSegments[index].startTime);
-    audioRef.current.currentTime = startTime;
-    
-    if (!isPlaying) {
-      audioRef.current.play();
+    try {
+      const startTime = parseTimeToSeconds(vttSegments[index].startTime);
+      audioRef.current.currentTime = startTime;
+      
+      if (!isPlaying) {
+        audioRef.current.play().catch(error => {
+          console.error('Error playing audio:', error);
+        });
+      }
+    } catch (error) {
+      console.error('Error jumping to segment:', error);
     }
   };
 

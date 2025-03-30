@@ -159,18 +159,17 @@ const Index = () => {
   // When a file is uploaded
   const handleFileUpload = async (uploadedFile: File) => {
     try {
-      // Reset state
       setFile(uploadedFile);
       const newAudioUrl = URL.createObjectURL(uploadedFile);
       setAudioUrl(newAudioUrl);
       setSelectedTranscription(null);
       setSelectedModel(null);
       
-      // Make sure to reset transcriptions for all models
       setTranscriptions({
         openai: { vtt: "", prompt: "", loading: false },
         gemini: { vtt: "", prompt: "", loading: false },
-        phi4: { vtt: "", prompt: "", loading: false }
+        phi4: { vtt: "", prompt: "", loading: false },
+        "google-speech": { vtt: "", prompt: "", loading: false }
       });
       
       addLog(`File selected: ${uploadedFile.name}`, "info", {
@@ -183,7 +182,6 @@ const Index = () => {
         description: "Your audio file is ready for transcription.",
       });
       
-      // Show browser notification if enabled
       if (notificationsEnabled) {
         showNotification("File Selected", {
           body: "Your audio file is ready for transcription.",
@@ -249,7 +247,7 @@ const Index = () => {
       return;
     }
     
-    if (selectedModels.length === 0) {
+    if (!Array.isArray(selectedModels) || selectedModels.length === 0) {
       toast.toast({
         title: "No Models Selected",
         description: "Please select at least one transcription model.",
@@ -262,10 +260,8 @@ const Index = () => {
       setIsProcessing(true);
       const mainLog = startTimedLog("Transcription Process", "info", "Transcription");
       
-      // Update prompt based on options before processing
       updatePromptFromOptions();
       
-      // Reset transcriptions state for selected models
       const updatedTranscriptions = { ...transcriptions };
       selectedModels.forEach(model => {
         updatedTranscriptions[model] = { vtt: "", prompt: transcriptionPrompt, loading: true };
@@ -277,7 +273,6 @@ const Index = () => {
         source: "Transcription"
       });
       
-      // Process each selected model in parallel
       const transcriptionPromises = selectedModels.map(async (model) => {
         const modelLog = startTimedLog(`${model.toUpperCase()} Transcription`, "info", model.toUpperCase());
         
@@ -301,10 +296,8 @@ const Index = () => {
         }
       });
       
-      // Wait for all transcriptions to complete
       const results = await Promise.allSettled(transcriptionPromises);
       
-      // Update state with results
       const finalTranscriptions = { ...transcriptions };
       
       results.forEach((result) => {
@@ -312,7 +305,6 @@ const Index = () => {
           const { model, vtt, prompt } = result.value;
           finalTranscriptions[model] = { vtt, prompt, loading: false };
         } else {
-          // Find the model that failed
           const failedModelIndex = results.findIndex(r => r === result);
           if (failedModelIndex >= 0 && failedModelIndex < selectedModels.length) {
             const model = selectedModels[failedModelIndex];
@@ -323,7 +315,6 @@ const Index = () => {
       
       setTranscriptions(finalTranscriptions);
       
-      // Check if any transcriptions succeeded
       const successfulTranscriptions = results.filter(r => r.status === "fulfilled").length;
       
       if (successfulTranscriptions > 0) {
@@ -337,7 +328,6 @@ const Index = () => {
           description: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
         });
         
-        // Show browser notification if enabled
         if (notificationsEnabled) {
           showNotification("Transcription Complete", {
             body: `${successfulTranscriptions} out of ${selectedModels.length} transcriptions completed successfully.`,
@@ -400,7 +390,6 @@ const Index = () => {
       
       publishLog.update(`Preparing caption for video ID: ${videoId}`);
       
-      // Get Brightcove credentials
       const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
       
       let brightcoveKeys;
@@ -408,7 +397,6 @@ const Index = () => {
         brightcoveKeys = await fetchBrightcoveKeys();
         credentialsLog.update("Retrieving Brightcove auth token...");
         
-        // Get Brightcove authentication token
         const authToken = await getBrightcoveAuthToken(
           brightcoveKeys.brightcove_client_id,
           brightcoveKeys.brightcove_client_secret
@@ -417,7 +405,6 @@ const Index = () => {
         credentialsLog.complete("Brightcove authentication successful", 
           `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
         
-        // Add caption directly to Brightcove video (without S3)
         publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
         
         await addCaptionToBrightcove(
@@ -473,9 +460,7 @@ const Index = () => {
         </header>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left Sidebar - Controls and upload - 3 columns wide */}
           <div className="lg:col-span-3 space-y-4">
-            {/* Step 1: Upload */}
             <Card className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
               <CardContent className="pt-4 p-3">
                 <h3 className="text-sm font-semibold mb-2 flex items-center">
@@ -523,7 +508,6 @@ const Index = () => {
               </CardContent>
             </Card>
             
-            {/* Step 2: Select Models & Process */}
             <Card className="overflow-hidden border-l-4 border-l-green-500 shadow-sm">
               <CardContent className="pt-4 p-3">
                 <h3 className="text-sm font-semibold mb-2 flex items-center">
@@ -559,7 +543,6 @@ const Index = () => {
               </CardContent>
             </Card>
             
-            {/* Step 4: Publish - Now dimmed unless a transcription is selected */}
             <Card className={`overflow-hidden border-l-4 ${selectedTranscription ? 'border-l-amber-500' : 'border-l-gray-300'} shadow-sm transition-colors duration-300 ${!selectedTranscription ? 'opacity-60' : ''}`}>
               <CardContent className="pt-4 p-3">
                 <h3 className={`text-sm font-semibold mb-2 flex items-center ${!selectedTranscription ? 'text-muted-foreground' : ''}`}>
@@ -597,7 +580,6 @@ const Index = () => {
               </CardContent>
             </Card>
             
-            {/* Collapsible Advanced Settings Panel */}
             <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
               <summary className="cursor-pointer font-medium flex items-center text-sm">
                 <Cog className="h-4 w-4 mr-2" />
@@ -633,7 +615,6 @@ const Index = () => {
               </div>
             </details>
             
-            {/* SharePoint Downloader - Tucked away in advanced panel */}
             <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
               <summary className="cursor-pointer font-medium flex items-center text-sm">
                 <Upload className="h-4 w-4 mr-2" />
@@ -645,7 +626,6 @@ const Index = () => {
                   isProcessing={isProcessing}
                 />
                 
-                {/* File Queue Manager */}
                 {fileQueue.length > 0 && (
                   <FileQueue
                     files={fileQueue}
@@ -661,9 +641,7 @@ const Index = () => {
             </details>
           </div>
           
-          {/* Main Content - 9 columns wide, larger on screens */}
           <div className="lg:col-span-9 space-y-4">
-            {/* Step 3: Review & Select - Now given prominence at the top */}
             <div className="space-y-3">
               <h2 className="text-xl font-semibold flex items-center">
                 <Check className="mr-2 h-5 w-5 text-violet-500" />
@@ -704,7 +682,6 @@ const Index = () => {
               )}
             </div>
             
-            {/* Log Panel - now at the bottom of the main area */}
             <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
               <summary className="cursor-pointer font-medium flex items-center text-sm">
                 <FileText className="h-4 w-4 mr-2 text-gray-500" />

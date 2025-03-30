@@ -31,20 +31,45 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFiles(e.dataTransfer.files[0]);
+    try {
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFiles(e.dataTransfer.files[0]);
+      }
+    } catch (error) {
+      console.error("Error handling dropped file:", error);
+      setInvalidFile(true);
+      toast({
+        title: "Error processing file",
+        description: "There was a problem with the dropped file. Please try another one.",
+        variant: "destructive"
+      });
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInvalidFile(false);
-    if (e.target.files && e.target.files[0]) {
-      handleFiles(e.target.files[0]);
+    try {
+      if (e.target.files && e.target.files[0]) {
+        handleFiles(e.target.files[0]);
+      }
+    } catch (error) {
+      console.error("Error handling selected file:", error);
+      setInvalidFile(true);
+      toast({
+        title: "Error processing file",
+        description: "There was a problem with the selected file. Please try another one.",
+        variant: "destructive"
+      });
     }
   };
 
   const handleFiles = (file: File) => {
     try {
+      // Verify file exists and has properties
+      if (!file || !file.type) {
+        throw new Error("Invalid file object");
+      }
+      
       // Check file type
       const isMP3 = file.type === "audio/mpeg" || file.name.toLowerCase().endsWith('.mp3');
       

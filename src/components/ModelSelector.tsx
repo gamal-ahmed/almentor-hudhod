@@ -33,6 +33,9 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
     { id: "google-speech", label: "Google Speech-to-Text" }
   ];
 
+  // Ensure selectedModels is always treated as an array
+  const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
+
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-x-2 gap-y-1">
@@ -40,7 +43,7 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
           <div key={model.id} className="flex items-center space-x-1.5">
             <Checkbox 
               id={model.id} 
-              checked={Array.isArray(selectedModels) && selectedModels.includes(model.id)} 
+              checked={safeSelectedModels.includes(model.id)} 
               onCheckedChange={() => handleModelToggle(model.id)}
               disabled={disabled}
               className="h-3 w-3"
