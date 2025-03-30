@@ -5,11 +5,15 @@ import { toast } from "sonner";
 // Define a type for the transcription result
 export interface TranscriptionResult {
   text: string;
+  prompt?: string;
   chunks?: Array<{
     text: string;
     timestamp: [number, number];
   }>;
 }
+
+// Default prompt for transcription
+export const DEFAULT_TRANSCRIPTION_PROMPT = "Please preserve all English words exactly as spoken";
 
 /**
  * Transcribes audio using Microsoft Phi-4 model from Hugging Face
@@ -41,11 +45,15 @@ export async function transcribeAudio(audioFile: File): Promise<TranscriptionRes
     if (Array.isArray(result)) {
       // If it's an array, we'll join the text from each item
       const combinedText = result.map(item => item.text || "").join(" ");
-      return { text: combinedText };
+      return { 
+        text: combinedText,
+        prompt: "No prompt supported in browser-based Phi-4 model" 
+      };
     } else {
       // If it's a single object
       return {
         text: result.text || "",
+        prompt: "No prompt supported in browser-based Phi-4 model",
         chunks: Array.isArray(result.chunks) ? result.chunks : undefined
       };
     }
@@ -61,9 +69,10 @@ export async function transcribeAudio(audioFile: File): Promise<TranscriptionRes
  */
 export async function transcribeWithOpenAI(audioFile: File): Promise<TranscriptionResult> {
   try {
+    const prompt = DEFAULT_TRANSCRIPTION_PROMPT;
     const formData = new FormData();
     formData.append("audio", audioFile);
-    formData.append("prompt", "Please preserve all English words exactly as spoken"); // Adding prompt to preserve English words
+    formData.append("prompt", prompt); // Adding prompt to preserve English words
 
     const response = await fetch("https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe", {
       method: "POST",
@@ -84,7 +93,10 @@ export async function transcribeWithOpenAI(audioFile: File): Promise<Transcripti
     // Extract the text content from the VTT format
     const textContent = extractTextFromVTT(vttContent);
     
-    return { text: textContent };
+    return { 
+      text: textContent,
+      prompt 
+    };
   } catch (error) {
     console.error("OpenAI transcription error:", error);
     toast.error("Failed to transcribe audio with cloud service. Please try again.");

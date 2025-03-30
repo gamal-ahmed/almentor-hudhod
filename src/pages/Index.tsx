@@ -1,9 +1,11 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Check, Loader2, Upload, FileAudio, Cog, Send } from "lucide-react";
+import { Check, Loader2, Upload, FileAudio, Cog, Send, Info, FileText } from "lucide-react";
 
 import FileUpload from "@/components/FileUpload";
 import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
@@ -17,6 +19,7 @@ import {
   getBrightcoveAuthToken,
   addCaptionToBrightcove
 } from "@/lib/api";
+import { DEFAULT_TRANSCRIPTION_PROMPT } from "@/lib/phi4TranscriptionService";
 
 const Index = () => {
   // Main state
@@ -26,15 +29,16 @@ const Index = () => {
   const [videoId, setVideoId] = useState<string>("");
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
   
   // Processing state
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, loading: boolean }>>({
-    openai: { vtt: "", loading: false },
-    gemini: { vtt: "", loading: false },
-    phi4: { vtt: "", loading: false }
+  const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({
+    openai: { vtt: "", prompt: "", loading: false },
+    gemini: { vtt: "", prompt: "", loading: false },
+    phi4: { vtt: "", prompt: "", loading: false }
   });
   
   // Logs and notification
@@ -52,9 +56,9 @@ const Index = () => {
       
       // Make sure to reset transcriptions for all models
       setTranscriptions({
-        openai: { vtt: "", loading: false },
-        gemini: { vtt: "", loading: false },
-        phi4: { vtt: "", loading: false }
+        openai: { vtt: "", prompt: "", loading: false },
+        gemini: { vtt: "", prompt: "", loading: false },
+        phi4: { vtt: "", prompt: "", loading: false }
       });
       
       addLog(`File selected: ${uploadedFile.name}`, "info", {
@@ -110,7 +114,7 @@ const Index = () => {
       // Reset transcriptions state for selected models
       const updatedTranscriptions = { ...transcriptions };
       selectedModels.forEach(model => {
-        updatedTranscriptions[model] = { vtt: "", loading: true };
+        updatedTranscriptions[model] = { vtt: "", prompt: "", loading: true };
       });
       setTranscriptions(updatedTranscriptions);
       
@@ -124,16 +128,16 @@ const Index = () => {
         const modelLog = startTimedLog(`${model.toUpperCase()} Transcription`, "info", model.toUpperCase());
         
         try {
-          modelLog.update(`Sending audio directly to ${model} API...`);
-          const vttContent = await transcribeAudio(file, model);
+          modelLog.update(`Sending audio to ${model} with prompt: "${transcriptionPrompt}"`);
+          const result = await transcribeAudio(file, model, transcriptionPrompt);
           
-          const wordCount = vttContent.split(/\s+/).length;
+          const wordCount = result.vttContent.split(/\s+/).length;
           modelLog.complete(
             `${model.toUpperCase()} transcription successful`, 
-            `Generated ${wordCount} words | VTT format | Length: ${vttContent.length} characters`
+            `Generated ${wordCount} words | VTT format | Length: ${result.vttContent.length} characters`
           );
           
-          return { model, vtt: vttContent };
+          return { model, vtt: result.vttContent, prompt: result.prompt };
         } catch (error) {
           modelLog.error(
             `${model.toUpperCase()} transcription failed`,
@@ -151,14 +155,14 @@ const Index = () => {
       
       results.forEach((result) => {
         if (result.status === "fulfilled") {
-          const { model, vtt } = result.value;
-          finalTranscriptions[model] = { vtt, loading: false };
+          const { model, vtt, prompt } = result.value;
+          finalTranscriptions[model] = { vtt, prompt, loading: false };
         } else {
           // Find the model that failed
           const failedModelIndex = results.findIndex(r => r === result);
           if (failedModelIndex >= 0 && failedModelIndex < selectedModels.length) {
             const model = selectedModels[failedModelIndex];
-            finalTranscriptions[model] = { vtt: "", loading: false };
+            finalTranscriptions[model] = { vtt: "", prompt: "", loading: false };
           }
         }
       });
@@ -295,134 +299,179 @@ const Index = () => {
   };
   
   return (
-    <div className="min-h-screen max-w-7xl mx-auto p-4 md:p-6">
-      <header className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Transcription Pipeline</h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Upload an MP3 file, generate transcriptions with multiple models, and publish captions to Brightcove.
-        </p>
-      </header>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Step 1: Upload */}
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <FileAudio className="mr-2 h-5 w-5" />
-                Step 1: Upload Audio File
-              </h2>
-              <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
-              
-              {file && (
-                <div className="mt-4">
-                  <div className="text-sm text-muted-foreground flex items-center">
-                    <Check className="h-4 w-4 text-green-500 mr-2" />
-                    File selected: <span className="font-medium ml-1">{file.name}</span>
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Transcription Pipeline
+          </h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Upload an MP3 file, generate transcriptions with multiple AI models, and publish captions to Brightcove.
+          </p>
+        </header>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Step 1: Upload */}
+            <Card className="overflow-hidden border-t-4 border-t-blue-500 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <FileAudio className="mr-2 h-5 w-5 text-blue-500" />
+                  Step 1: Upload Audio File
+                </h2>
+                <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+                
+                {file && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-sm flex items-center">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="font-medium">File selected:</span> 
+                      <span className="ml-1">{file.name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({Math.round(file.size / 1024)} KB)
+                      </span>
+                    </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Step 2: Select Models & Process */}
+            <Card className="overflow-hidden border-t-4 border-t-green-500 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Cog className="mr-2 h-5 w-5 text-green-500" />
+                  Step 2: Generate Transcriptions
+                </h2>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label htmlFor="prompt" className="text-sm font-medium">
+                        Transcription Prompt:
+                      </label>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 mr-1" />
+                        <span>Not all models support prompts</span>
+                      </div>
+                    </div>
+                    <Textarea 
+                      id="prompt"
+                      value={transcriptionPrompt}
+                      onChange={(e) => setTranscriptionPrompt(e.target.value)}
+                      className="resize-none"
+                      placeholder="Enter instructions for the transcription model..."
+                      rows={2}
+                    />
+                  </div>
+                  
+                  <ModelSelector 
+                    selectedModels={selectedModels} 
+                    onModelChange={setSelectedModels}
+                    disabled={isProcessing || !file}
+                  />
+                  
+                  <Button 
+                    onClick={processTranscriptions} 
+                    disabled={isProcessing || !file || selectedModels.length === 0}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Generate Transcriptions
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Step 3: Review & Select */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold mb-2 flex items-center">
+                <Check className="mr-2 h-5 w-5 text-violet-500" />
+                Step 3: Review & Select
+              </h2>
+              
+              {selectedModels.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {selectedModels.map((model) => (
+                    <TranscriptionCard
+                      key={model}
+                      modelName={
+                        model === "openai" 
+                          ? "OpenAI Whisper" 
+                          : model === "gemini" 
+                            ? "Google Gemini" 
+                            : "Microsoft Phi-4"
+                      }
+                      vttContent={transcriptions[model].vtt}
+                      prompt={transcriptions[model].prompt}
+                      onSelect={() => handleSelectTranscription(model, transcriptions[model].vtt)}
+                      isSelected={selectedModel === model}
+                      audioSrc={audioUrl || undefined}
+                      isLoading={transcriptions[model].loading}
+                    />
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-          
-          {/* Step 2: Select Models & Process */}
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <Cog className="mr-2 h-5 w-5" />
-                Step 2: Generate Transcriptions
-              </h2>
-              
-              <div className="space-y-4">
-                <ModelSelector 
-                  selectedModels={selectedModels} 
-                  onModelChange={setSelectedModels}
-                  disabled={isProcessing || !file}
-                />
-                
-                <Button 
-                  onClick={processTranscriptions} 
-                  disabled={isProcessing || !file || selectedModels.length === 0}
-                  className="w-full"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>Generate Transcriptions</>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Step 3: Review & Select */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold mb-2">Step 3: Review & Select</h2>
+            </div>
             
-            {selectedModels.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {selectedModels.map((model) => (
-                  <TranscriptionCard
-                    key={model}
-                    modelName={
-                      model === "openai" 
-                        ? "OpenAI Whisper" 
-                        : model === "gemini" 
-                          ? "Google Gemini" 
-                          : "Microsoft Phi-4"
-                    }
-                    vttContent={transcriptions[model].vtt}
-                    onSelect={() => handleSelectTranscription(model, transcriptions[model].vtt)}
-                    isSelected={selectedModel === model}
-                    audioSrc={audioUrl || undefined}
-                    isLoading={transcriptions[model].loading}
+            {/* Step 4: Publish */}
+            <Card className="overflow-hidden border-t-4 border-t-amber-500 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Send className="mr-2 h-5 w-5 text-amber-500" />
+                  Step 4: Publish to Brightcove
+                </h2>
+                
+                <div className="space-y-4">
+                  <VideoIdInput 
+                    videoId={videoId} 
+                    onChange={setVideoId}
+                    disabled={isPublishing}
                   />
-                ))}
-              </div>
-            )}
+                  
+                  <Button 
+                    onClick={publishCaption} 
+                    disabled={isPublishing || !selectedTranscription || !videoId}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Publish Caption
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
           
-          {/* Step 4: Publish */}
-          <Card>
-            <CardContent className="pt-6">
+          {/* Log Panel */}
+          <div className="lg:row-span-1">
+            <div className="sticky top-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <Send className="mr-2 h-5 w-5" />
-                Step 4: Publish to Brightcove
+                <FileText className="mr-2 h-5 w-5 text-gray-500" />
+                System Logs
               </h2>
-              
-              <div className="space-y-4">
-                <VideoIdInput 
-                  videoId={videoId} 
-                  onChange={setVideoId}
-                  disabled={isPublishing}
-                />
-                
-                <Button 
-                  onClick={publishCaption} 
-                  disabled={isPublishing || !selectedTranscription || !videoId}
-                  className="w-full"
-                >
-                  {isPublishing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>Publish Caption</>
-                  )}
-                </Button>
+              <div className="h-[600px] bg-gradient-to-b from-transparent to-gray-50 dark:to-gray-900 p-1 rounded-lg">
+                <LogsPanel logs={logs} />
               </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Log Panel */}
-        <div className="lg:row-span-2 h-[600px]">
-          <h2 className="text-xl font-semibold mb-4">System Logs</h2>
-          <LogsPanel logs={logs} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

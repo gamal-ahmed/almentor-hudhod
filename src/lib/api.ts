@@ -1,6 +1,6 @@
 
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { transcribeAudio as phi4Transcribe } from "./phi4TranscriptionService";
+import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
@@ -41,7 +41,7 @@ export async function fetchBrightcoveKeys() {
 }
 
 // Transcribe audio using selected model - directly uploads the file
-export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "") {
+export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = DEFAULT_TRANSCRIPTION_PROMPT) {
   try {
     // For Phi-4, use client-side transcription
     if (model === 'phi4') {
@@ -50,7 +50,10 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       
       // Convert to VTT format for consistency with other models
       const vttContent = convertTextToVTT(result.text);
-      return vttContent;
+      return {
+        vttContent,
+        prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
+      };
     }
     
     // For other models, use the server-side functions
@@ -84,7 +87,10 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
     }
     
     const data = await response.json();
-    return data.vttContent;
+    return {
+      vttContent: data.vttContent,
+      prompt
+    };
   } catch (error) {
     console.error(`Error in ${model} transcription:`, error);
     throw error;
