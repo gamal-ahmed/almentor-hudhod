@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,9 +49,12 @@ const Index = () => {
       setAudioUrl(URL.createObjectURL(uploadedFile));
       setSelectedTranscription(null);
       setSelectedModel(null);
+      
+      // Make sure to reset transcriptions for all models
       setTranscriptions({
         openai: { vtt: "", loading: false },
-        gemini: { vtt: "", loading: false }
+        gemini: { vtt: "", loading: false },
+        phi4: { vtt: "", loading: false }
       });
       
       addLog(`File selected: ${uploadedFile.name}`, "info", {

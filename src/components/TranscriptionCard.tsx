@@ -23,7 +23,7 @@ interface VTTSegment {
 
 const TranscriptionCard = ({ 
   modelName, 
-  vttContent, 
+  vttContent = "", // Provide default empty string to prevent undefined
   onSelect, 
   isSelected,
   audioSrc,
@@ -33,12 +33,15 @@ const TranscriptionCard = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  const vttSegments = parseVTT(vttContent);
+  // Only attempt to parse VTT if vttContent is not empty
+  const vttSegments = vttContent ? parseVTT(vttContent) : [];
   
   const handleCopy = () => {
-    navigator.clipboard.writeText(vttContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (vttContent) {
+      navigator.clipboard.writeText(vttContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
   
   const togglePlay = () => {
@@ -76,7 +79,7 @@ const TranscriptionCard = ({
           <div className="text-center text-muted-foreground animate-pulse-opacity">
             Generating transcription...
           </div>
-        ) : (
+        ) : vttSegments.length > 0 ? (
           <div className="space-y-1">
             {vttSegments.map((segment, index) => (
               <div key={index} className="vtt-segment">
@@ -84,6 +87,10 @@ const TranscriptionCard = ({
                 <div className="vtt-content">{segment.text}</div>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground">
+            No transcription available yet
           </div>
         )}
       </CardContent>
@@ -98,7 +105,7 @@ const TranscriptionCard = ({
               </Button>
             </>
           )}
-          <Button size="sm" variant="outline" onClick={handleCopy} disabled={isLoading}>
+          <Button size="sm" variant="outline" onClick={handleCopy} disabled={isLoading || !vttContent}>
             {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
             {copied ? "Copied" : "Copy"}
           </Button>
