@@ -4,6 +4,7 @@ import { TranscriptionModel } from "@/components/ModelSelector";
 // API endpoints (using Supabase Edge Functions)
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
 const GEMINI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
+const PHI4_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
 const BRIGHTCOVE_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy';
 
 // Supabase API key for authentication
@@ -45,7 +46,20 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
   formData.append('audio', file);
   formData.append('prompt', prompt);
   
-  const url = model === 'openai' ? OPENAI_TRANSCRIBE_URL : GEMINI_TRANSCRIBE_URL;
+  let url;
+  switch (model) {
+    case 'openai':
+      url = OPENAI_TRANSCRIBE_URL;
+      break;
+    case 'gemini':
+      url = GEMINI_TRANSCRIBE_URL;
+      break;
+    case 'phi4':
+      url = PHI4_TRANSCRIBE_URL;
+      break;
+    default:
+      url = OPENAI_TRANSCRIBE_URL;
+  }
   
   try {
     const response = await fetch(url, {

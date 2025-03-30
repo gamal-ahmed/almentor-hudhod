@@ -53,9 +53,17 @@ const TranscriptionCard = ({
     setIsPlaying(!isPlaying);
   };
 
+  // Determine the model color
+  const getModelColor = () => {
+    if (modelName.includes("OpenAI")) return "bg-blue-100";
+    if (modelName.includes("Gemini")) return "bg-green-100";
+    if (modelName.includes("Phi-4")) return "bg-violet-100";
+    return "";
+  };
+
   return (
     <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}>
-      <CardHeader className="pb-2">
+      <CardHeader className={`pb-2 ${getModelColor()}`}>
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg">{modelName}</CardTitle>
           <Badge variant={isSelected ? "default" : "outline"}>

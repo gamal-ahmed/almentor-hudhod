@@ -2,7 +2,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
-export type TranscriptionModel = "openai" | "gemini";
+export type TranscriptionModel = "openai" | "gemini" | "phi4";
 
 interface ModelSelectorProps {
   selectedModels: TranscriptionModel[];
@@ -43,6 +43,17 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
           />
           <Label htmlFor="gemini" className={disabled ? "text-muted-foreground" : ""}>
             Google Gemini 2.0 Flash
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id="phi4" 
+            checked={selectedModels.includes("phi4")} 
+            onCheckedChange={() => handleModelToggle("phi4")}
+            disabled={disabled}
+          />
+          <Label htmlFor="phi4" className={disabled ? "text-muted-foreground" : ""}>
+            Microsoft Phi-4 Multimodal
           </Label>
         </div>
       </div>

@@ -23,7 +23,7 @@ const Index = () => {
   // Main state
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini"]);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini", "phi4"]);
   const [videoId, setVideoId] = useState<string>("");
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -34,7 +34,8 @@ const Index = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, loading: boolean }>>({
     openai: { vtt: "", loading: false },
-    gemini: { vtt: "", loading: false }
+    gemini: { vtt: "", loading: false },
+    phi4: { vtt: "", loading: false }
   });
   
   // Logs and notification
@@ -364,7 +365,13 @@ const Index = () => {
                 {selectedModels.map((model) => (
                   <TranscriptionCard
                     key={model}
-                    modelName={model === "openai" ? "OpenAI Whisper" : "Google Gemini"}
+                    modelName={
+                      model === "openai" 
+                        ? "OpenAI Whisper" 
+                        : model === "gemini" 
+                          ? "Google Gemini" 
+                          : "Microsoft Phi-4"
+                    }
                     vttContent={transcriptions[model].vtt}
                     onSelect={() => handleSelectTranscription(model, transcriptions[model].vtt)}
                     isSelected={selectedModel === model}
