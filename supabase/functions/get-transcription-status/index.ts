@@ -43,9 +43,10 @@ serve(async (req) => {
     const supabaseKey = authHeader.replace('Bearer ', '');
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get user session
+    // Get user session - use getUser() to validate the JWT token
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) {
+    if (userError || !user) {
+      console.error("Authentication error:", userError);
       throw new Error('Authentication required');
     }
 
@@ -65,7 +66,7 @@ serve(async (req) => {
     }
 
     // If user_id is set, verify that the current user owns the job
-    if (job.user_id && job.user_id !== user?.id) {
+    if (job.user_id && job.user_id !== user.id) {
       throw new Error('You do not have permission to access this job');
     }
 

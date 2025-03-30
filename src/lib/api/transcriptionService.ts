@@ -19,6 +19,12 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
       details: `File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`
     });
     
+    // Get current session token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error("You must be signed in to use async transcription");
+    }
+    
     // Prepare FormData
     const formData = new FormData();
     formData.append('audio', file);
@@ -30,11 +36,11 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
       details: `File size: ${file.size} bytes`
     });
     
+    // Use the user's JWT token instead of the anon key
     const response = await fetch(`${API_ENDPOINTS.QUEUE_TRANSCRIPTION}`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
       body: formData,
     });
@@ -89,11 +95,16 @@ export async function getTranscriptionStatus(jobId: string) {
       details: `Job ID: ${jobId}`
     });
     
+    // Get current session token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error("You must be signed in to check transcription status");
+    }
+    
     const response = await fetch(`${API_ENDPOINTS.GET_TRANSCRIPTION_STATUS}/${jobId}`, {
       method: 'GET',
       headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
     });
     

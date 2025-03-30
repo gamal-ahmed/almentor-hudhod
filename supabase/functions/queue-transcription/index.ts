@@ -25,9 +25,10 @@ serve(async (req) => {
     const supabaseKey = authHeader.replace('Bearer ', '');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user session
+    // Get user session - use getUser() to validate the JWT token
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
+      console.error("Authentication error:", userError);
       throw new Error('Authentication required');
     }
 

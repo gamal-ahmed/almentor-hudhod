@@ -10,6 +10,7 @@ import { TranscriptionModel } from "@/components/ModelSelector";
 import { queueTranscriptionJob, checkTranscriptionStatus } from "@/lib/api";
 import { useLogsStore } from "@/lib/useLogsStore";
 import TranscriptionCard from "@/components/TranscriptionCard";
+import { useAuth } from "@/lib/AuthContext";
 
 interface AsyncTranscriberProps {
   file: File;
@@ -29,12 +30,24 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
   
   const addLog = useLogsStore(state => state.addLog);
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   
   // Queue the transcription job
   const queueJob = async () => {
     if (isLoading || !file) return;
     
     try {
+      // Check authentication
+      if (!isAuthenticated) {
+        setError("You must be signed in to use async transcription");
+        toast({
+          variant: "destructive",
+          title: "Authentication Required",
+          description: "Please sign in to use the async transcription feature.",
+        });
+        return;
+      }
+      
       setIsLoading(true);
       setStatus('queueing');
       setStatusMessage('Preparing transcription job...');
@@ -235,6 +248,14 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
       
       <CardContent>
         <div className="space-y-4">
+          {/* Authentication warning */}
+          {!isAuthenticated && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md text-sm">
+              <span className="font-medium text-amber-700 dark:text-amber-400">Authentication required:</span> 
+              You must be signed in to use the async transcription feature.
+            </div>
+          )}
+          
           {/* File info */}
           <div className="text-sm text-muted-foreground">
             <span className="font-medium">File:</span> {file.name} ({Math.round(file.size / 1024)} KB)
@@ -274,7 +295,7 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
       
       <CardFooter className="flex justify-between">
         {status === 'idle' && (
-          <Button onClick={queueJob} disabled={isLoading} className="w-full">
+          <Button onClick={queueJob} disabled={isLoading || !isAuthenticated} className="w-full">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
