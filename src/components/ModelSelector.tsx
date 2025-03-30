@@ -12,64 +12,41 @@ interface ModelSelectorProps {
 
 const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelectorProps) => {
   const handleModelToggle = (model: TranscriptionModel) => {
-    if (selectedModels.includes(model)) {
-      onModelChange(selectedModels.filter(m => m !== model));
-    } else {
-      onModelChange([...selectedModels, model]);
+    try {
+      if (selectedModels.includes(model)) {
+        onModelChange(selectedModels.filter(m => m !== model));
+      } else {
+        onModelChange([...selectedModels, model]);
+      }
+    } catch (error) {
+      console.error("Error toggling model:", error);
     }
   };
+
+  const models: {id: TranscriptionModel, label: string}[] = [
+    { id: "openai", label: "OpenAI Whisper" },
+    { id: "gemini", label: "Google Gemini" },
+    { id: "phi4", label: "Microsoft Phi-4" },
+    { id: "google-speech", label: "Google Speech-to-Text" }
+  ];
 
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-        <div className="flex items-center space-x-1.5">
-          <Checkbox 
-            id="openai" 
-            checked={selectedModels.includes("openai")} 
-            onCheckedChange={() => handleModelToggle("openai")}
-            disabled={disabled}
-            className="h-3 w-3"
-          />
-          <Label htmlFor="openai" className={`text-xs ${disabled ? "text-muted-foreground" : ""}`}>
-            OpenAI Whisper
-          </Label>
-        </div>
-        <div className="flex items-center space-x-1.5">
-          <Checkbox 
-            id="gemini" 
-            checked={selectedModels.includes("gemini")} 
-            onCheckedChange={() => handleModelToggle("gemini")}
-            disabled={disabled}
-            className="h-3 w-3"
-          />
-          <Label htmlFor="gemini" className={`text-xs ${disabled ? "text-muted-foreground" : ""}`}>
-            Google Gemini
-          </Label>
-        </div>
-        <div className="flex items-center space-x-1.5">
-          <Checkbox 
-            id="phi4" 
-            checked={selectedModels.includes("phi4")} 
-            onCheckedChange={() => handleModelToggle("phi4")}
-            disabled={disabled}
-            className="h-3 w-3"
-          />
-          <Label htmlFor="phi4" className={`text-xs ${disabled ? "text-muted-foreground" : ""}`}>
-            Microsoft Phi-4
-          </Label>
-        </div>
-        <div className="flex items-center space-x-1.5">
-          <Checkbox 
-            id="google-speech" 
-            checked={selectedModels.includes("google-speech")} 
-            onCheckedChange={() => handleModelToggle("google-speech")}
-            disabled={disabled}
-            className="h-3 w-3" 
-          />
-          <Label htmlFor="google-speech" className={`text-xs ${disabled ? "text-muted-foreground" : ""}`}>
-            Google Speech-to-Text
-          </Label>
-        </div>
+        {models.map(model => (
+          <div key={model.id} className="flex items-center space-x-1.5">
+            <Checkbox 
+              id={model.id} 
+              checked={selectedModels.includes(model.id)} 
+              onCheckedChange={() => handleModelToggle(model.id)}
+              disabled={disabled}
+              className="h-3 w-3"
+            />
+            <Label htmlFor={model.id} className={`text-xs ${disabled ? "text-muted-foreground" : ""}`}>
+              {model.label}
+            </Label>
+          </div>
+        ))}
       </div>
     </div>
   );

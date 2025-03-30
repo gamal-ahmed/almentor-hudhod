@@ -11,8 +11,9 @@ interface FileUploadProps {
 
 const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
+  const [invalidFile, setInvalidFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -36,28 +37,58 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInvalidFile(false);
     if (e.target.files && e.target.files[0]) {
       handleFiles(e.target.files[0]);
     }
   };
 
   const handleFiles = (file: File) => {
-    if (file.type !== "audio/mpeg" && !file.name.endsWith('.mp3')) {
-      toast.toast({
-        title: "Invalid file type",
-        description: "Please upload an MP3 file",
+    try {
+      // Check file type
+      const isMP3 = file.type === "audio/mpeg" || file.name.toLowerCase().endsWith('.mp3');
+      
+      if (!isMP3) {
+        setInvalidFile(true);
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an MP3 file",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Check file size (limit to 100MB)
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      if (file.size > maxSize) {
+        setInvalidFile(true);
+        toast({
+          title: "File too large",
+          description: "Please upload an MP3 file smaller than 100MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setInvalidFile(false);
+      onFileUpload(file);
+    } catch (error) {
+      console.error("Error handling file:", error);
+      setInvalidFile(true);
+      toast({
+        title: "Error processing file",
+        description: "There was a problem with your file. Please try another one.",
         variant: "destructive"
       });
-      return;
     }
-    
-    onFileUpload(file);
   };
 
   return (
     <div 
       className={`w-full border-2 border-dashed rounded-lg p-6 text-center flex flex-col items-center justify-center cursor-pointer h-40 transition-colors
-        ${dragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/50 hover:bg-muted/50"}`}
+        ${invalidFile ? "border-red-500 bg-red-50 dark:bg-red-900/10" : 
+          dragActive ? "border-primary bg-primary/10" : 
+          "border-border hover:border-primary/50 hover:bg-muted/50"}`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -79,9 +110,9 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
         </div>
       ) : (
         <>
-          <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+          <Upload className={`h-6 w-6 ${invalidFile ? "text-red-500" : "text-muted-foreground"} mb-2`} />
           <p className="font-medium">Drag & drop an MP3 file here or click to browse</p>
-          <p className="text-sm text-muted-foreground mt-1">MP3 files only</p>
+          <p className="text-sm text-muted-foreground mt-1">MP3 files only (max 100MB)</p>
         </>
       )}
     </div>
