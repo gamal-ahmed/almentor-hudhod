@@ -49,6 +49,7 @@ export async function queueTranscription(file: File, model: TranscriptionModel) 
       details: `Token type: ${session.token_type}, Token length: ${accessToken.length} chars`
     });
     
+    // Direct fetch with explicit authorization header
     const response = await fetch(`${API_ENDPOINTS.QUEUE_TRANSCRIPTION}`, {
       method: 'POST',
       headers: {

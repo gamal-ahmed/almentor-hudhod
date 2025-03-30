@@ -14,20 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    // Extract job ID from URL or request body
-    let jobId: string;
+    // Get the job ID from the URL
     const url = new URL(req.url);
+    const jobId = url.pathname.split('/').pop();
     
-    if (url.pathname.includes('/')) {
-      // Extract job ID from URL path
-      const pathParts = url.pathname.split('/');
-      jobId = pathParts[pathParts.length - 1];
-    } else {
-      // Extract job ID from request body
-      const { id } = await req.json();
-      jobId = id;
-    }
-
     if (!jobId) {
       return new Response(
         JSON.stringify({ error: 'Job ID is required' }),
@@ -41,7 +31,7 @@ serve(async (req) => {
       );
     }
 
-    // Get the authorization header
+    // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error("No Authorization header provided");
@@ -57,13 +47,15 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with the token
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://xbwnjfdzbnyvaxmqufrw.supabase.co';
     const supabaseKey = authHeader.replace('Bearer ', '');
-    const supabase = createClient(supabaseUrl, supabaseKey);
     
+    // Create client with the JWT token from the request
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Verify the JWT token and get user data
     try {
-      // Get user session - use getUser() to validate the JWT token
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
@@ -94,31 +86,20 @@ serve(async (req) => {
         );
       }
 
-      // Query the job status
+      console.log(`Authenticated user: ${user.id}, ${user.email} requesting job: ${jobId}`);
+
+      // Get the job data
       const { data: job, error: jobError } = await supabase
         .from('transcription_jobs')
         .select('*')
         .eq('id', jobId)
-        .maybeSingle();
+        .eq('user_id', user.id)  // Only allow users to see their own jobs
+        .single();
 
       if (jobError) {
-        console.error("Database query error:", jobError);
+        console.error("Error fetching job:", jobError);
         return new Response(
-          JSON.stringify({ error: `Failed to fetch job: ${jobError.message}` }),
-          {
-            status: 500,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-      }
-
-      if (!job) {
-        console.error(`Job not found: ${jobId}`);
-        return new Response(
-          JSON.stringify({ error: `Job not found with ID: ${jobId}` }),
+          JSON.stringify({ error: 'Failed to retrieve job', details: jobError.message }),
           {
             status: 404,
             headers: {
@@ -129,13 +110,11 @@ serve(async (req) => {
         );
       }
 
-      // If user_id is set, verify that the current user owns the job
-      if (job.user_id && job.user_id !== user.id) {
-        console.error(`User ${user.id} attempted to access job ${jobId} owned by ${job.user_id}`);
+      if (!job) {
         return new Response(
-          JSON.stringify({ error: 'You do not have permission to access this job' }),
+          JSON.stringify({ error: 'Job not found' }),
           {
-            status: 403,
+            status: 404,
             headers: {
               ...corsHeaders,
               "Content-Type": "application/json",
@@ -144,20 +123,11 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Retrieved job ${jobId} for user ${user.id}, status: ${job.status}`);
+      console.log(`Found job: ${job.id}, status: ${job.status}`);
 
-      // Return the job status with all necessary information
+      // Return job information
       return new Response(
-        JSON.stringify({
-          status: job.status,
-          status_message: job.status_message || job.status,
-          error: job.error,
-          result: job.result,
-          file_name: job.file_name,
-          created_at: job.created_at,
-          updated_at: job.updated_at,
-          model: job.model
-        }),
+        JSON.stringify(job),
         {
           headers: {
             ...corsHeaders,

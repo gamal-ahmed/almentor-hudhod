@@ -7,7 +7,7 @@ import { Check, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { queueTranscriptionJob, checkTranscriptionStatus } from "@/lib/api";
+import { queueTranscription, getTranscriptionStatus } from "@/lib/api";
 import { useLogsStore } from "@/lib/useLogsStore";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import { useAuth } from "@/lib/AuthContext";
@@ -30,7 +30,7 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
   
   const addLog = useLogsStore(state => state.addLog);
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, session } = useAuth();
   
   // Queue the transcription job
   const queueJob = async () => {
@@ -48,6 +48,17 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
         return;
       }
       
+      // Additional check to ensure we have a valid session
+      if (!session || !session.access_token) {
+        setError("Valid authentication session required");
+        toast({
+          variant: "destructive",
+          title: "Session Error",
+          description: "Please sign out and sign in again to refresh your session.",
+        });
+        return;
+      }
+      
       setIsLoading(true);
       setStatus('queueing');
       setStatusMessage('Preparing transcription job...');
@@ -58,7 +69,7 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
         details: `Model: ${model}, File size: ${Math.round(file.size / 1024)} KB`
       });
       
-      const response = await queueTranscriptionJob(file, model);
+      const response = await queueTranscription(file, model);
       
       setJobId(response.jobId);
       setStatus('pending');
@@ -110,7 +121,7 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
     // Create new polling interval
     const interval = window.setInterval(async () => {
       try {
-        const jobStatus = await checkTranscriptionStatus(id);
+        const jobStatus = await getTranscriptionStatus(id);
         
         setStatus(jobStatus.status);
         setStatusMessage(jobStatus.status_message || jobStatus.status);
@@ -285,6 +296,20 @@ export default function AsyncTranscriber({ file, model, onComplete }: AsyncTrans
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-md text-sm">
               <span className="font-medium text-red-700 dark:text-red-400">Error:</span> {error}
+            </div>
+          )}
+          
+          {/* Session debug info in development */}
+          {import.meta.env.DEV && isAuthenticated && (
+            <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-md text-xs">
+              <details>
+                <summary className="cursor-pointer">Session debug info</summary>
+                <div className="mt-2 overflow-auto max-h-24">
+                  <pre>Token available: {session?.access_token ? 'Yes' : 'No'}</pre>
+                  <pre>Token type: {session?.token_type}</pre>
+                  <pre>Token length: {session?.access_token?.length}</pre>
+                </div>
+              </details>
             </div>
           )}
           

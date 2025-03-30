@@ -33,6 +33,8 @@ serve(async (req) => {
     // Initialize Supabase client with the token
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://xbwnjfdzbnyvaxmqufrw.supabase.co';
     const supabaseKey = authHeader.replace('Bearer ', '');
+    
+    // Create client with the JWT token from the request
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Verify the JWT token and get user data
