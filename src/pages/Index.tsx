@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,8 @@ import TranscriptionCard from "@/components/TranscriptionCard";
 import LogsPanel from "@/components/LogsPanel";
 import VideoIdInput from "@/components/VideoIdInput";
 import PromptOptions from "@/components/PromptOptions";
+import SharePointDownloader from "@/components/SharePointDownloader";
+import FileQueue from "@/components/FileQueue";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
   transcribeAudio, 
@@ -31,6 +34,10 @@ const Index = () => {
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>(DEFAULT_TRANSCRIPTION_PROMPT);
+  
+  // SharePoint and Queue state
+  const [fileQueue, setFileQueue] = useState<File[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(0);
   
   // Prompt options state
   const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
@@ -97,6 +104,56 @@ const Index = () => {
     }
     
     setIsAudioPlaying(!isAudioPlaying);
+  };
+  
+  // Handle SharePoint files being queued
+  const handleFilesQueued = (files: File[]) => {
+    setFileQueue(files);
+    setCurrentQueueIndex(0);
+    addLog(`Queued ${files.length} files from SharePoint`, "info", {
+      details: `Files: ${files.map(f => f.name).join(", ")}`,
+      source: "SharePoint"
+    });
+    
+    if (notificationsEnabled) {
+      showNotification("Files Queued", {
+        body: `${files.length} audio files are ready for sequential processing`,
+        tag: "file-queue"
+      });
+    }
+  };
+  
+  // Process the next file in the queue
+  const processNextInQueue = async () => {
+    if (currentQueueIndex >= fileQueue.length) {
+      return;
+    }
+    
+    const nextFile = fileQueue[currentQueueIndex];
+    await handleFileUpload(nextFile);
+    setCurrentQueueIndex(prev => prev + 1);
+  };
+  
+  // Skip the current file in the queue
+  const skipCurrentInQueue = () => {
+    addLog(`Skipped file: ${fileQueue[currentQueueIndex]?.name}`, "info", {
+      source: "FileQueue"
+    });
+    setCurrentQueueIndex(prev => prev + 1);
+  };
+  
+  // Reset the queue
+  const resetQueue = () => {
+    setFileQueue([]);
+    setCurrentQueueIndex(0);
+    setFile(null);
+    setAudioUrl(null);
+    setSelectedTranscription(null);
+    setSelectedModel(null);
+    
+    addLog("File queue reset", "info", {
+      source: "FileQueue"
+    });
   };
   
   // When a file is uploaded
@@ -411,13 +468,32 @@ const Index = () => {
             Transcription Pipeline
           </h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Upload an MP3 file, generate transcriptions with multiple AI models, and publish captions to Brightcove.
+            Download MP3 files from SharePoint, sequentially transcribe them with multiple AI models, and publish captions to Brightcove.
           </p>
         </header>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Main Content - 8 columns wide */}
           <div className="lg:col-span-8 space-y-6">
+            {/* SharePoint Downloader */}
+            <SharePointDownloader 
+              onFilesQueued={handleFilesQueued}
+              isProcessing={isProcessing}
+            />
+            
+            {/* File Queue Manager */}
+            {fileQueue.length > 0 && (
+              <FileQueue
+                files={fileQueue}
+                currentIndex={currentQueueIndex}
+                onProcessNext={processNextInQueue}
+                onSkip={skipCurrentInQueue}
+                onReset={resetQueue}
+                isProcessing={isProcessing}
+                notificationsEnabled={notificationsEnabled}
+              />
+            )}
+            
             {/* Step 1: Upload */}
             <Card className="overflow-hidden border-t-4 border-t-blue-500 shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">

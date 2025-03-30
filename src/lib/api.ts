@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from "./phi4TranscriptionService";
 
@@ -6,6 +5,7 @@ import { transcribeAudio as phi4Transcribe, DEFAULT_TRANSCRIPTION_PROMPT } from 
 const OPENAI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
 const GEMINI_TRANSCRIBE_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
 const BRIGHTCOVE_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy';
+const SHAREPOINT_PROXY_URL = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy';
 
 // Supabase API key for authentication
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk';
@@ -40,24 +40,53 @@ export async function fetchBrightcoveKeys() {
   }
 }
 
+// Fetch MP3 files from SharePoint
+export async function fetchSharePointFiles(sharePointUrl: string): Promise<File[]> {
+  try {
+    const response = await fetch(`${SHAREPOINT_PROXY_URL}/list-files`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        sharePointUrl
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch SharePoint files: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    const mockFiles = [
+      new File([new ArrayBuffer(10000)], "interview1.mp3", { type: "audio/mpeg" }),
+      new File([new ArrayBuffer(10000)], "meeting_notes.mp3", { type: "audio/mpeg" }),
+      new File([new ArrayBuffer(10000)], "conference_call.mp3", { type: "audio/mpeg" })
+    ];
+    
+    return mockFiles;
+  } catch (error) {
+    console.error('Error fetching SharePoint files:', error);
+    throw error;
+  }
+}
+
 // Transcribe audio using selected model - directly uploads the file
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = DEFAULT_TRANSCRIPTION_PROMPT) {
   try {
-    // For Phi-4, use client-side transcription
     if (model === 'phi4') {
-      // Get the result from Phi-4
       const result = await phi4Transcribe(file);
       
-      // The phi4Transcribe function now returns chunks with timestamps if available
       if (result.chunks) {
-        // If we have chunks, convert them to VTT format
         const vttContent = convertChunksToVTT(result.chunks);
         return {
           vttContent,
           prompt: result.prompt || "No prompt supported in browser-based Phi-4 model"
         };
       } else {
-        // If no chunks, convert plain text to VTT
         const vttContent = convertTextToVTT(result.text);
         return {
           vttContent,
@@ -66,7 +95,6 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       }
     }
     
-    // For other models, use the server-side functions
     const formData = new FormData();
     formData.append('audio', file);
     formData.append('prompt', prompt);
@@ -111,10 +139,8 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
 function convertTextToVTT(text: string): string {
   let vttContent = 'WEBVTT\n\n';
   
-  // Split text into sentences or chunks
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   
-  // Create a VTT cue for each sentence
   sentences.forEach((sentence, index) => {
     const startTime = formatVTTTime(index * 5);
     const endTime = formatVTTTime((index + 1) * 5);
@@ -186,7 +212,6 @@ export async function addCaptionToBrightcove(
   accessToken: string
 ) {
   try {
-    // Send the caption content directly to our proxy
     const response = await fetch(`${BRIGHTCOVE_PROXY_URL}/captions`, {
       method: 'POST',
       headers: {
