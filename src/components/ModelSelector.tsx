@@ -1,7 +1,7 @@
-
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useLogsStore } from "@/lib/useLogsStore";
+import { CircleCheck, Check } from "lucide-react";
 
 export type TranscriptionModel = "openai" | "gemini-2.0-flash" | "phi4";
 
@@ -9,9 +9,15 @@ interface ModelSelectorProps {
   selectedModels: TranscriptionModel[];
   onModelChange: (models: TranscriptionModel[]) => void;
   disabled: boolean;
+  showSelectAll?: boolean;
 }
 
-const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelectorProps) => {
+const ModelSelector = ({ 
+  selectedModels, 
+  onModelChange, 
+  disabled,
+  showSelectAll = false 
+}: ModelSelectorProps) => {
   const addLog = useLogsStore(state => state.addLog);
 
   const handleModelToggle = (model: TranscriptionModel) => {
@@ -43,6 +49,29 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
     }
   };
 
+  const handleSelectAll = () => {
+    try {
+      const allModels: TranscriptionModel[] = ["openai", "gemini-2.0-flash", "phi4"];
+      
+      // If all models are already selected, deselect all
+      if (selectedModels.length === allModels.length && 
+          allModels.every(model => selectedModels.includes(model))) {
+        addLog("Deselecting all models", "info", { source: "ModelSelector" });
+        onModelChange([]);
+      } else {
+        // Otherwise select all models
+        addLog("Selecting all models", "info", { source: "ModelSelector" });
+        onModelChange(allModels);
+      }
+    } catch (error) {
+      addLog(`Error toggling all models: ${error.message}`, "error", { 
+        source: "ModelSelector", 
+        details: error.stack 
+      });
+      console.error("Error toggling all models:", error);
+    }
+  };
+
   const models: {id: TranscriptionModel, label: string}[] = [
     { id: "openai", label: "OpenAI Whisper" },
     { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
@@ -52,15 +81,38 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
   // Ensure selectedModels is always treated as an array
   const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
 
+  // Are all models selected?
+  const allModelsSelected = safeSelectedModels.length === models.length &&
+    models.every(model => safeSelectedModels.includes(model.id));
+
   // Add additional logging for debugging
   console.log("ModelSelector render:", { 
     selectedModels: safeSelectedModels,
-    disabled
+    disabled,
+    allModelsSelected
   });
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+      {showSelectAll && (
+        <div className="flex items-center space-x-1.5 mb-1">
+          <Checkbox 
+            id="select-all-models" 
+            checked={allModelsSelected}
+            onCheckedChange={handleSelectAll}
+            disabled={disabled}
+            className="h-3 w-3"
+          />
+          <Label 
+            htmlFor="select-all-models" 
+            className={`text-xs font-medium ${disabled ? "text-muted-foreground" : ""}`}
+          >
+            All models
+          </Label>
+        </div>
+      )}
+      
+      <div className="grid grid-cols-1 gap-x-2 gap-y-1">
         {models.map(model => (
           <div key={model.id} className="flex items-center space-x-1.5">
             <Checkbox 

@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { FileAudio, Upload, Clock, ArrowRight } from "lucide-react";
+import { FileAudio, Upload, Clock, ArrowRight, AlertCircle } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import { useLogsStore } from "@/lib/useLogsStore";
 import Header from '@/components/Header';
 import { createTranscriptionJob } from '@/lib/api';
 import SharePointDownloader from "@/components/SharePointDownloader";
 import FileQueue from "@/components/FileQueue";
-import { TranscriptionModel } from "@/components/ModelSelector";
+import ModelSelector, { TranscriptionModel } from "@/components/ModelSelector";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const UploadPage = () => {
   // Main state
@@ -20,7 +21,7 @@ const UploadPage = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedModels] = useState<TranscriptionModel[]>(["openai", "gemini-2.0-flash", "phi4"]);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai", "gemini-2.0-flash", "phi4"]);
   
   // SharePoint Queue state
   const [fileQueue, setFileQueue] = useState<File[]>([]);
@@ -37,6 +38,14 @@ const UploadPage = () => {
     addLog(`Queued ${files.length} files from SharePoint`, "info", {
       details: `Files: ${files.map(f => f.name).join(", ")}`,
       source: "SharePoint"
+    });
+  };
+  
+  // Handle model selection
+  const handleModelChange = (models: TranscriptionModel[]) => {
+    setSelectedModels(models);
+    addLog(`Updated model selection: ${models.join(", ") || "none"}`, "info", {
+      source: "ModelSelector"
     });
   };
   
@@ -115,6 +124,15 @@ const UploadPage = () => {
       });
       return;
     }
+
+    if (selectedModels.length === 0) {
+      toast({
+        title: "No Models Selected",
+        description: "Please select at least one transcription model.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setIsProcessing(true);
@@ -129,7 +147,7 @@ const UploadPage = () => {
       
       toast({
         title: "Transcription Jobs Created",
-        description: `Created ${selectedModels.length} transcription jobs.`,
+        description: `Created ${selectedModels.length} transcription job${selectedModels.length !== 1 ? 's' : ''}.`,
       });
       
       // Navigate to the history page
@@ -186,6 +204,17 @@ const UploadPage = () => {
                   </div>
                 </div>
               )}
+
+              {/* Model Selection Section */}
+              <div className="mt-4 p-3 border border-border rounded-lg">
+                <h4 className="text-sm font-semibold mb-2">Select Transcription Models</h4>
+                <ModelSelector 
+                  selectedModels={selectedModels}
+                  onModelChange={handleModelChange}
+                  disabled={isProcessing}
+                  showSelectAll={true}
+                />
+              </div>
             </CardContent>
           </Card>
           
@@ -225,9 +254,19 @@ const UploadPage = () => {
         
         {/* Action Section */}
         <div className="flex flex-col items-center justify-center mt-6">
+          {selectedModels.length === 0 && (
+            <Alert variant="warning" className="mb-4 max-w-md">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No models selected</AlertTitle>
+              <AlertDescription>
+                Please select at least one transcription model above.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Button
             onClick={startTranscription}
-            disabled={isProcessing || !file}
+            disabled={isProcessing || !file || selectedModels.length === 0}
             className="w-full max-w-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md h-12 text-lg"
           >
             {isProcessing ? (
@@ -244,7 +283,7 @@ const UploadPage = () => {
           </Button>
           
           <p className="text-sm text-muted-foreground mt-3">
-            Your file will be transcribed with 3 different AI models
+            Your file will be transcribed with {selectedModels.length === 0 ? "no" : selectedModels.length === 1 ? "1" : selectedModels.length} selected AI model{selectedModels.length !== 1 ? "s" : ""}
           </p>
           
           <Button 
