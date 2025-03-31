@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, FileIcon } from "lucide-react";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { getCloudStorageConfig, isPlatformConfigured } from "@/lib/api/cloudStorageService";
+import { getCloudStorageConfig, isPlatformConfigured } from "@/lib/api";
 
 interface GoogleDriveImporterProps {
   onFilesSelected: (files: File[]) => void;

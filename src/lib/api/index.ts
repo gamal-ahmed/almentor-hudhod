@@ -16,7 +16,7 @@ export {
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
   resetStuckJobs,
-  // Brightcove key function that was missing
+  // Brightcove key function
   fetchBrightcoveKeys,
   // Cloud storage functions
   getCloudStorageConfig,
