@@ -53,6 +53,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     });
   };
   
+  // Update this function to accept an array of files
   const handleCloudStorageFilesSelect = (files: File[]) => {
     if (files.length > 0) {
       console.log("Cloud storage file selected:", files[0].name);

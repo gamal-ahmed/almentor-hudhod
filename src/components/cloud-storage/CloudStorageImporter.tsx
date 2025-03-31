@@ -59,6 +59,7 @@ const CloudStorageImporter: React.FC<CloudStorageImporterProps> = ({
   };
 
   const handleFileSelect = (file: File) => {
+    // Wrap the single file in an array to match the expected interface
     onFilesSelected([file]);
     setSelectedAccount(null);
   };
