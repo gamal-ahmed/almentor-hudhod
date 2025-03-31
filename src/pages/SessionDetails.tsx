@@ -12,7 +12,23 @@ import TranscriptionCard from "@/components/TranscriptionCard";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
-// Define types for the job
+// Update the interface to match the actual data structure
+interface TranscriptionJobFromAPI {
+  id: string;
+  status: string; // Changed from union type to string to match API response
+  model: string;
+  created_at: string;
+  updated_at: string;
+  status_message: string;
+  error?: string;
+  result?: { 
+    vttContent: string; 
+    text: string; 
+    prompt: string;
+  } | any;
+}
+
+// Define the type we'll use internally
 interface TranscriptionJob {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -27,6 +43,18 @@ interface TranscriptionJob {
     prompt: string;
   } | any;
 }
+
+// Helper function to convert API response to our internal type
+const convertToTranscriptionJob = (job: TranscriptionJobFromAPI): TranscriptionJob => {
+  return {
+    ...job,
+    // Ensure status is one of our union types
+    status: (job.status === 'pending' || job.status === 'processing' || 
+             job.status === 'completed' || job.status === 'failed') 
+             ? job.status as 'pending' | 'processing' | 'completed' | 'failed'
+             : 'pending' // Default to pending if unknown status
+  };
+};
 
 const SessionDetails = () => {
   const { sessionTimestamp } = useParams<{ sessionTimestamp: string }>();
@@ -55,10 +83,10 @@ const SessionDetails = () => {
         const targetTimestamp = new Date(decodeURIComponent(sessionTimestamp));
         
         // Find jobs that belong to this session (within 30 seconds of each other)
-        const matchingJobs = allJobs.filter((job: TranscriptionJob) => {
-          const jobTime = new Date(job.created_at);
+        const matchingJobs = allJobs.filter((apiJob: TranscriptionJobFromAPI) => {
+          const jobTime = new Date(apiJob.created_at);
           return Math.abs(jobTime.getTime() - targetTimestamp.getTime()) <= 30000;
-        });
+        }).map(convertToTranscriptionJob); // Convert API jobs to our internal type
         
         setSessionJobs(matchingJobs);
         
@@ -169,13 +197,14 @@ const SessionDetails = () => {
         <div className="max-w-[1440px] mx-auto p-4 md:p-6">
           <Button 
             variant="outline" 
-            size="sm" 
-            as={Link} 
-            to="/app" 
+            size="sm"
             className="mb-6 flex items-center gap-1.5"
+            asChild
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            <Link to="/app">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
           </Button>
           
           <h1 className="text-2xl font-bold mb-4">Transcription Session Details</h1>
@@ -201,7 +230,9 @@ const SessionDetails = () => {
                 <p className="text-muted-foreground mb-4">
                   We couldn't find any transcription jobs for this session.
                 </p>
-                <Button as={Link} to="/app">Return to Dashboard</Button>
+                <Button asChild>
+                  <Link to="/app">Return to Dashboard</Link>
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -299,11 +330,12 @@ const SessionDetails = () => {
                 </CardContent>
                 <CardFooter className="flex justify-between">
                   <Button 
-                    variant="outline" 
-                    as={Link} 
-                    to="/app"
+                    variant="outline"
+                    asChild
                   >
-                    Back to Dashboard
+                    <Link to="/app">
+                      Back to Dashboard
+                    </Link>
                   </Button>
                   {selectedJob && (
                     <Button 
