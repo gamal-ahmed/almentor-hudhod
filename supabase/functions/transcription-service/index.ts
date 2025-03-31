@@ -1,4 +1,3 @@
-
 // Supabase Edge Function for transcription-related services
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
@@ -194,7 +193,7 @@ async function handleStartJob(req: Request) {
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
-    // Update job status to processing
+    // Update job status to processing with a status message
     const { error: updateError } = await supabase
       .from('transcriptions')
       .update({ 
