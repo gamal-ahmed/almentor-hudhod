@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus, resetStuckJobs } from '@/lib/api';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle, Folder, FileText, ExternalLink } from "lucide-react";
@@ -40,32 +39,6 @@ interface TranscriptionJobsProps {
   onSelectTranscription?: (vtt: string, model: string) => void;
   refreshTrigger?: number;
 }
-
-// Helper component to show stuck jobs alert
-const QueueStatusAlert = ({ stuckJobs, onReset }: { stuckJobs: number, onReset: () => void }) => {
-  if (stuckJobs === 0) return null;
-  
-  return (
-    <Alert className="mb-4 border-amber-500 dark:border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-      <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
-      <AlertTitle>Stuck Transcription Jobs Detected</AlertTitle>
-      <AlertDescription className="mt-2">
-        <p className="mb-2">
-          {stuckJobs} {stuckJobs === 1 ? 'job has' : 'jobs have'} been stuck in processing for over 30 minutes.
-        </p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onReset}
-          className="mt-1"
-        >
-          <RotateCcw className="mr-2 h-3 w-3" />
-          Reset Stuck Jobs
-        </Button>
-      </AlertDescription>
-    </Alert>
-  );
-};
 
 const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({ 
   onSelectTranscription,
@@ -423,12 +396,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   
   return (
     <div className="space-y-4 animate-fade-in">
-      {stuckJobs > 0 && (
-        <QueueStatusAlert 
-          stuckJobs={stuckJobs} 
-          onReset={handleResetStuckJobs} 
-        />
-      )}
+      
       
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xl font-semibold flex items-center gap-2">
@@ -457,6 +425,8 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
           </Button>
         </div>
       </div>
+      
+      
       
       <Accordion type="single" collapsible className="space-y-4">
         {jobGroups.map((group, index) => {
