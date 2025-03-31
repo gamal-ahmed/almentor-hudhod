@@ -14,7 +14,9 @@ import {
   Stars,
   Check,
   Play,
-  GraduationCap
+  GraduationCap,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { Badge } from '@/components/ui/badge';
