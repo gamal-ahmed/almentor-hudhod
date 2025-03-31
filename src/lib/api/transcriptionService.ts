@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -13,6 +14,16 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
   const logOperation = startTimedLog(`Creating transcription job with ${model}`, "info", model);
   
   try {
+    // Validate the file
+    if (!file || !file.name || !file.size || !file.type) {
+      throw new Error("Invalid file object. File is missing required properties.");
+    }
+    
+    addLog(`File validation passed: ${file.name}, size: ${file.size} bytes, type: ${file.type}`, "info", {
+      source: model,
+      details: `Creating transcription job with ${model}`
+    });
+    
     // First upload the file to temporary storage
     const fileName = `temp/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     

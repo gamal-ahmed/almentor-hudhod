@@ -63,10 +63,11 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       
       // Check file type
       const isMP3 = file.type === "audio/mpeg" || file.name.toLowerCase().endsWith('.mp3');
-      const isM4A = file.type === "audio/m4a" || file.name.toLowerCase().endsWith('.m4a');
-      const isWAV = file.type === "audio/wav" || file.name.toLowerCase().endsWith('.wav');
+      const isM4A = file.type === "audio/m4a" || file.type === "audio/x-m4a" || file.name.toLowerCase().endsWith('.m4a');
+      const isWAV = file.type === "audio/wav" || file.type === "audio/x-wav" || file.name.toLowerCase().endsWith('.wav');
       
       if (!isMP3 && !isM4A && !isWAV) {
+        console.error("Invalid file type:", file.type, file.name);
         setInvalidFile(true);
         toast.error("Please upload an MP3, M4A, or WAV file");
         return;
@@ -105,7 +106,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".mp3,.m4a,.wav,audio/mpeg,audio/wav"
+        accept=".mp3,.m4a,.wav,audio/mpeg,audio/wav,audio/x-wav,audio/m4a,audio/x-m4a"
         onChange={handleFileInput}
         className="hidden"
       />

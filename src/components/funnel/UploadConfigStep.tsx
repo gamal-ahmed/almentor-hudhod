@@ -10,8 +10,8 @@ import FileUpload from '@/components/FileUpload';
 import SharePointDownloader from '@/components/SharePointDownloader';
 import ModelSelector from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
-import { transcribeAudio, createTranscriptionJob } from '@/lib/api';
-import { useToast } from '@/components/ui/use-toast';
+import { createTranscriptionJob } from '@/lib/api';
+import { toast } from 'sonner';
 import { useLogsStore } from '@/lib/useLogsStore';
 
 interface UploadConfigStepProps {
@@ -30,7 +30,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { toast } = useToast();
   const { addLog, startTimedLog } = useLogsStore();
 
   // Handle file upload
@@ -121,6 +120,14 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       const logOperation = startTimedLog(`Starting transcription for ${uploadedFile.name}`, "info");
       
+      // Log file details before sending
+      console.log("Starting transcription with file:", {
+        name: uploadedFile.name,
+        size: uploadedFile.size,
+        type: uploadedFile.type,
+        lastModified: uploadedFile.lastModified
+      });
+      
       // Create a job for each selected model
       const jobPromises = selectedModels.map(model => 
         createTranscriptionJob(uploadedFile, model, prompt)
@@ -128,6 +135,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       const results = await Promise.all(jobPromises);
       const jobIds = results.map(result => result.jobId);
+      
+      console.log("Transcription jobs created:", jobIds);
       
       toast({
         title: "Transcription jobs created",
