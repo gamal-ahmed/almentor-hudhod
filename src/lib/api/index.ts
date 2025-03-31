@@ -23,13 +23,5 @@ export {
   isPlatformConfigured
 };
 
-// Cloud storage related types
-export interface CloudStorageConfig {
-  googleDrive: {
-    clientId: string;
-    apiKey: string;
-  };
-  dropbox: {
-    appKey: string;
-  };
-}
+// Export CloudStorageConfig type
+export type { CloudStorageConfig } from "./cloudStorageService";

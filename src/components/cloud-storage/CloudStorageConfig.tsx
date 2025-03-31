@@ -15,7 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Settings, Save } from "lucide-react";
-import { CloudStorageConfig, getCloudStorageConfig, saveCloudStorageConfig, isPlatformConfigured } from "@/lib/api";
+import { 
+  CloudStorageConfig, 
+  getCloudStorageConfig, 
+  saveCloudStorageConfig, 
+  isPlatformConfigured 
+} from "@/lib/api/cloudStorageService";
 
 interface CloudStorageConfigFormProps {
   onConfigSaved?: () => void;

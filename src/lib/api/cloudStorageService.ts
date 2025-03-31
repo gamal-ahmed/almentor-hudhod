@@ -1,5 +1,14 @@
 
-import { CloudStorageConfig } from "./index";
+// Defining the CloudStorageConfig interface
+export interface CloudStorageConfig {
+  googleDrive: {
+    clientId: string;
+    apiKey: string;
+  };
+  dropbox: {
+    appKey: string;
+  }
+}
 
 // Local storage keys for cloud storage configuration
 const CLOUD_STORAGE_CONFIG_KEY = 'cloud_storage_config';
