@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus, resetAllJobs } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
 import TranscriptionCard from './TranscriptionCard';
 import { useLogsStore } from '@/lib/useLogsStore';
 import { supabase } from '@/integrations/supabase/client';
+import QueueStatus from './QueueStatus';
 
 interface TranscriptionJob {
   id: string;
@@ -40,6 +42,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [hasStuckJobs, setHasStuckJobs] = useState(false);
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   
@@ -79,6 +82,14 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
         };
       });
       
+      // Check if there are any jobs stuck in queue for more than 5 minutes
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const stuckJobs = transformedJobs.filter(job => 
+        job.status === 'pending' && job.created_at < fiveMinutesAgo &&
+        (job.status_message?.includes('Waiting in queue') || !job.status_message)
+      );
+      
+      setHasStuckJobs(stuckJobs.length > 0);
       setJobs(transformedJobs);
     } catch (err) {
       console.error('Error fetching jobs:', err);
@@ -246,6 +257,11 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
           </Button>
         </div>
       </div>
+      
+      {/* Show alert for stuck jobs */}
+      {hasStuckJobs && (
+        <QueueStatus onReset={fetchJobs} />
+      )}
       
       <ScrollArea className="h-[500px] pr-4">
         <div className="space-y-4">
