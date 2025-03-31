@@ -46,6 +46,11 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
   const { toast } = useToast();
   const { logs, addLog, startTimedLog } = useLogsStore();
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
+  const [latestResults, setLatestResults] = useState<Record<string, any>>({
+    openai: null,
+    "gemini-2.0-flash": null,
+    phi4: null
+  });
 
   // Fetch completed jobs to display in the results tab
   useEffect(() => {
@@ -55,13 +60,40 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         // Filter for completed jobs only
         const completed = jobs.filter(job => job.status === 'completed');
         setCompletedJobs(completed);
+        
+        // Extract the most recent completed job for each model
+        const latest: Record<string, any> = {
+          openai: null,
+          "gemini-2.0-flash": null,
+          phi4: null
+        };
+        
+        // Sort jobs by created_at in descending order (newest first)
+        const sortedJobs = [...completed].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
+        // Get the latest job for each model
+        for (const job of sortedJobs) {
+          if (!latest[job.model] && job.result) {
+            latest[job.model] = job;
+          }
+        }
+        
+        setLatestResults(latest);
+        
+        // Log for debugging
+        addLog(`Found latest results for models: ${Object.keys(latest).filter(k => latest[k]).join(', ')}`, "debug", {
+          source: "ResultsPublishStep",
+          details: `Total completed jobs: ${completed.length}`
+        });
       } catch (error) {
         console.error("Error fetching completed jobs:", error);
       }
     };
 
     fetchCompletedJobs();
-  }, [refreshJobsTrigger]);
+  }, [refreshJobsTrigger, addLog]);
 
   // Publish caption to Brightcove
   const publishCaption = async () => {
@@ -243,7 +275,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         
         {/* Transcription Results - Right */}
         <div className="md:col-span-3">
-          <Tabs defaultValue="jobs" className="w-full">
+          <Tabs defaultValue="results" className="w-full">
             <TabsList className="mb-2">
               <TabsTrigger value="jobs">Background Jobs</TabsTrigger>
               <TabsTrigger value="results">Direct Results</TabsTrigger>
@@ -260,63 +292,34 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
             <TabsContent value="results" className="space-y-3">
               <h2 className="text-xl font-semibold mb-4">Transcription Results</h2>
               
-              {completedJobs.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {completedJobs.map(job => {
-                    const vttContent = extractVttContent(job);
-                    const modelName = job.model || "";
-                    const promptUsed = job.result?.prompt || "Default prompt used";
-                    
-                    return (
-                      <TranscriptionCard
-                        key={job.id}
-                        modelName={
-                          modelName === "openai" 
-                            ? "OpenAI Whisper" 
-                            : modelName === "gemini-2.0-flash" 
-                              ? "Gemini 2.0 Flash" 
-                              : "Microsoft Phi-4"
-                        }
-                        vttContent={vttContent}
-                        prompt={promptUsed}
-                        onSelect={() => handleSelectTranscription(vttContent, modelName)}
-                        isSelected={selectedModel === modelName && selectedTranscription === vttContent}
-                        audioSrc={audioUrl || undefined}
-                        isLoading={false}
-                      />
-                    );
-                  })}
-                </div>
-              ) : selectedModels.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {selectedModels.map((model) => {
-                    const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
-                    
-                    return (
-                      <TranscriptionCard
-                        key={model}
-                        modelName={
-                          model === "openai" 
-                            ? "OpenAI Whisper" 
-                            : model === "gemini-2.0-flash" 
-                              ? "Gemini 2.0 Flash" 
-                              : "Microsoft Phi-4"
-                        }
-                        vttContent={transcription.vtt}
-                        prompt={transcription.prompt}
-                        onSelect={() => handleSelectTranscription(transcription.vtt, model)}
-                        isSelected={selectedModel === model}
-                        audioSrc={audioUrl || undefined}
-                        isLoading={transcription.loading}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center p-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                  <p className="text-muted-foreground">No transcription results available yet.</p>
-                </div>
-              )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Always show cards for all three models, with latest results if available */}
+                {["openai", "gemini-2.0-flash", "phi4"].map((model) => {
+                  const latestJob = latestResults[model];
+                  const vttContent = latestJob ? extractVttContent(latestJob) : "";
+                  const promptUsed = latestJob?.result?.prompt || "Default prompt used";
+                  const isLoading = false; // Set based on job status if needed
+                  
+                  return (
+                    <TranscriptionCard
+                      key={model}
+                      modelName={
+                        model === "openai" 
+                          ? "OpenAI Whisper" 
+                          : model === "gemini-2.0-flash" 
+                            ? "Gemini 2.0 Flash" 
+                            : "Microsoft Phi-4"
+                      }
+                      vttContent={vttContent}
+                      prompt={promptUsed}
+                      onSelect={() => vttContent && handleSelectTranscription(vttContent, model)}
+                      isSelected={selectedModel === model}
+                      audioSrc={audioUrl || undefined}
+                      isLoading={isLoading}
+                    />
+                  );
+                })}
+              </div>
             </TabsContent>
             
             <TabsContent value="logs" className="space-y-3">
