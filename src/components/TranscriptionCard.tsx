@@ -277,6 +277,39 @@ const TranscriptionCard = ({
     }
   };
 
+  // Play individual segment
+  const playSegment = (index: number) => {
+    if (!audioRef.current || !vttSegments[index]) return;
+    
+    try {
+      const startTime = parseTimeToSeconds(vttSegments[index].startTime);
+      const endTime = parseTimeToSeconds(vttSegments[index].endTime);
+      
+      // Set the current time
+      audioRef.current.currentTime = startTime;
+      
+      // Start playing
+      audioRef.current.play().catch(error => {
+        console.error('Error playing audio segment:', error);
+      });
+      
+      // Set up a timer to pause at the end of the segment
+      const duration = endTime - startTime;
+      setTimeout(() => {
+        if (audioRef.current && audioRef.current.currentTime >= endTime) {
+          audioRef.current.pause();
+        }
+      }, duration * 1000);
+      
+      addLog(`Playing segment ${index + 1}`, "debug", {
+        source: "TranscriptionCard",
+        details: `Start: ${vttSegments[index].startTime}, End: ${vttSegments[index].endTime}`
+      });
+    } catch (error) {
+      console.error('Error playing segment:', error);
+    }
+  };
+
   // Determine the model color
   const getModelColor = () => {
     if (modelName.includes("OpenAI")) return "bg-blue-100 dark:bg-blue-950/30";
@@ -344,18 +377,37 @@ const TranscriptionCard = ({
             {vttSegments.map((segment, index) => (
               <div 
                 key={index} 
-                className={`vtt-segment p-2 rounded-md mb-2 cursor-pointer transition-colors ${
+                className={`vtt-segment p-2 rounded-md mb-2 transition-colors ${
                   activeSegment === index 
                     ? 'bg-primary/20 dark:bg-primary/40' 
                     : 'bg-muted/30 hover:bg-muted/50'
                 }`}
-                onClick={() => {
-                  console.log(`Segment clicked: ${index}, Has audio: ${!!audioSrc}`);
-                  if (audioSrc) jumpToSegment(index);
-                }}
               >
-                <div className="vtt-timestamp text-xs text-muted-foreground">{segment.startTime} → {segment.endTime}</div>
-                <div className="vtt-content text-sm mt-1">{segment.text}</div>
+                <div className="flex justify-between items-center">
+                  <div className="vtt-timestamp text-xs text-muted-foreground">{segment.startTime} → {segment.endTime}</div>
+                  {audioSrc && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playSegment(index);
+                      }}
+                    >
+                      <Play className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+                <div 
+                  className="vtt-content text-sm mt-1 cursor-pointer" 
+                  onClick={() => {
+                    console.log(`Segment clicked: ${index}, Has audio: ${!!audioSrc}`);
+                    if (audioSrc) jumpToSegment(index);
+                  }}
+                >
+                  {segment.text}
+                </div>
               </div>
             ))}
           </div>

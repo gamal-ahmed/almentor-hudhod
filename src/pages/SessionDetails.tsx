@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getUserTranscriptionJobs } from "@/lib/api";
+import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Clock, FileText, CheckCircle, AlertCircle, Split, Columns, XCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Clock, FileText, CheckCircle, AlertCircle, Split, Columns, XCircle, Send, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import TranscriptionCard from "@/components/TranscriptionCard";
@@ -13,6 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLogsStore } from "@/lib/useLogsStore";
 
 // Update the interface to match the actual data structure
 interface TranscriptionJobFromAPI {
@@ -58,6 +64,9 @@ const convertToTranscriptionJob = (job: TranscriptionJobFromAPI): TranscriptionJ
   };
 };
 
+// Define export format options
+type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
+
 const SessionDetails = () => {
   const { sessionTimestamp } = useParams<{ sessionTimestamp: string }>();
   const [loading, setLoading] = useState(true);
@@ -65,11 +74,18 @@ const SessionDetails = () => {
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { toast } = useToast();
+  const { addLog } = useLogsStore();
   
   // New state for comparison view
   const [comparisonMode, setComparisonMode] = useState(false);
   const [jobsToCompare, setJobsToCompare] = useState<TranscriptionJob[]>([]);
   const [viewMode, setViewMode] = useState<'single' | 'compare'>('single');
+  
+  // New state for Brightcove publishing
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [videoId, setVideoId] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   
   useEffect(() => {
     const fetchSessionJobs = async () => {
@@ -211,16 +227,8 @@ const SessionDetails = () => {
       if (isAlreadySelected) {
         return prev.filter(j => j.id !== job.id);
       } else {
-        // Limit to maximum of 2 jobs for comparison
-        const newJobs = [...prev, job];
-        if (newJobs.length > 2) {
-          toast({
-            title: "Comparison Limit",
-            description: "You can only compare up to 2 transcriptions at once",
-          });
-          return prev;
-        }
-        return newJobs;
+        // Allow multiple jobs for comparison now
+        return [...prev, job];
       }
     });
   };
@@ -238,7 +246,7 @@ const SessionDetails = () => {
       setJobsToCompare([]);
       toast({
         title: "Comparison Mode Activated",
-        description: "Select up to 2 transcriptions to compare side by side.",
+        description: "Select multiple transcriptions to compare side by side.",
       });
     }
   };
@@ -248,7 +256,7 @@ const SessionDetails = () => {
     if (jobsToCompare.length < 2) {
       toast({
         title: "Select More Transcriptions",
-        description: "Please select 2 transcriptions to compare.",
+        description: "Please select at least 2 transcriptions to compare.",
         variant: "destructive",
       });
       return;
@@ -260,6 +268,202 @@ const SessionDetails = () => {
   // Check if a job is selected for comparison
   const isJobSelectedForComparison = (jobId: string) => {
     return jobsToCompare.some(job => job.id === jobId);
+  };
+
+  // Convert VTT to SRT format
+  const convertVttToSrt = (vtt: string): string => {
+    if (!vtt) return "";
+    
+    // Remove WEBVTT header
+    let content = vtt.replace(/^WEBVTT\s*/, '');
+    
+    // Split into cues
+    const cues = content.trim().split(/\n\s*\n/);
+    
+    // Process each cue
+    return cues.map((cue, index) => {
+      const lines = cue.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) return ''; // Skip malformed cues
+      
+      // Extract timestamp line
+      const timestampLine = lines.find(line => line.includes('-->'));
+      if (!timestampLine) return '';
+      
+      // Convert timestamp format from HH:MM:SS.mmm to HH:MM:SS,mmm
+      const timestamps = timestampLine.split('-->').map(ts => ts.trim().replace('.', ','));
+      
+      // Extract text (all lines after the timestamp)
+      const textIndex = lines.indexOf(timestampLine) + 1;
+      const text = lines.slice(textIndex).join('\n');
+      
+      // Format as SRT
+      return `${index + 1}\n${timestamps[0]} --> ${timestamps[1]}\n${text}`;
+    }).filter(cue => cue).join('\n\n');
+  };
+
+  // Convert VTT to plain text
+  const convertVttToText = (vtt: string): string => {
+    if (!vtt) return "";
+    
+    // Remove WEBVTT header
+    let content = vtt.replace(/^WEBVTT\s*/, '');
+    
+    // Split into cues and extract only the text
+    const cues = content.trim().split(/\n\s*\n/);
+    const textLines: string[] = [];
+    
+    cues.forEach(cue => {
+      const lines = cue.split('\n').filter(line => line.trim());
+      
+      // Skip timestamps and cue IDs
+      const textLines = lines.filter(line => !line.includes('-->') && !/^\d+$/.test(line));
+      
+      if (textLines.length) {
+        textLines.push(...textLines);
+      }
+    });
+    
+    return textLines.join('\n');
+  };
+
+  // Export transcription in selected format
+  const exportTranscription = (job: TranscriptionJob) => {
+    if (!job) return;
+    
+    const vttContent = extractVttContent(job);
+    if (!vttContent) {
+      toast({
+        title: "Export Failed",
+        description: "No transcription content to export",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    let fileName = `transcription_${getModelDisplayName(job.model).replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}`;
+    let content = '';
+    let mimeType = '';
+    
+    switch (exportFormat) {
+      case 'vtt':
+        content = vttContent;
+        fileName += '.vtt';
+        mimeType = 'text/vtt';
+        break;
+      case 'srt':
+        content = convertVttToSrt(vttContent);
+        fileName += '.srt';
+        mimeType = 'text/plain';
+        break;
+      case 'text':
+        content = convertVttToText(vttContent);
+        fileName += '.txt';
+        mimeType = 'text/plain';
+        break;
+      case 'json':
+        content = JSON.stringify({
+          model: job.model,
+          modelName: getModelDisplayName(job.model),
+          created: job.created_at,
+          transcription: convertVttToText(vttContent),
+          vtt: vttContent
+        }, null, 2);
+        fileName += '.json';
+        mimeType = 'application/json';
+        break;
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    addLog(`Exported transcription as ${exportFormat.toUpperCase()}`, "info", {
+      source: "SessionDetails",
+      details: `Model: ${getModelDisplayName(job.model)}, File: ${fileName}`
+    });
+    
+    toast({
+      title: "Export Successful",
+      description: `Transcription exported as ${fileName}`,
+    });
+  };
+
+  // Publish to Brightcove
+  const publishToBrightcove = async () => {
+    if (!selectedJob || !videoId) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a transcription and enter a video ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const vttContent = extractVttContent(selectedJob);
+    if (!vttContent) {
+      toast({
+        title: "Publishing Failed",
+        description: "No transcription content to publish",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsPublishing(true);
+      
+      // Get Brightcove keys
+      const brightcoveKeys = await fetchBrightcoveKeys();
+      
+      // Get auth token
+      const authToken = await getBrightcoveAuthToken(
+        brightcoveKeys.brightcove_client_id,
+        brightcoveKeys.brightcove_client_secret
+      );
+      
+      // Add caption
+      await addCaptionToBrightcove(
+        videoId,
+        vttContent,
+        'ar',
+        'Arabic',
+        brightcoveKeys.brightcove_account_id,
+        authToken
+      );
+      
+      addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
+        source: "SessionDetails",
+        details: `Model: ${getModelDisplayName(selectedJob.model)}`
+      });
+      
+      toast({
+        title: "Publishing Successful",
+        description: "Caption has been published to Brightcove",
+      });
+      
+      setPublishDialogOpen(false);
+    } catch (error) {
+      console.error("Error publishing to Brightcove:", error);
+      
+      toast({
+        title: "Publishing Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
   };
   
   return (
@@ -280,24 +484,80 @@ const SessionDetails = () => {
               </Link>
             </Button>
             
-            <Button
-              variant={comparisonMode ? "default" : "outline"}
-              size="sm"
-              onClick={toggleComparisonMode}
-              className="flex items-center gap-1.5"
-            >
-              {comparisonMode ? (
-                <>
-                  <XCircle className="h-4 w-4" />
-                  Exit Comparison
-                </>
-              ) : (
-                <>
-                  <Split className="h-4 w-4" />
-                  Compare Results
-                </>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={comparisonMode ? "default" : "outline"}
+                size="sm"
+                onClick={toggleComparisonMode}
+                className="flex items-center gap-1.5"
+              >
+                {comparisonMode ? (
+                  <>
+                    <XCircle className="h-4 w-4" />
+                    Exit Comparison
+                  </>
+                ) : (
+                  <>
+                    <Split className="h-4 w-4" />
+                    Compare Results
+                  </>
+                )}
+              </Button>
+              
+              {selectedJob && (
+                <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="flex items-center gap-1.5">
+                      <Send className="h-4 w-4" />
+                      Publish to Brightcove
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Publish to Brightcove</DialogTitle>
+                      <DialogDescription>
+                        Enter the Brightcove video ID to publish the selected transcription as a caption.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="videoId">Brightcove Video ID</Label>
+                        <Input 
+                          id="videoId"
+                          value={videoId}
+                          onChange={(e) => setVideoId(e.target.value)}
+                          placeholder="e.g. 1234567890"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Selected Transcription</Label>
+                        <div className="p-2 bg-muted rounded-md text-sm">
+                          {getModelDisplayName(selectedJob.model)}
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={publishToBrightcove} 
+                        disabled={isPublishing || !videoId}
+                      >
+                        {isPublishing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Publishing...
+                          </>
+                        ) : (
+                          "Publish Caption"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               )}
-            </Button>
+            </div>
           </div>
           
           <h1 className="text-2xl font-bold mb-4">Transcription Session Details</h1>
@@ -334,9 +594,9 @@ const SessionDetails = () => {
                 <div className="mb-6 p-4 bg-muted rounded-lg border">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium">Selected for comparison: {jobsToCompare.length}/2</h3>
+                      <h3 className="font-medium">Selected for comparison: {jobsToCompare.length}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {jobsToCompare.map(job => getModelDisplayName(job.model)).join(' vs ')}
+                        {jobsToCompare.map(job => getModelDisplayName(job.model)).join(' • ')}
                       </p>
                     </div>
                     
@@ -354,29 +614,37 @@ const SessionDetails = () => {
               )}
               
               {viewMode === 'compare' ? (
-                /* Comparison View */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {jobsToCompare.map((job) => (
-                    <Card key={job.id} className="h-full">
-                      <CardHeader>
-                        <CardTitle className="text-xl">{getModelDisplayName(job.model)}</CardTitle>
-                        <CardDescription>
-                          Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <TranscriptionCard
-                          modelName={getModelDisplayName(job.model)}
-                          vttContent={extractVttContent(job)}
-                          prompt={job.result?.prompt || ""}
-                          onSelect={() => {}}
-                          isSelected={true}
-                          audioSrc={audioUrl || undefined}
-                          isLoading={false}
-                        />
-                      </CardContent>
-                    </Card>
-                  ))}
+                /* Comparison View - updated for multiple models */
+                <div className="grid gap-6 auto-cols-fr">
+                  <div className={`grid grid-cols-1 ${
+                    jobsToCompare.length === 2 ? 'md:grid-cols-2' : 
+                    jobsToCompare.length === 3 ? 'md:grid-cols-3' : 
+                    jobsToCompare.length >= 4 ? 'md:grid-cols-2 lg:grid-cols-4' : ''
+                  } gap-6`}>
+                    {jobsToCompare.map((job) => (
+                      <Card key={job.id} className="h-full">
+                        <CardHeader>
+                          <CardTitle className="text-xl">{getModelDisplayName(job.model)}</CardTitle>
+                          <CardDescription>
+                            Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ScrollArea className="h-[500px] pr-4">
+                            <TranscriptionCard
+                              modelName={getModelDisplayName(job.model)}
+                              vttContent={extractVttContent(job)}
+                              prompt={job.result?.prompt || ""}
+                              onSelect={() => {}}
+                              isSelected={true}
+                              audioSrc={audioUrl || undefined}
+                              isLoading={false}
+                            />
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 /* Standard View */
@@ -482,7 +750,7 @@ const SessionDetails = () => {
                         </div>
                       )}
                     </CardContent>
-                    <CardFooter className="flex justify-between">
+                    <CardFooter className="flex justify-between flex-wrap gap-2">
                       <Button 
                         variant="outline"
                         asChild
@@ -491,18 +759,42 @@ const SessionDetails = () => {
                           Back to Dashboard
                         </Link>
                       </Button>
+                      
                       {selectedJob && (
-                        <Button 
-                          variant="default"
-                          onClick={() => {
-                            toast({
-                              title: "Feature coming soon",
-                              description: "The export functionality will be available in a future update."
-                            });
-                          }}
-                        >
-                          Export Transcription
-                        </Button>
+                        <div className="flex gap-2">
+                          <Select 
+                            value={exportFormat} 
+                            onValueChange={(value) => setExportFormat(value as ExportFormat)}
+                          >
+                            <SelectTrigger className="w-[130px]">
+                              <SelectValue placeholder="Format" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="vtt">VTT Format</SelectItem>
+                              <SelectItem value="srt">SRT Format</SelectItem>
+                              <SelectItem value="text">Plain Text</SelectItem>
+                              <SelectItem value="json">JSON</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          <Button 
+                            variant="outline"
+                            onClick={() => exportTranscription(selectedJob)}
+                            className="flex items-center gap-1.5"
+                          >
+                            <Download className="h-4 w-4" />
+                            Export
+                          </Button>
+                          
+                          <Button 
+                            variant="default"
+                            onClick={() => setPublishDialogOpen(true)}
+                            className="flex items-center gap-1.5"
+                          >
+                            <Send className="h-4 w-4" />
+                            Publish to Brightcove
+                          </Button>
+                        </div>
                       )}
                     </CardFooter>
                   </Card>

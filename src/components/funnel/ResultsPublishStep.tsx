@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Send, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Send, AlertCircle, Download } from "lucide-react";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
 import VideoIdInput from "@/components/VideoIdInput";
@@ -10,7 +10,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import LogsPanel from "@/components/LogsPanel";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getUserTranscriptionJobs } from "@/lib/api";
+import { 
+  addCaptionToBrightcove, 
+  fetchBrightcoveKeys, 
+  getBrightcoveAuthToken, 
+  getUserTranscriptionJobs 
+} from "@/lib/api";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ResultsPublishStepProps {
   selectedTranscription: string | null;
@@ -27,6 +42,9 @@ interface ResultsPublishStepProps {
   selectedModels: string[];
   transcriptions: Record<string, { vtt: string; prompt: string; loading: boolean; }>;
 }
+
+// Define export format options
+type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
   selectedTranscription,
@@ -52,6 +70,10 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     phi4: null
   });
   const [currentJobs, setCurrentJobs] = useState<string[]>([]);
+  
+  // New state for export functionality
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
   // Fetch completed jobs to display in the results tab
   useEffect(() => {
@@ -154,6 +176,8 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
           title: "Caption Published",
           description: "Your caption has been successfully published to the Brightcove video.",
         });
+        
+        setPublishDialogOpen(false);
       } catch (error) {
         credentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
         publishLog.error("Caption publishing failed", error instanceof Error ? error.message : String(error));
@@ -205,6 +229,136 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     return currentJobs.includes(model);
   };
 
+  // Convert VTT to SRT format
+  const convertVttToSrt = (vtt: string): string => {
+    if (!vtt) return "";
+    
+    // Remove WEBVTT header
+    let content = vtt.replace(/^WEBVTT\s*/, '');
+    
+    // Split into cues
+    const cues = content.trim().split(/\n\s*\n/);
+    
+    // Process each cue
+    return cues.map((cue, index) => {
+      const lines = cue.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) return ''; // Skip malformed cues
+      
+      // Extract timestamp line
+      const timestampLine = lines.find(line => line.includes('-->'));
+      if (!timestampLine) return '';
+      
+      // Convert timestamp format from HH:MM:SS.mmm to HH:MM:SS,mmm
+      const timestamps = timestampLine.split('-->').map(ts => ts.trim().replace('.', ','));
+      
+      // Extract text (all lines after the timestamp)
+      const textIndex = lines.indexOf(timestampLine) + 1;
+      const text = lines.slice(textIndex).join('\n');
+      
+      // Format as SRT
+      return `${index + 1}\n${timestamps[0]} --> ${timestamps[1]}\n${text}`;
+    }).filter(cue => cue).join('\n\n');
+  };
+
+  // Convert VTT to plain text
+  const convertVttToText = (vtt: string): string => {
+    if (!vtt) return "";
+    
+    // Remove WEBVTT header
+    let content = vtt.replace(/^WEBVTT\s*/, '');
+    
+    // Split into cues and extract only the text
+    const cues = content.trim().split(/\n\s*\n/);
+    const textLines: string[] = [];
+    
+    cues.forEach(cue => {
+      const lines = cue.split('\n').filter(line => line.trim());
+      
+      // Skip timestamps and cue IDs
+      const textOnlyLines = lines.filter(line => !line.includes('-->') && !/^\d+$/.test(line));
+      
+      if (textOnlyLines.length) {
+        textLines.push(...textOnlyLines);
+      }
+    });
+    
+    return textLines.join('\n');
+  };
+
+  // Export transcription in selected format
+  const exportTranscription = () => {
+    if (!selectedTranscription || !selectedModel) {
+      toast({
+        title: "Export Failed",
+        description: "No transcription selected to export",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    let fileName = `transcription_${selectedModel.replace(/[^\w]/g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}`;
+    let content = '';
+    let mimeType = '';
+    
+    switch (exportFormat) {
+      case 'vtt':
+        content = selectedTranscription;
+        fileName += '.vtt';
+        mimeType = 'text/vtt';
+        break;
+      case 'srt':
+        content = convertVttToSrt(selectedTranscription);
+        fileName += '.srt';
+        mimeType = 'text/plain';
+        break;
+      case 'text':
+        content = convertVttToText(selectedTranscription);
+        fileName += '.txt';
+        mimeType = 'text/plain';
+        break;
+      case 'json':
+        content = JSON.stringify({
+          model: selectedModel,
+          modelName: selectedModel === "openai" 
+            ? "OpenAI Whisper" 
+            : selectedModel === "gemini-2.0-flash" 
+              ? "Gemini 2.0 Flash" 
+              : "Microsoft Phi-4",
+          created: new Date().toISOString(),
+          transcription: convertVttToText(selectedTranscription),
+          vtt: selectedTranscription
+        }, null, 2);
+        fileName += '.json';
+        mimeType = 'application/json';
+        break;
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    addLog(`Exported transcription as ${exportFormat.toUpperCase()}`, "info", {
+      source: "ResultsPublishStep",
+      details: `Model: ${selectedModel}, File: ${fileName}`
+    });
+    
+    toast({
+      title: "Export Successful",
+      description: `Transcription exported as ${fileName}`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
@@ -248,25 +402,90 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
               disabled={isPublishing || !selectedTranscription}
             />
             
-            <Button 
-              onClick={publishCaption} 
-              disabled={isPublishing || !selectedTranscription || !videoId}
-              className={`w-full ${selectedTranscription 
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' 
-                : 'bg-gray-200 dark:bg-gray-700'}`}
-            >
-              {isPublishing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                <>
+            <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  className={`w-full ${selectedTranscription 
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' 
+                    : 'bg-gray-200 dark:bg-gray-700'}`}
+                  disabled={isPublishing || !selectedTranscription || !videoId}
+                >
                   <Send className="mr-2 h-4 w-4" />
                   Publish Caption
-                </>
-              )}
-            </Button>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirm Publishing</DialogTitle>
+                  <DialogDescription>
+                    You are about to publish a caption to Brightcove video ID: {videoId}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md text-sm">
+                    <p className="font-medium mb-1">Publication Details:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Video ID: {videoId}</li>
+                      <li>Language: Arabic</li>
+                      <li>Transcription model: {selectedModel === "openai" 
+                        ? "OpenAI Whisper" 
+                        : selectedModel === "gemini-2.0-flash" 
+                          ? "Gemini 2.0 Flash" 
+                          : "Microsoft Phi-4"}</li>
+                      <li>Caption length: {selectedTranscription?.length || 0} characters</li>
+                    </ul>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={publishCaption} 
+                    disabled={isPublishing}
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      "Confirm Publication"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-medium">Export Options</h3>
+              <div className="flex gap-2">
+                <Select 
+                  value={exportFormat} 
+                  onValueChange={(value) => setExportFormat(value as ExportFormat)}
+                  disabled={!selectedTranscription}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vtt">VTT Format</SelectItem>
+                    <SelectItem value="srt">SRT Format</SelectItem>
+                    <SelectItem value="text">Plain Text</SelectItem>
+                    <SelectItem value="json">JSON</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                variant="outline"
+                onClick={exportTranscription}
+                disabled={!selectedTranscription}
+                className="w-full"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Transcription
+              </Button>
+            </div>
             
             {selectedTranscription && selectedModel && (
               <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md text-sm">
