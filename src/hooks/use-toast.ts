@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import type {
@@ -139,7 +140,8 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+// Define the toast function outside of the hook
+function createToast(props: Toast) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -168,7 +170,11 @@ function toast({ ...props }: Toast) {
   }
 }
 
-function useToast() {
+// Export the toast function for direct use
+export const toast = createToast;
+
+// The actual hook implementation
+export function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
   React.useEffect(() => {
@@ -183,9 +189,7 @@ function useToast() {
 
   return {
     ...state,
-    toast,
+    toast: createToast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }
-
-export { useToast, toast }
