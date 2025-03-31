@@ -1,222 +1,257 @@
 
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Check, Loader2, Upload, FileAudio, Cog, FileText, PlayCircle, PauseCircle } from "lucide-react";
-import FileUpload from "@/components/FileUpload";
-import ModelSelector from "@/components/ModelSelector";
-import PromptOptions from "@/components/PromptOptions";
-import SharePointDownloader from "@/components/SharePointDownloader";
-import FileQueue from "@/components/FileQueue";
+import React, { useState, useRef, useEffect } from 'react';
+import { TranscriptionModel } from '@/components/ModelSelector';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, Upload, FileAudio, Share, Pause, Play } from 'lucide-react';
+import FileUpload from '@/components/FileUpload';
+import SharePointDownloader from '@/components/SharePointDownloader';
+import ModelSelector from '@/components/ModelSelector';
+import PromptOptions from '@/components/PromptOptions';
+import { transcribeAudio, createTranscriptionJob } from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
+import { useLogsStore } from '@/lib/useLogsStore';
 
 interface UploadConfigStepProps {
-  file: File | null;
-  audioUrl: string | null;
-  isAudioPlaying: boolean;
-  toggleAudioPlayback: () => void;
-  audioRef: React.RefObject<HTMLAudioElement>;
-  handleFileUpload: (file: File) => void;
-  isUploading: boolean;
-  selectedModels: string[];
-  setSelectedModels: (models: string[]) => void;
-  isProcessing: boolean;
-  processTranscriptions: (file: File) => void;
-  transcriptionPrompt: string;
-  preserveEnglish: boolean;
-  handlePreserveEnglishChange: (checked: boolean) => void;
-  outputFormat: "vtt" | "plain";
-  handleOutputFormatChange: (format: "vtt" | "plain") => void;
-  notificationsEnabled: boolean;
-  handleNotificationsChange: (enabled: boolean) => void;
-  fileQueue: File[];
-  currentQueueIndex: number;
-  handleFilesQueued: (files: File[]) => void;
-  processNextInQueue: () => void;
-  skipCurrentInQueue: () => void;
-  resetQueue: () => void;
-  goToNextStep: () => void;
+  onTranscriptionsCreated: (jobIdsArray: string[]) => void;
+  onStepComplete: () => void;
 }
 
-const UploadConfigStep: React.FC<UploadConfigStepProps> = ({
-  file,
-  audioUrl,
-  isAudioPlaying,
-  toggleAudioPlayback,
-  audioRef,
-  handleFileUpload,
-  isUploading,
-  selectedModels,
-  setSelectedModels,
-  isProcessing,
-  processTranscriptions,
-  transcriptionPrompt,
-  preserveEnglish,
-  handlePreserveEnglishChange,
-  outputFormat,
-  handleOutputFormatChange,
-  notificationsEnabled,
-  handleNotificationsChange,
-  fileQueue,
-  currentQueueIndex,
-  handleFilesQueued,
-  processNextInQueue,
-  skipCurrentInQueue,
-  resetQueue,
-  goToNextStep,
-}) => {
+const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCreated, onStepComplete }) => {
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(['openai', 'gemini-2.0-flash', 'phi4']);
+  const [prompt, setPrompt] = useState("Please preserve all English words exactly as spoken");
+  const [uploadTab, setUploadTab] = useState('direct');
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
+  const { addLog, startTimedLog } = useLogsStore();
+
+  // Handle file upload
+  const handleFileUpload = (file: File) => {
+    setUploadedFile(file);
+    addLog(`File uploaded: ${file.name}`, "info", {
+      size: file.size,
+      type: file.type
+    });
+  };
+  
+  // Handle SharePoint file selection
+  const handleSharePointFileSelect = (file: File) => {
+    setUploadedFile(file);
+    addLog(`SharePoint file selected: ${file.name}`, "info", {
+      size: file.size,
+      type: file.type
+    });
+  };
+  
+  // Toggle audio playback
+  const toggleAudioPlayback = () => {
+    if (!audioRef.current) return;
+    
+    if (isAudioPlaying) {
+      audioRef.current.pause();
+      setIsAudioPlaying(false);
+    } else {
+      audioRef.current.play()
+        .then(() => {
+          setIsAudioPlaying(true);
+        })
+        .catch(error => {
+          console.error("Error playing audio:", error);
+          setIsAudioPlaying(false);
+        });
+    }
+  };
+  
+  // Handle audio ended event
+  const handleAudioEnded = () => {
+    setIsAudioPlaying(false);
+  };
+  
+  // Start transcription process
+  const startTranscription = async () => {
+    if (!uploadedFile) {
+      toast({
+        title: "No file selected",
+        description: "Please upload an audio file before starting transcription",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedModels.length === 0) {
+      toast({
+        title: "No transcription models selected",
+        description: "Please select at least one transcription model",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsProcessing(true);
+      
+      const logOperation = startTimedLog(`Starting transcription for ${uploadedFile.name}`, "info");
+      
+      // Create a job for each selected model
+      const jobPromises = selectedModels.map(model => 
+        createTranscriptionJob(uploadedFile, model, prompt)
+      );
+      
+      const results = await Promise.all(jobPromises);
+      const jobIds = results.map(result => result.jobId);
+      
+      toast({
+        title: "Transcription jobs created",
+        description: `Started ${jobIds.length} transcription jobs`,
+      });
+      
+      logOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
+      
+      // Notify parent component that jobs were created
+      onTranscriptionsCreated(jobIds);
+      onStepComplete();
+      
+    } catch (error) {
+      console.error("Error starting transcription:", error);
+      
+      toast({
+        title: "Transcription failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+      
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Left Column */}
-      <Card className="p-6 border-l-4 border-l-blue-500 shadow-md">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <FileAudio className="mr-2 h-5 w-5 text-blue-500" />
-          Step 1: Upload Audio File
-        </h2>
-        
-        <div className="space-y-4">
-          <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+    <Card className="w-full shadow-md border-primary/10">
+      <CardHeader>
+        <CardTitle className="text-2xl">Upload & Configure</CardTitle>
+        <CardDescription>
+          Upload your audio file and configure transcription options
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="space-y-6">
+        {/* Upload Tabs */}
+        <Tabs defaultValue={uploadTab} onValueChange={setUploadTab} className="w-full">
+          <TabsList className="grid grid-cols-2 mb-4">
+            <TabsTrigger value="direct" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              <span>Direct Upload</span>
+            </TabsTrigger>
+            <TabsTrigger value="sharepoint" className="flex items-center gap-2">
+              <Share className="h-4 w-4" />
+              <span>SharePoint</span>
+            </TabsTrigger>
+          </TabsList>
           
-          {file && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Check className="h-4 w-4 text-green-500 mr-2" />
-                  <div className="truncate mr-2">
-                    <span className="font-medium text-sm">File:</span> 
-                    <span className="ml-1 text-sm truncate">{file.name}</span>
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      ({Math.round(file.size / 1024)} KB)
-                    </span>
-                  </div>
+          <TabsContent value="direct" className="space-y-4">
+            <FileUpload 
+              onFileUpload={handleFileUpload} 
+              accept="audio/*"
+              maxSize={50 * 1024 * 1024} // 50 MB
+            />
+          </TabsContent>
+          
+          <TabsContent value="sharepoint" className="space-y-4">
+            <SharePointDownloader onFileSelect={handleSharePointFileSelect} />
+          </TabsContent>
+        </Tabs>
+        
+        {/* File Preview */}
+        {uploadedFile && (
+          <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="bg-primary/10 p-2 rounded-full">
+                  <FileAudio className="h-5 w-5 text-primary" />
                 </div>
-                
-                {audioUrl && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1 h-7 text-xs"
-                    onClick={toggleAudioPlayback}
-                  >
-                    {isAudioPlaying ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
-                    {isAudioPlaying ? "Pause" : "Play"}
-                  </Button>
-                )}
+                <div>
+                  <h4 className="font-medium text-sm">{uploadedFile.name}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
               </div>
               
-              {audioUrl && (
-                <audio 
-                  ref={audioRef} 
-                  src={audioUrl} 
-                  onEnded={() => setIsAudioPlaying(false)}
-                  onPause={() => setIsAudioPlaying(false)}
-                  onPlay={() => setIsAudioPlaying(true)}
-                  className="hidden"
-                />
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={toggleAudioPlayback}
+              >
+                {isAudioPlaying ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
             </div>
-          )}
-          
-          <details className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-            <summary className="cursor-pointer font-medium flex items-center text-sm">
-              <Upload className="h-4 w-4 mr-2" />
-              SharePoint Files & Queue
-            </summary>
-            <div className="pt-3 space-y-3">
-              <SharePointDownloader 
-                onFilesQueued={handleFilesQueued}
-                isProcessing={isProcessing}
-              />
-              
-              {fileQueue.length > 0 && (
-                <FileQueue
-                  files={fileQueue}
-                  currentIndex={currentQueueIndex}
-                  onProcessNext={processNextInQueue}
-                  onSkip={skipCurrentInQueue}
-                  onReset={resetQueue}
-                  isProcessing={isProcessing}
-                  notificationsEnabled={notificationsEnabled}
-                />
-              )}
-            </div>
-          </details>
-        </div>
-      </Card>
-      
-      {/* Right Column */}
-      <Card className="p-6 border-l-4 border-l-green-500 shadow-md">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Cog className="mr-2 h-5 w-5 text-green-500" />
-          Step 2: Configure Transcription
-        </h2>
-        
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <label className="block text-sm font-medium mb-1">
-              Select Transcription Models:
-            </label>
-            <ModelSelector 
-              selectedModels={selectedModels} 
-              onModelChange={setSelectedModels}
-              disabled={isProcessing || !file}
+            
+            <audio
+              ref={audioRef}
+              src={URL.createObjectURL(uploadedFile)}
+              className="w-full"
+              controls={false}
+              onEnded={handleAudioEnded}
             />
           </div>
-          
-          <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg space-y-3">
-            <details open>
-              <summary className="cursor-pointer font-medium text-sm">
-                Transcription Options
-              </summary>
-              <div className="pt-3">
-                <PromptOptions 
-                  preserveEnglish={preserveEnglish}
-                  onPreserveEnglishChange={handlePreserveEnglishChange}
-                  outputFormat={outputFormat}
-                  onOutputFormatChange={handleOutputFormatChange}
-                  notificationsEnabled={notificationsEnabled}
-                  onNotificationsChange={handleNotificationsChange}
-                  disabled={isProcessing}
-                />
-                
-                <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
-                  <p className="text-xs font-medium">Generated Prompt:</p>
-                  <p className="text-xs text-muted-foreground mt-1">{transcriptionPrompt || "No prompt generated yet"}</p>
-                </div>
-              </div>
-            </details>
+        )}
+        
+        {/* Transcription Configuration */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-medium mb-2">Transcription Models</h3>
+            <ModelSelector 
+              selectedModels={selectedModels} 
+              onChange={(models) => setSelectedModels(models)} 
+            />
+            
+            {selectedModels.length === 0 && (
+              <Alert variant="destructive" className="mt-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Please select at least one transcription model
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           
-          <div className="pt-4 space-y-3">
-            <Button 
-              onClick={() => file && processTranscriptions(file)} 
-              disabled={isProcessing || !file || selectedModels.length === 0}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing Transcription...
-                </>
-              ) : (
-                <>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Start Transcription Process
-                </>
-              )}
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={goToNextStep}
-              disabled={!file}
-              className="w-full text-sm"
-            >
-              {file ? "Skip to Results" : "Please Upload a File First"}
-            </Button>
+          <div>
+            <h3 className="text-lg font-medium mb-2">Transcription Prompt</h3>
+            <PromptOptions
+              prompt={prompt}
+              onChange={setPrompt}
+            />
           </div>
         </div>
-      </Card>
-    </div>
+      </CardContent>
+      
+      <CardFooter className="flex justify-between border-t p-6">
+        <Button
+          variant="default"
+          className="w-full"
+          onClick={startTranscription}
+          disabled={!uploadedFile || selectedModels.length === 0 || isProcessing}
+        >
+          {isProcessing ? (
+            <>
+              <span className="animate-pulse">Processing...</span>
+            </>
+          ) : (
+            <>Start Transcription</>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 

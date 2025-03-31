@@ -39,8 +39,8 @@ const QueueStatusAlert = ({ stuckJobs, onReset }: { stuckJobs: number, onReset: 
   if (stuckJobs === 0) return null;
   
   return (
-    <Alert variant="warning" className="mb-4">
-      <AlertTriangle className="h-4 w-4" />
+    <Alert variant="default" className="mb-4 border-amber-500 dark:border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+      <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
       <AlertTitle>Stuck Transcription Jobs Detected</AlertTitle>
       <AlertDescription className="mt-2">
         <p className="mb-2">
