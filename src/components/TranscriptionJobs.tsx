@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle, Folder, FileText } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // Define a union type for all possible job statuses
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -26,6 +27,11 @@ interface TranscriptionJob {
     text: string; 
     prompt: string;
   } | Json;
+}
+
+interface JobGroup {
+  timestamp: Date;
+  jobs: TranscriptionJob[];
 }
 
 interface TranscriptionJobsProps {
@@ -64,6 +70,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   refreshTrigger = 0
 }) => {
   const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
+  const [jobGroups, setJobGroups] = useState<JobGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
@@ -71,13 +78,45 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const [resettingJobs, setResettingJobs] = useState<boolean>(false);
   const { toast } = useToast();
   
+  const groupJobsBySession = (jobs: TranscriptionJob[]) => {
+    if (!jobs.length) return [];
+    
+    const sortedJobs = [...jobs].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    const groups: JobGroup[] = [];
+    let currentGroup: JobGroup | null = null;
+    
+    sortedJobs.forEach(job => {
+      const jobTime = new Date(job.created_at);
+      
+      if (!currentGroup || 
+          Math.abs(jobTime.getTime() - currentGroup.timestamp.getTime()) > 30000) {
+        currentGroup = {
+          timestamp: jobTime,
+          jobs: [job]
+        };
+        groups.push(currentGroup);
+      } else {
+        currentGroup.jobs.push(job);
+      }
+    });
+    
+    return groups;
+  };
+  
   const fetchJobs = async () => {
     try {
       setLoading(true);
       const jobsData = await getUserTranscriptionJobs();
-      setJobs(jobsData as unknown as TranscriptionJob[]);
       
-      // Check for stuck jobs (pending or processing for > 30 minutes)
+      const typedJobs = jobsData as unknown as TranscriptionJob[];
+      setJobs(typedJobs);
+      
+      const groups = groupJobsBySession(typedJobs);
+      setJobGroups(groups);
+      
       const thirtyMinutesAgo = new Date();
       thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
       
@@ -150,6 +189,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
         
         if (hasChanges) {
           setJobs(updatedJobs);
+          setJobGroups(groupJobsBySession(updatedJobs));
         }
         
         if (!updatedJobs.some(job => job.status === 'pending' || job.status === 'processing')) {
@@ -259,7 +299,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     }
   };
   
-  // Helper function to safely extract VTT content from job result
   const extractVttContent = (job: TranscriptionJob) => {
     if (!job.result) return "";
     
@@ -272,7 +311,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
           return "";
         }
       } else if (typeof job.result === 'object') {
-        // Handle result when it's an object
         const result = job.result as any;
         return result.vttContent || "";
       }
@@ -319,7 +357,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
         description: `Successfully reset ${updatedCount} stuck jobs.`,
       });
       
-      // Refresh the job list
       fetchJobs();
     } catch (error) {
       toast({
@@ -330,6 +367,25 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     } finally {
       setResettingJobs(false);
     }
+  };
+  
+  const getGroupStatus = (group: JobGroup) => {
+    if (group.jobs.some(job => job.status === 'pending' || job.status === 'processing')) {
+      return 'processing';
+    }
+    if (group.jobs.every(job => job.status === 'completed')) {
+      return 'completed';
+    }
+    if (group.jobs.every(job => job.status === 'failed')) {
+      return 'failed';
+    }
+    return 'mixed';
+  };
+  
+  const getGroupTitle = (group: JobGroup) => {
+    const models = [...new Set(group.jobs.map(job => getModelDisplayName(job.model)))];
+    const formattedDate = new Date(group.timestamp).toLocaleString();
+    return `Session ${formattedDate} (${models.join(', ')})`;
   };
   
   if (loading && jobs.length === 0) {
@@ -400,122 +456,185 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {jobs.map((job) => (
-          <Card 
-            key={job.id} 
-            className={cn(
-              "overflow-hidden border-l-4 shadow-sm transition-all duration-300", 
-              getBorderColor(job.status),
-              getBackgroundGradient(job.status),
-              "hover:shadow-md group"
-            )}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div className="flex items-start gap-2">
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-background shadow-sm">
-                    <span className="text-lg" aria-hidden="true">{getModelIcon(job.model)}</span>
+      <Accordion type="single" collapsible className="space-y-4">
+        {jobGroups.map((group, index) => {
+          const groupStatus = getGroupStatus(group);
+          
+          return (
+            <AccordionItem 
+              key={`group-${index}`} 
+              value={`group-${index}`}
+              className={cn(
+                "border rounded-lg overflow-hidden",
+                groupStatus === 'completed' ? "border-green-200 dark:border-green-800" :
+                groupStatus === 'processing' ? "border-blue-200 dark:border-blue-800" :
+                groupStatus === 'failed' ? "border-red-200 dark:border-red-800" :
+                "border-amber-200 dark:border-amber-800"
+              )}
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <div className="flex items-center gap-3 w-full">
+                  <div className={cn(
+                    "p-2 rounded-full",
+                    groupStatus === 'completed' ? "bg-green-100 dark:bg-green-900/20" :
+                    groupStatus === 'processing' ? "bg-blue-100 dark:bg-blue-900/20" :
+                    groupStatus === 'failed' ? "bg-red-100 dark:bg-red-900/20" :
+                    "bg-amber-100 dark:bg-amber-900/20"
+                  )}>
+                    <Folder className={cn(
+                      "h-5 w-5",
+                      groupStatus === 'completed' ? "text-green-500 dark:text-green-400" :
+                      groupStatus === 'processing' ? "text-blue-500 dark:text-blue-400" :
+                      groupStatus === 'failed' ? "text-red-500 dark:text-red-400" :
+                      "text-amber-500 dark:text-amber-400"
+                    )} />
                   </div>
-                  <div>
-                    <CardTitle className="text-base group-hover:text-primary transition-colors">
-                      {getModelDisplayName(job.model)}
-                    </CardTitle>
-                    <CardDescription className="text-xs flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(job.created_at))} ago
-                    </CardDescription>
+                  <div className="text-left">
+                    <h4 className="font-medium text-sm">
+                      {formatDistanceToNow(group.timestamp)} ago
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      {group.jobs.length} models: {group.jobs.map(job => getModelDisplayName(job.model)).join(', ')}
+                    </p>
+                  </div>
+                  <div className="ml-auto flex gap-2">
+                    {group.jobs.map(job => (
+                      <span 
+                        key={job.id} 
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          job.status === 'completed' ? "bg-green-500" :
+                          job.status === 'processing' ? "bg-blue-500" :
+                          job.status === 'pending' ? "bg-amber-500" :
+                          "bg-red-500"
+                        )}
+                      />
+                    ))}
                   </div>
                 </div>
-                <div className={cn("flex items-center px-2 py-1 rounded-full bg-background/50 backdrop-blur-sm", getStatusColor(job.status))}>
-                  {getStatusIcon(job.status)}
-                  <span className="ml-1 text-xs font-medium capitalize">
-                    {job.status}
-                  </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {group.jobs.map((job) => (
+                    <Card 
+                      key={job.id} 
+                      className={cn(
+                        "overflow-hidden border-l-4 shadow-sm transition-all duration-300", 
+                        getBorderColor(job.status),
+                        getBackgroundGradient(job.status),
+                        "hover:shadow-md group"
+                      )}
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-start gap-2">
+                            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-background shadow-sm">
+                              <span className="text-lg" aria-hidden="true">{getModelIcon(job.model)}</span>
+                            </div>
+                            <div>
+                              <CardTitle className="text-base group-hover:text-primary transition-colors">
+                                {getModelDisplayName(job.model)}
+                              </CardTitle>
+                              <CardDescription className="text-xs flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                {job.id.slice(0, 8)}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <div className={cn("flex items-center px-2 py-1 rounded-full bg-background/50 backdrop-blur-sm", getStatusColor(job.status))}>
+                            {getStatusIcon(job.status)}
+                            <span className="ml-1 text-xs font-medium capitalize">
+                              {job.status}
+                            </span>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      
+                      <CardContent className="text-sm pb-3">
+                        <div className="mb-2">
+                          <Progress 
+                            value={getProgressValue(job.status)}
+                            className={cn(
+                              "h-1.5 mb-2",
+                              job.status === 'completed' ? "bg-green-100 dark:bg-green-950/30" : 
+                              job.status === 'failed' ? "bg-red-100 dark:bg-red-950/30" :
+                              job.status === 'processing' ? "bg-blue-100 dark:bg-blue-950/30" :
+                              "bg-amber-100 dark:bg-amber-950/30"
+                            )}
+                          />
+                          <div 
+                            className="cursor-pointer flex justify-between items-center"
+                            onClick={() => toggleExpandJob(job.id)}
+                          >
+                            <span className="text-muted-foreground text-xs font-medium">Status:</span>
+                            <Button variant="ghost" size="sm" className="h-6 px-2">
+                              {expandedJob === job.id ? 
+                                <ChevronUp className="h-4 w-4" /> : 
+                                <ChevronDown className="h-4 w-4" />
+                              }
+                            </Button>
+                          </div>
+                          <div className={cn(
+                            "transition-all duration-300 overflow-hidden",
+                            expandedJob === job.id ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                          )}>
+                            <p className="text-xs p-2 bg-background/50 rounded-md my-2">
+                              {job.status_message || "No detailed status available"}
+                            </p>
+                            
+                            {job.error && (
+                              <div className="mt-2 text-xs text-red-500 bg-red-50 dark:bg-red-950/30 p-2 rounded border border-red-200 dark:border-red-800">
+                                {job.error}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                      
+                      <CardFooter className="pt-0 pb-3">
+                        {job.status === 'completed' && (
+                          <Button 
+                            size="sm" 
+                            className="w-full text-xs group-hover:bg-green-500 transition-colors flex items-center gap-1"
+                            onClick={() => handleSelectTranscription(job)}
+                          >
+                            <Play className="h-3 w-3" />
+                            Use this transcription
+                          </Button>
+                        )}
+                        
+                        {job.status === 'failed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400"
+                            onClick={() => {
+                              toast({
+                                title: "Retry functionality",
+                                description: "Retry feature will be implemented soon",
+                              });
+                            }}
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Retry transcription
+                          </Button>
+                        )}
+                        
+                        {(job.status === 'pending' || job.status === 'processing') && (
+                          <div className="w-full text-center text-xs text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 py-2 rounded-md flex items-center justify-center">
+                            <Loader2 className="h-3 w-3 mr-2 inline-block animate-spin" />
+                            Transcription in progress...
+                          </div>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  ))}
                 </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="text-sm pb-3">
-              <div className="mb-2">
-                <Progress 
-                  value={getProgressValue(job.status)}
-                  className={cn(
-                    "h-1.5 mb-2",
-                    job.status === 'completed' ? "bg-green-100 dark:bg-green-950/30" : 
-                    job.status === 'failed' ? "bg-red-100 dark:bg-red-950/30" :
-                    job.status === 'processing' ? "bg-blue-100 dark:bg-blue-950/30" :
-                    "bg-amber-100 dark:bg-amber-950/30"
-                  )}
-                />
-                <div 
-                  className="cursor-pointer flex justify-between items-center"
-                  onClick={() => toggleExpandJob(job.id)}
-                >
-                  <span className="text-muted-foreground text-xs font-medium">Status:</span>
-                  <Button variant="ghost" size="sm" className="h-6 px-2">
-                    {expandedJob === job.id ? 
-                      <ChevronUp className="h-4 w-4" /> : 
-                      <ChevronDown className="h-4 w-4" />
-                    }
-                  </Button>
-                </div>
-                <div className={cn(
-                  "transition-all duration-300 overflow-hidden",
-                  expandedJob === job.id ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
-                )}>
-                  <p className="text-xs p-2 bg-background/50 rounded-md my-2">
-                    {job.status_message || "No detailed status available"}
-                  </p>
-                  
-                  {job.error && (
-                    <div className="mt-2 text-xs text-red-500 bg-red-50 dark:bg-red-950/30 p-2 rounded border border-red-200 dark:border-red-800">
-                      {job.error}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-            
-            <CardFooter className="pt-0 pb-3">
-              {job.status === 'completed' && (
-                <Button 
-                  size="sm" 
-                  className="w-full text-xs group-hover:bg-green-500 transition-colors flex items-center gap-1"
-                  onClick={() => handleSelectTranscription(job)}
-                >
-                  <Play className="h-3 w-3" />
-                  Use this transcription
-                </Button>
-              )}
-              
-              {job.status === 'failed' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-xs border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400"
-                  onClick={() => {
-                    toast({
-                      title: "Retry functionality",
-                      description: "Retry feature will be implemented soon",
-                    });
-                  }}
-                >
-                  <RotateCcw className="h-3 w-3 mr-1" />
-                  Retry transcription
-                </Button>
-              )}
-              
-              {(job.status === 'pending' || job.status === 'processing') && (
-                <div className="w-full text-center text-xs text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 py-2 rounded-md flex items-center justify-center">
-                  <Loader2 className="h-3 w-3 mr-2 inline-block animate-spin" />
-                  Transcription in progress...
-                </div>
-              )}
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
     </div>
   );
 };
