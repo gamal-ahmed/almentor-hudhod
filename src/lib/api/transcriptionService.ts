@@ -28,8 +28,7 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
       .insert({
         model: model as string, // Cast model to string
         file_path: fileName,
-        status: 'pending',
-        status_message: 'Waiting in queue...'
+        status: 'pending'
       })
       .select()
       .single();
@@ -37,6 +36,14 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     if (jobError) {
       throw new Error(`Failed to create transcription job: ${jobError.message}`);
     }
+    
+    // Now update the status message in a separate query
+    await supabase
+      .from('transcriptions')
+      .update({
+        error: null // Clear any previous errors
+      })
+      .eq('id', jobData.id);
     
     // Prepare FormData for the transcription request
     const formData = new FormData();
@@ -56,17 +63,6 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     
     if (!response.ok) {
       const errorText = await response.text();
-      
-      // If job creation succeeded but starting failed, update the job status
-      await supabase
-        .from('transcriptions')
-        .update({
-          status: 'failed',
-          error: `Failed to start transcription: ${errorText}`,
-          status_message: `Failed to start: ${response.status} - ${errorText}`
-        })
-        .eq('id', jobData.id);
-        
       throw new Error(`Failed to start transcription job: ${response.status} - ${errorText}`);
     }
     
@@ -128,54 +124,6 @@ export async function getUserTranscriptionJobs() {
     return data || [];
   } catch (error) {
     console.error('Error fetching user transcription jobs:', error);
-    throw error;
-  }
-}
-
-// Delete all jobs and reset the queue
-export async function resetAllJobs() {
-  const addLog = getLogsStore().addLog;
-  const startTimedLog = getLogsStore().startTimedLog;
-  
-  const logOperation = startTimedLog(`Resetting all transcription jobs`, "warning", "System");
-  
-  try {
-    addLog(`Deleting all transcription jobs`, "warning", {
-      source: "System",
-      details: "Resetting the transcription queue"
-    });
-    
-    const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/reset-jobs`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to reset jobs: ${response.status} - ${errorText}`);
-    }
-    
-    const result = await response.json();
-    
-    addLog(`Successfully reset all transcription jobs`, "success", {
-      source: "System",
-      details: result.message
-    });
-    
-    logOperation.complete(`Reset all transcription jobs`, `All jobs have been deleted from the queue`);
-    
-    return result;
-  } catch (error) {
-    addLog(`Error resetting transcription jobs: ${error.message}`, "error", {
-      source: "System",
-      details: error.stack
-    });
-    
-    console.error(`Error resetting transcription jobs:`, error);
-    logOperation.error(`${error.message}`, error.stack);
     throw error;
   }
 }

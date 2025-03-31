@@ -463,7 +463,6 @@ export type Database = {
           model: string
           result: Json | null
           status: string
-          status_message: string | null
           updated_at: string
           user_id: string | null
         }
@@ -475,7 +474,6 @@ export type Database = {
           model: string
           result?: Json | null
           status?: string
-          status_message?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -487,7 +485,6 @@ export type Database = {
           model?: string
           result?: Json | null
           status?: string
-          status_message?: string | null
           updated_at?: string
           user_id?: string | null
         }

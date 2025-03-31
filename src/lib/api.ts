@@ -1,11 +1,9 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { 
   transcribeAudio as serverTranscribeAudio,
   createTranscriptionJob,
   checkTranscriptionJobStatus,
-  getUserTranscriptionJobs,
-  resetAllJobs
+  getUserTranscriptionJobs
 } from "./api/transcriptionService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
@@ -26,8 +24,7 @@ const getLogsStore = () => useLogsStore.getState();
 export {
   createTranscriptionJob,
   checkTranscriptionJobStatus,
-  getUserTranscriptionJobs,
-  resetAllJobs
+  getUserTranscriptionJobs
 };
 
 // Fetch Brightcove keys from Supabase

@@ -1,3 +1,4 @@
+
 // Supabase Edge Function for transcription-related services
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
@@ -7,7 +8,7 @@ import { v4 as uuidv4 } from 'https://esm.sh/uuid@9.0.1';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 // Create Supabase client
@@ -31,12 +32,6 @@ serve(async (req) => {
     // Handle different endpoints
     if (path === 'export-file') {
       return await handleExportFile(req);
-    }
-    else if (path === 'start-job') {
-      return await handleStartJob(req);
-    }
-    else if (path === 'reset-jobs') {
-      return await handleResetJobs(req);
     }
 
     // Default response for unmatched paths
@@ -162,218 +157,5 @@ async function handleExportFile(req: Request) {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  }
-}
-
-// Handle resetting all jobs
-async function handleResetJobs(req: Request) {
-  try {
-    console.log("Resetting all transcription jobs");
-    
-    // Get the auth header to determine the user
-    const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError) {
-      console.error('Auth error:', authError);
-      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    // Filter for the current user's jobs if a user is authenticated
-    let query = supabase.from('transcriptions').delete();
-    
-    if (user) {
-      query = query.eq('user_id', user.id);
-    }
-    
-    const { error: deleteError } = await query;
-    
-    if (deleteError) {
-      console.error('Error deleting jobs:', deleteError);
-      throw new Error(`Failed to delete jobs: ${deleteError.message}`);
-    }
-    
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'All transcription jobs have been deleted' 
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error resetting jobs:', error);
-    
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-}
-
-// Handle starting a transcription job
-async function handleStartJob(req: Request) {
-  console.log("Starting transcription job");
-  
-  try {
-    const formData = await req.formData();
-    const audioFile = formData.get('audio');
-    const prompt = formData.get('prompt')?.toString() || '';
-    const jobId = formData.get('jobId')?.toString();
-    
-    if (!audioFile || !(audioFile instanceof File)) {
-      return new Response(JSON.stringify({ error: 'No audio file provided' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    if (!jobId) {
-      return new Response(JSON.stringify({ error: 'No job ID provided' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    console.log(`Received job ID: ${jobId}, audioFile: ${audioFile.name}, size: ${audioFile.size}`);
-    
-    // Get the auth header to determine the user
-    const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    // Update job status to processing with a status message
-    const { error: updateError } = await supabase
-      .from('transcriptions')
-      .update({ 
-        status: 'processing',
-        status_message: 'Job started, processing audio file',
-        user_id: user?.id || null
-      })
-      .eq('id', jobId);
-    
-    if (updateError) {
-      console.error('Error updating job status:', updateError);
-      throw new Error(`Failed to update job status: ${updateError.message}`);
-    }
-    
-    // Start processing in the background
-    EdgeRuntime.waitUntil(processTranscription(jobId, audioFile, prompt));
-    
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: 'Transcription job started',
-      jobId
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error starting transcription job:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-}
-
-// Process the transcription in the background
-async function processTranscription(jobId: string, audioFile: File, prompt: string) {
-  try {
-    console.log(`Processing transcription for job ${jobId}`);
-    
-    // Get model from the database
-    const { data: jobData, error: jobError } = await supabase
-      .from('transcriptions')
-      .select('model')
-      .eq('id', jobId)
-      .single();
-    
-    if (jobError) {
-      throw new Error(`Error retrieving job: ${jobError.message}`);
-    }
-    
-    const model = jobData.model;
-    console.log(`Using transcription model: ${model}`);
-    
-    // Choose the appropriate API based on the model
-    let apiEndpoint = '';
-    
-    switch (model) {
-      case 'openai':
-        apiEndpoint = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
-        break;
-      case 'gemini-2.0-flash':
-        apiEndpoint = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
-        break;
-      case 'phi4':
-        apiEndpoint = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
-        break;
-      default:
-        throw new Error(`Unsupported model: ${model}`);
-    }
-    
-    // Prepare FormData for the transcription request
-    const transcriptionData = new FormData();
-    transcriptionData.append('audio', audioFile);
-    transcriptionData.append('prompt', prompt);
-    
-    console.log(`Sending request to ${apiEndpoint}`);
-    
-    // Call the appropriate transcription service
-    const response = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: transcriptionData,
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Transcription API error: ${response.status} - ${errorText}`);
-    }
-    
-    const transcriptionResult = await response.json();
-    console.log(`Transcription completed successfully for job ${jobId}`);
-    
-    // Update job with successful results
-    const { error: updateError } = await supabase
-      .from('transcriptions')
-      .update({
-        status: 'completed',
-        result: transcriptionResult,
-        status_message: 'Transcription completed successfully',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', jobId);
-    
-    if (updateError) {
-      throw new Error(`Failed to update job with results: ${updateError.message}`);
-    }
-    
-    console.log(`Job ${jobId} marked as completed`);
-    
-  } catch (error) {
-    console.error(`Error processing transcription for job ${jobId}:`, error);
-    
-    // Update job with error status
-    try {
-      await supabase
-        .from('transcriptions')
-        .update({
-          status: 'failed',
-          error: error.message,
-          status_message: `Transcription failed: ${error.message}`,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-    } catch (updateError) {
-      console.error('Failed to update job with error status:', updateError);
-    }
   }
 }
