@@ -1,8 +1,8 @@
 
 import React from 'react';
 import Header from "@/components/Header";
-import { CloudStorageConfig } from "@/components/cloud-storage/CloudStorageConfig";
-import { CloudStorageImporter } from "@/components/cloud-storage/CloudStorageImporter";
+import CloudStorageConfig from "@/components/cloud-storage/CloudStorageConfig";
+import CloudStorageImporter from "@/components/cloud-storage/CloudStorageImporter";
 import { 
   getConnectionStatus, 
   isPlatformConfigured 
@@ -14,8 +14,8 @@ import {
   Cloud, 
   HardDrive, 
   Settings,
-  GoogleDrive,
-  Dropbox
+  Database, // Using Database icon instead of GoogleDrive
+  Archive  // Using Archive icon instead of Dropbox
 } from "lucide-react";
 
 const CloudStoragePage = () => {
@@ -66,7 +66,7 @@ const CloudStoragePage = () => {
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <GoogleDrive className="h-5 w-5 text-blue-500" />
+                    <Database className="h-5 w-5 text-blue-500" />
                     <span>Google Drive</span>
                   </div>
                   {googleDriveConfigured ? (
@@ -88,7 +88,7 @@ const CloudStoragePage = () => {
                 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Dropbox className="h-5 w-5 text-blue-600" />
+                    <Archive className="h-5 w-5 text-blue-600" />
                     <span>Dropbox</span>
                   </div>
                   {dropboxConfigured ? (

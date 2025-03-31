@@ -8,13 +8,13 @@ import CloudStorageConfigForm from './CloudStorageConfig';
 import { DatabaseIcon } from 'lucide-react';
 
 interface CloudStorageImporterProps {
-  onFilesSelected: (files: File[]) => void;
-  isProcessing: boolean;
+  onFilesSelected?: (files: File[]) => void;
+  isProcessing?: boolean;
 }
 
 const CloudStorageImporter: React.FC<CloudStorageImporterProps> = ({ 
-  onFilesSelected, 
-  isProcessing 
+  onFilesSelected = () => {}, 
+  isProcessing = false
 }) => {
   const [refreshKey, setRefreshKey] = React.useState(0);
   
