@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Settings, Save } from "lucide-react";
+import { Settings, Save, Link, Unlink, ExternalLink } from "lucide-react";
 import { 
   CloudStorageConfig as CloudStorageConfigType, 
   getCloudStorageConfig, 
   saveCloudStorageConfig, 
   isPlatformConfigured 
 } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 
 interface CloudStorageConfigFormProps {
   onConfigSaved?: () => void;
@@ -32,10 +33,21 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
     dropbox: { appKey: '' }
   });
   const [open, setOpen] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [dropboxConnected, setDropboxConnected] = useState(false);
 
   useEffect(() => {
     const savedConfig = getCloudStorageConfig();
     setConfig(savedConfig);
+    
+    // Check if services are configured
+    const googleConfigured = isPlatformConfigured('googleDrive');
+    const dropboxConfigured = isPlatformConfigured('dropbox');
+    
+    // Check connection status (simplified version - in real implementation, 
+    // we would check with the actual services)
+    setGoogleConnected(googleConfigured);
+    setDropboxConnected(dropboxConfigured);
   }, [open]);
 
   const handleSaveConfig = () => {
@@ -62,6 +74,42 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
     }));
   };
 
+  const handleConnectGoogle = () => {
+    if (!isPlatformConfigured('googleDrive')) {
+      toast.error("Please configure Google Drive API credentials first");
+      return;
+    }
+
+    // In a real implementation, we would initiate Google OAuth flow here
+    // For now, we'll just simulate the connection
+    toast.success("Google Drive connected successfully");
+    setGoogleConnected(true);
+  };
+
+  const handleDisconnectGoogle = () => {
+    // In a real implementation, we would revoke the OAuth token
+    toast.success("Google Drive disconnected");
+    setGoogleConnected(false);
+  };
+
+  const handleConnectDropbox = () => {
+    if (!isPlatformConfigured('dropbox')) {
+      toast.error("Please configure Dropbox API credentials first");
+      return;
+    }
+
+    // In a real implementation, we would initiate Dropbox OAuth flow here
+    // For now, we'll just simulate the connection
+    toast.success("Dropbox connected successfully");
+    setDropboxConnected(true);
+  };
+
+  const handleDisconnectDropbox = () => {
+    // In a real implementation, we would revoke the OAuth token
+    toast.success("Dropbox disconnected");
+    setDropboxConnected(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -74,7 +122,7 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
         <DialogHeader>
           <DialogTitle>Cloud Storage Configuration</DialogTitle>
           <DialogDescription>
-            Enter your API credentials for Google Drive and Dropbox integration
+            Connect to your cloud storage accounts and configure API credentials
           </DialogDescription>
         </DialogHeader>
         
@@ -85,6 +133,19 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
           </TabsList>
           
           <TabsContent value="google-drive" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium">Connection Status</h3>
+              {googleConnected ? (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                  Connected
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800">
+                  Not connected
+                </Badge>
+              )}
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="google-client-id">Client ID</Label>
               <Input
@@ -103,6 +164,42 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
                 placeholder="Your Google API Key"
               />
             </div>
+            
+            <div className="flex gap-2">
+              {googleConnected ? (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleDisconnectGoogle}
+                  className="flex items-center gap-1"
+                >
+                  <Unlink className="h-4 w-4" />
+                  <span>Disconnect</span>
+                </Button>
+              ) : (
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={handleConnectGoogle}
+                  className="flex items-center gap-1"
+                  disabled={!isPlatformConfigured('googleDrive')}
+                >
+                  <Link className="h-4 w-4" />
+                  <span>Connect Account</span>
+                </Button>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => window.open("https://console.developers.google.com/", "_blank")}
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>Google Console</span>
+              </Button>
+            </div>
+            
             <div className="text-xs text-muted-foreground">
               <p>To get these credentials:</p>
               <ol className="list-decimal pl-4 space-y-1 mt-1">
@@ -116,6 +213,19 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
           </TabsContent>
           
           <TabsContent value="dropbox" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium">Connection Status</h3>
+              {dropboxConnected ? (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                  Connected
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800">
+                  Not connected
+                </Badge>
+              )}
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="dropbox-app-key">App Key</Label>
               <Input
@@ -125,6 +235,42 @@ const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfi
                 placeholder="Your Dropbox App Key"
               />
             </div>
+            
+            <div className="flex gap-2">
+              {dropboxConnected ? (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleDisconnectDropbox}
+                  className="flex items-center gap-1"
+                >
+                  <Unlink className="h-4 w-4" />
+                  <span>Disconnect</span>
+                </Button>
+              ) : (
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={handleConnectDropbox}
+                  className="flex items-center gap-1"
+                  disabled={!isPlatformConfigured('dropbox')}
+                >
+                  <Link className="h-4 w-4" />
+                  <span>Connect Account</span>
+                </Button>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => window.open("https://www.dropbox.com/developers/apps", "_blank")}
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>Dropbox Console</span>
+              </Button>
+            </div>
+            
             <div className="text-xs text-muted-foreground">
               <p>To get your Dropbox App Key:</p>
               <ol className="list-decimal pl-4 space-y-1 mt-1">

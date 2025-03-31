@@ -2,9 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, FileIcon } from "lucide-react";
+import { Loader2, FileIcon, Link } from "lucide-react";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { getCloudStorageConfig, isPlatformConfigured } from "@/lib/api";
+import { 
+  getCloudStorageConfig, 
+  isPlatformConfigured, 
+  isPlatformConnected,
+  connectPlatform,
+  disconnectPlatform
+} from "@/lib/api";
 
 interface GoogleDriveImporterProps {
   onFilesSelected: (files: File[]) => void;
@@ -23,6 +29,10 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
       addLog("Google Drive is not configured. Please add your API credentials.", "warning");
       return;
     }
+
+    // Check connection status
+    const isConnected = isPlatformConnected('googleDrive');
+    setIsSignedIn(isConnected);
 
     const config = getCloudStorageConfig();
     
@@ -73,6 +83,14 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
 
   const updateSigninStatus = (isSignedIn: boolean) => {
     setIsSignedIn(isSignedIn);
+    
+    // Update connection status in localStorage
+    if (isSignedIn) {
+      connectPlatform('googleDrive');
+    } else {
+      disconnectPlatform('googleDrive');
+    }
+    
     addLog(`Google Drive authentication status: ${isSignedIn ? "Signed in" : "Signed out"}`, "info");
   };
 
@@ -92,6 +110,9 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
     } else {
       // Sign in if not already
       window.gapi.auth2.getAuthInstance().signIn()
+        .then(() => {
+          toast.success("Connected to Google Drive");
+        })
         .catch((error: any) => {
           console.error("Error signing in to Google Drive", error);
           addLog("Error signing in to Google Drive", "error");
@@ -205,7 +226,11 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
           ) : (
             <>
               <div className="rounded-full bg-red-100 p-2 dark:bg-red-900/20">
-                <FileIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+                {isSignedIn ? (
+                  <FileIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+                ) : (
+                  <Link className="h-5 w-5 text-red-600 dark:text-red-400" />
+                )}
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-medium">

@@ -10,8 +10,15 @@ export interface CloudStorageConfig {
   }
 }
 
+// Interface for connection status
+export interface ConnectionStatus {
+  googleDrive: boolean;
+  dropbox: boolean;
+}
+
 // Local storage keys for cloud storage configuration
 const CLOUD_STORAGE_CONFIG_KEY = 'cloud_storage_config';
+const CONNECTION_STATUS_KEY = 'cloud_storage_connection_status';
 
 // Default empty configuration
 const defaultConfig: CloudStorageConfig = {
@@ -22,6 +29,12 @@ const defaultConfig: CloudStorageConfig = {
   dropbox: {
     appKey: ''
   }
+};
+
+// Default connection status
+const defaultConnectionStatus: ConnectionStatus = {
+  googleDrive: false,
+  dropbox: false
 };
 
 // Load cloud storage configuration from localStorage
@@ -44,6 +57,42 @@ export function saveCloudStorageConfig(config: CloudStorageConfig): void {
   } catch (error) {
     console.error('Error saving cloud storage config:', error);
   }
+}
+
+// Get connection status from localStorage
+export function getConnectionStatus(): ConnectionStatus {
+  try {
+    const storedStatus = localStorage.getItem(CONNECTION_STATUS_KEY);
+    if (storedStatus) {
+      return JSON.parse(storedStatus);
+    }
+  } catch (error) {
+    console.error('Error loading connection status:', error);
+  }
+  return defaultConnectionStatus;
+}
+
+// Save connection status to localStorage
+export function saveConnectionStatus(status: ConnectionStatus): void {
+  try {
+    localStorage.setItem(CONNECTION_STATUS_KEY, JSON.stringify(status));
+  } catch (error) {
+    console.error('Error saving connection status:', error);
+  }
+}
+
+// Connect a platform
+export function connectPlatform(platform: 'googleDrive' | 'dropbox'): void {
+  const status = getConnectionStatus();
+  status[platform] = true;
+  saveConnectionStatus(status);
+}
+
+// Disconnect a platform
+export function disconnectPlatform(platform: 'googleDrive' | 'dropbox'): void {
+  const status = getConnectionStatus();
+  status[platform] = false;
+  saveConnectionStatus(status);
 }
 
 // Update a specific platform configuration
@@ -73,4 +122,10 @@ export function isPlatformConfigured(platform: 'googleDrive' | 'dropbox'): boole
   }
   
   return false;
+}
+
+// Check if a platform is connected
+export function isPlatformConnected(platform: 'googleDrive' | 'dropbox'): boolean {
+  const status = getConnectionStatus();
+  return status[platform];
 }

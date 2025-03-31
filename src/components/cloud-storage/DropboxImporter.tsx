@@ -2,9 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, FileIcon } from "lucide-react";
+import { Loader2, FileIcon, Link } from "lucide-react";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { getCloudStorageConfig, isPlatformConfigured } from "@/lib/api";
+import { 
+  getCloudStorageConfig, 
+  isPlatformConfigured,
+  isPlatformConnected,
+  connectPlatform,
+  disconnectPlatform
+} from "@/lib/api";
 
 interface DropboxImporterProps {
   onFilesSelected: (files: File[]) => void;
@@ -14,6 +20,7 @@ interface DropboxImporterProps {
 const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isProcessing }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const { addLog } = useLogsStore();
 
   useEffect(() => {
@@ -22,6 +29,10 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
       addLog("Dropbox is not configured. Please add your API credentials.", "warning");
       return;
     }
+
+    // Check if dropbox is connected
+    const connected = isPlatformConnected('dropbox');
+    setIsConnected(connected);
 
     const config = getCloudStorageConfig();
     
@@ -51,6 +62,21 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
       // Cleanup if needed
     };
   }, [addLog]);
+
+  const handleConnect = () => {
+    if (!isInitialized) {
+      if (!isPlatformConfigured('dropbox')) {
+        toast.error("Please configure your Dropbox API credentials first");
+      } else {
+        toast.error("Dropbox API is not initialized yet");
+      }
+      return;
+    }
+
+    // In a real implementation, we would have a proper OAuth flow
+    // For simplicity, we'll just mark as connected when the chooser is successful
+    openDropboxChooser();
+  };
 
   const openDropboxChooser = () => {
     if (!isInitialized) {
@@ -86,6 +112,12 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
   const handleDropboxSuccess = async (files: any[]) => {
     try {
       addLog(`Selected ${files.length} files from Dropbox`, "info");
+      
+      // Mark as connected on successful file selection
+      if (!isConnected) {
+        connectPlatform('dropbox');
+        setIsConnected(true);
+      }
       
       const downloadedFiles: File[] = [];
       
@@ -133,6 +165,13 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
     setIsLoading(false);
   };
 
+  const handleDisconnect = () => {
+    disconnectPlatform('dropbox');
+    setIsConnected(false);
+    toast.success("Disconnected from Dropbox");
+    addLog("Disconnected from Dropbox", "info");
+  };
+
   return (
     <div className="space-y-4">
       {!isPlatformConfigured('dropbox') ? (
@@ -150,7 +189,7 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
           variant="outline"
           size="lg"
           className="w-full h-auto py-4 flex flex-col items-center gap-2"
-          onClick={openDropboxChooser}
+          onClick={isConnected ? openDropboxChooser : handleConnect}
           disabled={isLoading || isProcessing || !isInitialized}
         >
           {isLoading ? (
@@ -158,14 +197,33 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
           ) : (
             <>
               <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/20">
-                <FileIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                {isConnected ? (
+                  <FileIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                ) : (
+                  <Link className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                )}
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium">Select from Dropbox</span>
-                <span className="text-xs text-muted-foreground">Import audio files from your Dropbox</span>
+                <span className="text-sm font-medium">
+                  {isConnected ? "Select from Dropbox" : "Connect to Dropbox"}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {isConnected ? "Import audio files from your Dropbox" : "Link your Dropbox account"}
+                </span>
               </div>
             </>
           )}
+        </Button>
+      )}
+      
+      {isConnected && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={handleDisconnect}
+        >
+          Disconnect from Dropbox
         </Button>
       )}
       
