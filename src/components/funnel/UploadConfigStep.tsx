@@ -31,7 +31,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { addLog, startTimedLog } = useLogsStore();
 
-  // Handle file upload
   const handleFileUpload = (file: File) => {
     console.log("File uploaded in UploadConfigStep:", file.name);
     setUploadedFile(file);
@@ -41,7 +40,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     });
   };
   
-  // Handle SharePoint file selection
   const handleSharePointFileSelect = (files: File[]) => {
     if (files.length > 0) {
       console.log("SharePoint file selected:", files[0].name);
@@ -53,7 +51,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     }
   };
   
-  // Toggle audio playback
   const toggleAudioPlayback = () => {
     if (!audioRef.current) return;
     
@@ -72,12 +69,10 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     }
   };
   
-  // Handle audio ended event
   const handleAudioEnded = () => {
     setIsAudioPlaying(false);
   };
 
-  // Update prompt based on options
   useEffect(() => {
     let newPrompt = "";
     
@@ -94,15 +89,18 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     setPrompt(newPrompt.trim());
   }, [preserveEnglish, outputFormat]);
   
-  // Start transcription process
   const startTranscription = async () => {
     if (!uploadedFile) {
-      toast.error("No file selected", "Please upload an audio file before starting transcription");
+      toast.error("No file selected", {
+        description: "Please upload an audio file before starting transcription"
+      });
       return;
     }
     
     if (selectedModels.length === 0) {
-      toast.error("No transcription models selected", "Please select at least one transcription model");
+      toast.error("No transcription models selected", {
+        description: "Please select at least one transcription model"
+      });
       return;
     }
     
@@ -111,7 +109,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       const logOperation = startTimedLog(`Starting transcription for ${uploadedFile.name}`, "info");
       
-      // Log file details before sending
       console.log("Starting transcription with file:", {
         name: uploadedFile.name,
         size: uploadedFile.size,
@@ -119,7 +116,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         lastModified: uploadedFile.lastModified
       });
       
-      // Create a job for each selected model
       const jobPromises = selectedModels.map(model => 
         createTranscriptionJob(uploadedFile, model, prompt)
       );
@@ -129,24 +125,27 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       console.log("Transcription jobs created:", jobIds);
       
-      toast.success("Transcription jobs created", `Started ${jobIds.length} transcription jobs`);
+      toast.success("Transcription jobs created", {
+        description: `Started ${jobIds.length} transcription jobs`
+      });
       
       logOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
       
-      // Notify parent component that jobs were created
       onTranscriptionsCreated(jobIds);
       onStepComplete();
       
     } catch (error) {
       console.error("Error starting transcription:", error);
       
-      toast.error("Transcription failed", error instanceof Error ? error.message : "An unknown error occurred");
+      toast.error("Transcription failed", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
       
     } finally {
       setIsProcessing(false);
     }
   };
-  
+
   return (
     <Card className="w-full shadow-md border-primary/10">
       <CardHeader>
@@ -157,7 +156,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Upload Tabs */}
         <Tabs defaultValue={uploadTab} onValueChange={setUploadTab} className="w-full">
           <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="direct" className="flex items-center gap-2">
@@ -185,7 +183,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           </TabsContent>
         </Tabs>
         
-        {/* File Preview */}
         {uploadedFile && (
           <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -225,7 +222,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           </div>
         )}
         
-        {/* Transcription Configuration */}
         <div className="space-y-4">
           <div>
             <h3 className="text-lg font-medium mb-2">Transcription Models</h3>
