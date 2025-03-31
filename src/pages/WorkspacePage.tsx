@@ -30,7 +30,7 @@ export default function WorkspacePage() {
   const { logs } = useLogsStore();
   
   // Fetch the specific job
-  const { data: job, isLoading: isJobLoading, error: jobError } = useQuery({
+  const { data: job, isLoading, error } = useQuery({
     queryKey: ['transcription-job', jobId],
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
     refetchInterval: (data) => {
@@ -107,7 +107,7 @@ export default function WorkspacePage() {
     }, 2000);
   };
   
-  if (isJobLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -121,7 +121,7 @@ export default function WorkspacePage() {
     );
   }
   
-  if (jobError || !job) {
+  if (error || !job) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
