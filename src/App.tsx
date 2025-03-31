@@ -14,35 +14,45 @@ import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/signin" element={<SignIn />} />
-              <Route path="/signup" element={<SignUp />} />
-              <Route path="/app" element={
-                <AuthGuard>
-                  <Index />
-                </AuthGuard>
-              } />
-              <Route path="/session/:sessionTimestamp" element={
-                <AuthGuard>
-                  <SessionDetails />
-                </AuthGuard>
-              } />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-background to-secondary/20">
+          <Toaster />
+          <Sonner position="top-right" closeButton richColors />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/signin" element={<SignIn />} />
+                <Route path="/signup" element={<SignUp />} />
+                <Route path="/app" element={
+                  <AuthGuard>
+                    <Index />
+                  </AuthGuard>
+                } />
+                <Route path="/session/:sessionTimestamp" element={
+                  <AuthGuard>
+                    <SessionDetails />
+                  </AuthGuard>
+                } />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </div>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
