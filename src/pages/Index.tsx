@@ -1,183 +1,163 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { Info } from "lucide-react";
-import { requestNotificationPermission } from "@/lib/notifications";
-import Header from '@/components/Header';
-import { useAuth } from "@/lib/AuthContext";
-import { Progress } from "@/components/ui/progress";
-import UploadConfigStep from "@/components/funnel/UploadConfigStep";
-import ResultsPublishStep from "@/components/funnel/ResultsPublishStep";
+import React, { useState } from 'react';
+import Header from "@/components/Header";
+import FileUpload from "@/components/FileUpload";
+import ModelSelector from "@/components/ModelSelector";
+import FileQueue from "@/components/FileQueue";
+import LogsPanel from "@/components/LogsPanel";
+import PromptOptions from "@/components/PromptOptions";
+import TranscriptionJobs from "@/components/TranscriptionJobs";
+import TranscriptionCard from "@/components/TranscriptionCard";
+import VideoIdInput from "@/components/VideoIdInput";
+import SessionHistory from "@/components/SessionHistory";
+import SharePointDownloader from "@/components/SharePointDownloader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Index = () => {
-  // Main state
-  const [file, setFile] = useState<File | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedModels, setSelectedModels] = useState<string[]>(["openai", "gemini-2.0-flash", "phi4"]);
-  const [videoId, setVideoId] = useState<string>("");
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
+  const [processing, setProcessing] = useState(false);
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [transcriptionPrompt, setTranscriptionPrompt] = useState<string>("Please preserve all English words exactly as spoken");
-  const [refreshJobsTrigger, setRefreshJobsTrigger] = useState<number>(0);
+  const [selectedTranscriptionModel, setSelectedTranscriptionModel] = useState<string | null>(null);
+  const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
+  const [transcriptionPrompt, setTranscriptionPrompt] = useState("Please preserve all English words exactly as spoken");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // SharePoint and Queue state
-  const [fileQueue, setFileQueue] = useState<File[]>([]);
-  const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(0);
-  
-  // Prompt options state
-  const [preserveEnglish, setPreserveEnglish] = useState<boolean>(true);
-  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
-  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  
-  // Processing state
-  const [isUploading, setIsUploading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [transcriptions, setTranscriptions] = useState<Record<string, { vtt: string, prompt: string, loading: boolean }>>({
-    openai: { vtt: "", prompt: "", loading: false },
-    "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
-    phi4: { vtt: "", prompt: "", loading: false }
-  });
-  
-  // Funnel state
-  const [currentStep, setCurrentStep] = useState<number>(0);
-  const [progress, setProgress] = useState<number>(50);
-
-  // Auth state
-  const { isAuthenticated } = useAuth();
-  const { toast } = useToast();
-
-  // Request notification permission when notifications are enabled
-  useEffect(() => {
-    if (notificationsEnabled) {
-      requestNotificationPermission().then(granted => {
-        if (!granted) {
-          toast({
-            title: "Notification Permission Denied",
-            description: "Please enable notifications in your browser settings to receive alerts.",
-            variant: "destructive",
-          });
-          setNotificationsEnabled(false);
-        }
-      });
-    }
-  }, [notificationsEnabled, toast]);
-  
-  // Update progress based on step
-  useEffect(() => {
-    setProgress(currentStep === 0 ? 50 : 100);
-  }, [currentStep]);
-
-  // Handle navigation between steps
-  const goToNextStep = () => {
-    setCurrentStep(1);
-  };
-
-  const goToPreviousStep = () => {
-    setCurrentStep(0);
+  const handleModelSelection = (models: string[]) => {
+    setSelectedModels(models);
   };
   
-  // Update prompt based on options
-  const updatePromptFromOptions = () => {
-    let newPrompt = "";
-    
-    if (preserveEnglish) {
-      newPrompt += "Please preserve all English words exactly as spoken. ";
-    }
-    
-    if (outputFormat === "vtt") {
-      newPrompt += "Generate output with timestamps in VTT format. ";
-    } else {
-      newPrompt += "Generate plain text without timestamps. ";
-    }
-    
-    setTranscriptionPrompt(newPrompt.trim());
+  const handleFileQueued = (file: File) => {
+    setQueuedFiles(prevFiles => [...prevFiles, file]);
   };
   
-  // When transcriptions are created
-  const handleTranscriptionsCreated = (jobIds: string[]) => {
-    console.log("Transcription jobs created, transitioning to next step", jobIds);
-    setRefreshJobsTrigger(prev => prev + 1);
-    goToNextStep();
+  const handleRemoveFile = (index: number) => {
+    setQueuedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   };
   
-  // When a file is selected
-  const handleFileSelected = (uploadedFile: File) => {
-    console.log("File selected in Index:", uploadedFile.name);
-    setFile(uploadedFile);
-    const newAudioUrl = URL.createObjectURL(uploadedFile);
-    setAudioUrl(newAudioUrl);
+  const handleProcessFiles = () => {
+    setProcessing(true);
+    // Placeholder for actual processing logic
+    setTimeout(() => {
+      setProcessing(false);
+      setRefreshTrigger(prev => prev + 1);
+    }, 2000);
   };
   
-  // When a transcription is selected from jobs or cards
-  const handleSelectTranscription = (vtt: string, model: string) => {
+  const handleTranscriptionSelect = (vtt: string, model: string) => {
     setSelectedTranscription(vtt);
-    setSelectedModel(model);
+    setSelectedTranscriptionModel(model);
+    
+    // Create a temporary URL for the audio file
+    const audioFile = queuedFiles[0]; // Assuming the first file is the audio
+    if (audioFile) {
+      const url = URL.createObjectURL(audioFile);
+      setAudioFileUrl(url);
+    }
   };
   
+  const handleVideoIdSubmit = (videoId: string) => {
+    console.log("Video ID submitted:", videoId);
+  };
+  
+  const handlePromptUpdate = (newPrompt: string) => {
+    setTranscriptionPrompt(newPrompt);
+  };
+
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       <Header />
-      <div className="container py-6">
-        <div className="max-w-[1440px] mx-auto p-4 md:p-6">
-          <header className="text-center mb-6">
-            <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Transcription Pipeline
-            </h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-sm mb-6">
-              Download MP3 files from SharePoint, transcribe with multiple AI models, and publish captions to Brightcove.
-            </p>
-            
-            {/* Progress Bar */}
-            <div className="w-full max-w-lg mx-auto mb-8">
-              <div className="flex justify-between text-sm mb-1">
-                <div className={`font-medium ${currentStep === 0 ? 'text-primary' : 'text-muted-foreground'}`}>1. Upload & Configure</div>
-                <div className={`font-medium ${currentStep === 1 ? 'text-primary' : 'text-muted-foreground'}`}>2. Results & Publish</div>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-            
-            {/* Step instructions */}
-            <div className="bg-muted/50 p-3 rounded-lg flex items-center justify-center max-w-2xl mx-auto mb-4">
-              <Info className="h-4 w-4 text-muted-foreground mr-2" />
-              <p className="text-sm text-muted-foreground">
-                {currentStep === 0 
-                  ? "Step 1: Upload your audio file and configure transcription settings"
-                  : "Step 2: View transcription results and publish captions to Brightcove"}
-              </p>
-            </div>
-          </header>
+      
+      <div className="flex-1 container py-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           
-          {/* Funnel Steps */}
-          <div className="animate-fade-in">
-            {currentStep === 0 ? (
-              <UploadConfigStep 
-                onTranscriptionsCreated={handleTranscriptionsCreated}
-                onStepComplete={goToNextStep}
-              />
-            ) : (
-              <ResultsPublishStep
-                selectedTranscription={selectedTranscription}
-                selectedModel={selectedModel}
-                videoId={videoId}
-                setVideoId={setVideoId}
-                handleSelectTranscription={handleSelectTranscription}
-                isPublishing={isPublishing}
-                setIsPublishing={setIsPublishing}
-                refreshJobsTrigger={refreshJobsTrigger}
-                file={file}
-                audioUrl={audioUrl}
-                goToPreviousStep={goToPreviousStep}
+          {/* Left column */}
+          <div className="md:col-span-8 space-y-6">
+            <div className="space-y-6">
+              <Tabs defaultValue="upload" className="w-full">
+                <TabsList className="mb-2">
+                  <TabsTrigger value="upload">Upload Audio</TabsTrigger>
+                  <TabsTrigger value="video-id">Brightcove Video</TabsTrigger>
+                  <TabsTrigger value="sharepoint">SharePoint File</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="upload">
+                  <FileUpload onFileQueued={handleFileQueued} />
+                </TabsContent>
+                
+                <TabsContent value="video-id">
+                  <VideoIdInput onVideoIdSubmit={handleVideoIdSubmit} />
+                </TabsContent>
+                
+                <TabsContent value="sharepoint">
+                  <SharePointDownloader onFileDownloaded={handleFileQueued} />
+                </TabsContent>
+              </Tabs>
+              
+              <ModelSelector 
+                onModelSelect={handleModelSelection} 
                 selectedModels={selectedModels}
-                transcriptions={transcriptions}
               />
-            )}
+              
+              <PromptOptions 
+                onPromptUpdate={handlePromptUpdate}
+                prompt={transcriptionPrompt}
+              />
+              
+              <FileQueue 
+                files={queuedFiles} 
+                onRemoveFile={handleRemoveFile}
+                onProcessFiles={handleProcessFiles}
+                processing={processing}
+              />
+            </div>
+            
+            {/* Session History Section */}
+            <SessionHistory />
+            
+            {/* Current Transcription jobs */}
+            <TranscriptionJobs 
+              onSelectTranscription={handleTranscriptionSelect}
+              refreshTrigger={refreshTrigger}
+            />
+          </div>
+          
+          {/* Right column */}
+          <div className="md:col-span-4 md:border-l md:pl-6">
+            <div className="sticky top-4 space-y-6">
+              <h2 className="text-xl font-semibold mb-2">Transcription Preview</h2>
+              
+              {selectedTranscription ? (
+                <TranscriptionCard
+                  modelName={selectedTranscriptionModel || ""}
+                  vttContent={selectedTranscription}
+                  prompt={transcriptionPrompt}
+                  onSelect={() => {}}
+                  isSelected={true}
+                  audioSrc={audioFileUrl || undefined}
+                  isLoading={false}
+                />
+              ) : (
+                <div className="border rounded-lg p-6 text-center bg-muted/30">
+                  <p className="text-muted-foreground">
+                    Select a completed transcription job to preview
+                  </p>
+                </div>
+              )}
+              
+              <Separator />
+              
+              <ScrollArea className="h-[500px] rounded-md border">
+                <div className="p-4">
+                  <LogsPanel />
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
