@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/tooltip";
 
 const Index = () => {
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>([]);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai"]);
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
@@ -266,6 +266,7 @@ const Index = () => {
                             </HoverCardContent>
                           </HoverCard>
                           <ModelSelector 
+                            selectedModel={selectedModels[0] || "openai"}
                             selectedModels={selectedModels}
                             onModelChange={handleModelChange}
                             disabled={processing}
@@ -314,6 +315,8 @@ const Index = () => {
                           </CollapsibleTrigger>
                           <CollapsibleContent className="p-4 border-t bg-background/80 animate-slide-up">
                             <PromptOptions 
+                              prompt={transcriptionPrompt}
+                              onPromptChange={setTranscriptionPrompt}
                               preserveEnglish={preserveEnglish}
                               onPreserveEnglishChange={handlePreserveEnglishChange}
                               outputFormat={outputFormat}

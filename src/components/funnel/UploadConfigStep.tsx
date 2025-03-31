@@ -43,6 +43,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     });
   };
   
+  // Modified to accept a single File instead of an array
   const handleSharePointFileSelect = (file: File) => {
     console.log("SharePoint file selected:", file.name);
     setUploadedFile(file);
@@ -79,6 +80,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     setIsPlaying(false);
   };
 
+  // Updated to accept array of models and use the first one
   const handleModelChange = (models: TranscriptionModel[]) => {
     // Just take the first selected model if multiple are selected
     if (models.length > 0) {
