@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { TranscriptionModel } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
@@ -98,20 +97,12 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   // Start transcription process
   const startTranscription = async () => {
     if (!uploadedFile) {
-      toast({
-        title: "No file selected",
-        description: "Please upload an audio file before starting transcription",
-        variant: "destructive",
-      });
+      toast.error("No file selected", "Please upload an audio file before starting transcription");
       return;
     }
     
     if (selectedModels.length === 0) {
-      toast({
-        title: "No transcription models selected",
-        description: "Please select at least one transcription model",
-        variant: "destructive",
-      });
+      toast.error("No transcription models selected", "Please select at least one transcription model");
       return;
     }
     
@@ -138,10 +129,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       console.log("Transcription jobs created:", jobIds);
       
-      toast({
-        title: "Transcription jobs created",
-        description: `Started ${jobIds.length} transcription jobs`,
-      });
+      toast.success("Transcription jobs created", `Started ${jobIds.length} transcription jobs`);
       
       logOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
       
@@ -152,11 +140,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     } catch (error) {
       console.error("Error starting transcription:", error);
       
-      toast({
-        title: "Transcription failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
+      toast.error("Transcription failed", error instanceof Error ? error.message : "An unknown error occurred");
       
     } finally {
       setIsProcessing(false);
