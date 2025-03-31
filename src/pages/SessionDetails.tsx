@@ -1,12 +1,29 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Clock, FileText, CheckCircle, AlertCircle, Split, Columns, XCircle, Send, Download } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { 
+  Loader2, 
+  ArrowLeft, 
+  Clock, 
+  FileText, 
+  CheckCircle, 
+  AlertCircle, 
+  Split, 
+  Columns, 
+  XCircle, 
+  Send, 
+  Download,
+  Video,
+  FileSymlink,
+  RefreshCw,
+  RotateCcw,
+  Calendar,
+  Info
+} from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLogsStore } from "@/lib/useLogsStore";
+import { Badge } from "@/components/ui/badge";
 
 // Update the interface to match the actual data structure
 interface TranscriptionJobFromAPI {
@@ -470,120 +488,140 @@ const SessionDetails = () => {
     <>
       <Header />
       <div className="container py-6">
-        <div className="max-w-[1440px] mx-auto p-4 md:p-6">
-          <div className="flex items-center justify-between mb-6">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="flex items-center gap-1.5"
-              asChild
-            >
-              <Link to="/app">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Link>
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant={comparisonMode ? "default" : "outline"}
+        <div className="max-w-7xl mx-auto p-4 md:p-6">
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center justify-between">
+              <Button 
+                variant="outline" 
                 size="sm"
-                onClick={toggleComparisonMode}
-                className="flex items-center gap-1.5"
+                className="flex items-center gap-1.5 shadow-soft hover-lift"
+                asChild
               >
-                {comparisonMode ? (
-                  <>
-                    <XCircle className="h-4 w-4" />
-                    Exit Comparison
-                  </>
-                ) : (
-                  <>
-                    <Split className="h-4 w-4" />
-                    Compare Results
-                  </>
-                )}
+                <Link to="/app">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Dashboard
+                </Link>
               </Button>
               
-              {selectedJob && (
-                <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="flex items-center gap-1.5">
-                      <Send className="h-4 w-4" />
-                      Publish to Brightcove
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Publish to Brightcove</DialogTitle>
-                      <DialogDescription>
-                        Enter the Brightcove video ID to publish the selected transcription as a caption.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="videoId">Brightcove Video ID</Label>
-                        <Input 
-                          id="videoId"
-                          value={videoId}
-                          onChange={(e) => setVideoId(e.target.value)}
-                          placeholder="e.g. 1234567890"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Selected Transcription</Label>
-                        <div className="p-2 bg-muted rounded-md text-sm">
-                          {getModelDisplayName(selectedJob.model)}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={comparisonMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={toggleComparisonMode}
+                  className="flex items-center gap-1.5 shadow-soft hover-lift"
+                >
+                  {comparisonMode ? (
+                    <>
+                      <XCircle className="h-4 w-4" />
+                      Exit Comparison
+                    </>
+                  ) : (
+                    <>
+                      <Split className="h-4 w-4" />
+                      Compare Results
+                    </>
+                  )}
+                </Button>
+                
+                {selectedJob && (
+                  <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        className="flex items-center gap-1.5 shadow-soft hover-lift"
+                      >
+                        <Send className="h-4 w-4" />
+                        Publish to Brightcove
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="shadow-soft border-2">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl flex items-center gap-2">
+                          <Video className="h-5 w-5 text-primary" />
+                          Publish to Brightcove
+                        </DialogTitle>
+                        <DialogDescription>
+                          Enter the Brightcove video ID to publish the selected transcription as a caption.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="videoId" className="font-medium">Brightcove Video ID</Label>
+                          <Input 
+                            id="videoId"
+                            value={videoId}
+                            onChange={(e) => setVideoId(e.target.value)}
+                            placeholder="e.g. 1234567890"
+                            className="shadow-inner-soft focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-medium">Selected Transcription</Label>
+                          <div className="p-3 bg-muted rounded-md text-sm border">
+                            <span className="font-medium">{getModelDisplayName(selectedJob.model)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={publishToBrightcove} 
-                        disabled={isPublishing || !videoId}
-                      >
-                        {isPublishing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Publishing...
-                          </>
-                        ) : (
-                          "Publish Caption"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={publishToBrightcove} 
+                          disabled={isPublishing || !videoId}
+                          className="gap-1.5"
+                        >
+                          {isPublishing ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Publishing...
+                            </>
+                          ) : (
+                            <>
+                              <FileSymlink className="h-4 w-4" />
+                              Publish Caption
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Transcription Session Details</h1>
+              {sessionTimestamp && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <p>
+                    Session from {format(new Date(decodeURIComponent(sessionTimestamp)), 'MMM d, yyyy - h:mm a')} 
+                    <span className="text-muted-foreground/70 text-sm ml-2">
+                      ({formatDistanceToNow(new Date(decodeURIComponent(sessionTimestamp)), { addSuffix: true })})
+                    </span>
+                  </p>
+                </div>
               )}
             </div>
           </div>
           
-          <h1 className="text-2xl font-bold mb-4">Transcription Session Details</h1>
-          <p className="text-muted-foreground mb-6">
-            {sessionTimestamp && (
-              <>
-                Session from {new Date(decodeURIComponent(sessionTimestamp)).toLocaleString()} 
-                ({formatDistanceToNow(new Date(decodeURIComponent(sessionTimestamp)), { addSuffix: true })})
-              </>
-            )}
-          </p>
-          
           {loading ? (
-            <div className="flex flex-col items-center justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <div className="flex flex-col items-center justify-center p-12 mt-8 border rounded-lg shadow-soft bg-card">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
               <p className="text-muted-foreground">Loading session details...</p>
             </div>
           ) : sessionJobs.length === 0 ? (
-            <Card className="p-8 text-center">
+            <Card className="p-8 text-center shadow-soft border-2 animate-fade-in mt-8">
               <CardContent className="flex flex-col items-center justify-center pt-6">
-                <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <div className="w-16 h-16 rounded-full bg-muted/80 flex items-center justify-center mb-4">
+                  <FileText className="h-8 w-8 text-muted-foreground/50" />
+                </div>
                 <h2 className="text-xl font-semibold mb-2">No Jobs Found</h2>
                 <p className="text-muted-foreground mb-4">
                   We couldn't find any transcription jobs for this session.
                 </p>
-                <Button asChild>
+                <Button asChild className="shadow-soft hover-lift">
                   <Link to="/app">Return to Dashboard</Link>
                 </Button>
               </CardContent>
@@ -591,20 +629,27 @@ const SessionDetails = () => {
           ) : (
             <>
               {comparisonMode && jobsToCompare.length > 0 && (
-                <div className="mb-6 p-4 bg-muted rounded-lg border">
+                <div className="mb-6 p-4 bg-primary/5 rounded-lg border border-primary/20 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium">Selected for comparison: {jobsToCompare.length}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {jobsToCompare.map(job => getModelDisplayName(job.model)).join(' • ')}
-                      </p>
+                      <h3 className="font-medium flex items-center">
+                        <Info className="mr-2 h-4 w-4 text-primary" />
+                        Selected for comparison: {jobsToCompare.length}
+                      </h3>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {jobsToCompare.map(job => (
+                          <Badge key={job.id} variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                            {getModelDisplayName(job.model)}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                     
                     <Button 
                       variant="default" 
                       onClick={startComparison}
                       disabled={jobsToCompare.length < 2}
-                      className="flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 shadow-soft hover-lift"
                     >
                       <Columns className="h-4 w-4" />
                       Compare Side by Side
@@ -615,22 +660,26 @@ const SessionDetails = () => {
               
               {viewMode === 'compare' ? (
                 /* Comparison View - updated for multiple models */
-                <div className="grid gap-6 auto-cols-fr">
+                <div className="grid gap-6 auto-cols-fr animate-scale-in">
                   <div className={`grid grid-cols-1 ${
                     jobsToCompare.length === 2 ? 'md:grid-cols-2' : 
                     jobsToCompare.length === 3 ? 'md:grid-cols-3' : 
-                    jobsToCompare.length >= 4 ? 'md:grid-cols-2 lg:grid-cols-4' : ''
+                    jobsToCompare.length >= 4 ? 'md:grid-cols-2 lg:grid-cols-3' : ''
                   } gap-6`}>
                     {jobsToCompare.map((job) => (
-                      <Card key={job.id} className="h-full">
-                        <CardHeader>
-                          <CardTitle className="text-xl">{getModelDisplayName(job.model)}</CardTitle>
+                      <Card key={job.id} className="h-full shadow-soft border-2 hover:shadow-md transition-shadow duration-300">
+                        <CardHeader className="bg-gradient-to-r from-accent/5 to-primary/5 border-b">
+                          <CardTitle className="text-xl flex items-center gap-2">
+                            <Badge className="bg-accent text-accent-foreground">
+                              {getModelDisplayName(job.model)}
+                            </Badge>
+                          </CardTitle>
                           <CardDescription>
                             Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
                           </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <ScrollArea className="h-[500px] pr-4">
+                        <CardContent className="p-0">
+                          <ScrollArea className="h-[500px] p-4">
                             <TranscriptionCard
                               modelName={getModelDisplayName(job.model)}
                               vttContent={extractVttContent(job)}
@@ -642,22 +691,46 @@ const SessionDetails = () => {
                             />
                           </ScrollArea>
                         </CardContent>
+                        <CardFooter className="border-t p-3 flex justify-end gap-2 bg-muted/30">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-1.5"
+                            onClick={() => exportTranscription(job)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Export
+                          </Button>
+                        </CardFooter>
                       </Card>
                     ))}
+                  </div>
+                  <div className="flex justify-center mt-2">
+                    <Button 
+                      variant="outline" 
+                      className="gap-1.5 shadow-soft hover-lift"
+                      onClick={() => setViewMode('single')}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Return to Single View
+                    </Button>
                   </div>
                 </div>
               ) : (
                 /* Standard View */
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-fade-in">
                   {/* Left column - Jobs list */}
-                  <Card className="md:col-span-5">
-                    <CardHeader>
-                      <CardTitle>Transcription Jobs</CardTitle>
+                  <Card className="md:col-span-5 shadow-soft">
+                    <CardHeader className="bg-gradient-to-r from-background to-secondary/30">
+                      <CardTitle className="flex items-center gap-2">
+                        <RefreshCw className="h-5 w-5 text-primary" />
+                        Transcription Jobs
+                      </CardTitle>
                       <CardDescription>
                         {sessionJobs.length} jobs in this session
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -672,8 +745,9 @@ const SessionDetails = () => {
                             <TableRow 
                               key={job.id}
                               className={`
-                                ${job.id === selectedJob?.id ? "bg-muted/50" : ""}
-                                ${isJobSelectedForComparison(job.id) ? "bg-primary/10" : ""}
+                                ${job.id === selectedJob?.id ? "bg-primary/5" : ""}
+                                ${isJobSelectedForComparison(job.id) ? "bg-accent/10" : ""}
+                                highlight-on-hover
                               `}
                               onClick={() => handleSelectJob(job)}
                               style={{ cursor: job.status === 'completed' ? 'pointer' : 'default' }}
@@ -699,6 +773,7 @@ const SessionDetails = () => {
                                       e.stopPropagation();
                                       handleSelectJob(job);
                                     }}
+                                    className="hover:bg-primary/10"
                                   >
                                     {comparisonMode ? (
                                       isJobSelectedForComparison(job.id) ? "Deselect" : "Select"
@@ -720,28 +795,33 @@ const SessionDetails = () => {
                   </Card>
                   
                   {/* Right column - Selected job details */}
-                  <Card className="md:col-span-7">
-                    <CardHeader>
-                      <CardTitle>Transcription Result</CardTitle>
+                  <Card className="md:col-span-7 shadow-soft border-2">
+                    <CardHeader className="bg-gradient-to-r from-background to-muted/50 border-b">
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        Transcription Result
+                      </CardTitle>
                       <CardDescription>
                         {selectedJob 
                           ? `${getModelDisplayName(selectedJob.model)} transcription` 
                           : "Select a completed job to view details"}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4">
                       {selectedJob ? (
-                        <TranscriptionCard
-                          modelName={getModelDisplayName(selectedJob.model)}
-                          vttContent={extractVttContent(selectedJob)}
-                          prompt={selectedJob.result?.prompt || ""}
-                          onSelect={() => {}}
-                          isSelected={true}
-                          audioSrc={audioUrl || undefined}
-                          isLoading={false}
-                        />
+                        <div className="animate-fade-in">
+                          <TranscriptionCard
+                            modelName={getModelDisplayName(selectedJob.model)}
+                            vttContent={extractVttContent(selectedJob)}
+                            prompt={selectedJob.result?.prompt || ""}
+                            onSelect={() => {}}
+                            isSelected={true}
+                            audioSrc={audioUrl || undefined}
+                            isLoading={false}
+                          />
+                        </div>
                       ) : (
-                        <div className="p-12 text-center border rounded-md border-dashed">
+                        <div className="p-12 text-center border rounded-md border-dashed animate-pulse-opacity">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
                           <p className="text-muted-foreground text-sm">
@@ -750,12 +830,14 @@ const SessionDetails = () => {
                         </div>
                       )}
                     </CardContent>
-                    <CardFooter className="flex justify-between flex-wrap gap-2">
+                    <CardFooter className="flex justify-between flex-wrap gap-2 border-t p-4 bg-muted/30">
                       <Button 
                         variant="outline"
                         asChild
+                        className="shadow-soft hover-lift"
                       >
                         <Link to="/app">
+                          <ArrowLeft className="mr-2 h-4 w-4" />
                           Back to Dashboard
                         </Link>
                       </Button>
@@ -766,7 +848,7 @@ const SessionDetails = () => {
                             value={exportFormat} 
                             onValueChange={(value) => setExportFormat(value as ExportFormat)}
                           >
-                            <SelectTrigger className="w-[130px]">
+                            <SelectTrigger className="w-[130px] shadow-soft">
                               <SelectValue placeholder="Format" />
                             </SelectTrigger>
                             <SelectContent>
@@ -780,7 +862,7 @@ const SessionDetails = () => {
                           <Button 
                             variant="outline"
                             onClick={() => exportTranscription(selectedJob)}
-                            className="flex items-center gap-1.5"
+                            className="flex items-center gap-1.5 shadow-soft hover-lift"
                           >
                             <Download className="h-4 w-4" />
                             Export
@@ -789,7 +871,7 @@ const SessionDetails = () => {
                           <Button 
                             variant="default"
                             onClick={() => setPublishDialogOpen(true)}
-                            className="flex items-center gap-1.5"
+                            className="flex items-center gap-1.5 shadow-soft hover-lift"
                           >
                             <Send className="h-4 w-4" />
                             Publish to Brightcove

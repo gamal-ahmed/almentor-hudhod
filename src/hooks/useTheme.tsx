@@ -6,43 +6,51 @@ type Theme = 'light' | 'dark';
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
+  isLoaded: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Check for stored preference first
-    const storedTheme = localStorage.getItem('theme') as Theme | null;
-    if (storedTheme) {
-      return storedTheme;
-    }
-    
-    // Check for system preference
-    const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches 
-      ? 'dark' 
-      : 'light';
-    
-    return systemPreference;
-  });
+  const [theme, setTheme] = useState<Theme>('light');
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    // Check for stored preference first
+    const storedTheme = localStorage.getItem('theme') as Theme | null;
+    
+    // Determine initial theme
+    const initialTheme = storedTheme || 
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    
+    setTheme(initialTheme);
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    
     const root = window.document.documentElement;
     
-    // Add transition class first
+    // Add transition class for smooth changes
     root.classList.add('transition-colors');
     root.classList.add('duration-300');
     
-    // Then update theme classes
+    // Update theme classes
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     
     // Save preference
     localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, [theme, isLoaded]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, isLoaded }}>
       {children}
     </ThemeContext.Provider>
   );
