@@ -106,120 +106,25 @@ const Index = () => {
     setTranscriptionPrompt(newPrompt.trim());
   };
   
-  // Handle playback of audio file
-  const toggleAudioPlayback = () => {
-    if (!audioRef.current) return;
-    
-    if (isAudioPlaying) {
-      audioRef.current.pause();
-      setIsAudioPlaying(false);
-    } else {
-      audioRef.current.play()
-        .then(() => {
-          setIsAudioPlaying(true);
-        })
-        .catch(error => {
-          console.error("Error playing audio:", error);
-          setIsAudioPlaying(false);
-        });
-    }
+  // When transcriptions are created
+  const handleTranscriptionsCreated = (jobIds: string[]) => {
+    console.log("Transcription jobs created, transitioning to next step", jobIds);
+    setRefreshJobsTrigger(prev => prev + 1);
+    goToNextStep();
   };
   
-  // Handle SharePoint files being queued
-  const handleFilesQueued = (files: File[]) => {
-    setFileQueue(files);
-    setCurrentQueueIndex(0);
-  };
-  
-  // Process the next file in the queue
-  const processNextInQueue = async () => {
-    if (currentQueueIndex >= fileQueue.length) {
-      return;
-    }
-    
-    const nextFile = fileQueue[currentQueueIndex];
-    await handleFileUpload(nextFile);
-    setCurrentQueueIndex(prev => prev + 1);
-  };
-  
-  // Skip the current file in the queue
-  const skipCurrentInQueue = () => {
-    setCurrentQueueIndex(prev => prev + 1);
-  };
-  
-  // Reset the queue
-  const resetQueue = () => {
-    setFileQueue([]);
-    setCurrentQueueIndex(0);
-    setFile(null);
-    setAudioUrl(null);
-    setSelectedTranscription(null);
-    setSelectedModel(null);
-  };
-  
-  // When a file is uploaded
-  const handleFileUpload = async (uploadedFile: File) => {
-    try {
-      setFile(uploadedFile);
-      const newAudioUrl = URL.createObjectURL(uploadedFile);
-      setAudioUrl(newAudioUrl);
-      setSelectedTranscription(null);
-      setSelectedModel(null);
-      
-      setTranscriptions({
-        openai: { vtt: "", prompt: "", loading: false },
-        "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
-        phi4: { vtt: "", prompt: "", loading: false }
-      });
-      
-      toast({
-        title: "File Selected",
-        description: "Your audio file is ready for transcription.",
-      });
-      
-    } catch (error) {
-      console.error("Error handling file:", error);
-      
-      toast({
-        title: "File Error",
-        description: "There was a problem with your file.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Update options and regenerate prompt
-  const handlePreserveEnglishChange = (checked: boolean) => {
-    setPreserveEnglish(checked);
-    setTimeout(updatePromptFromOptions, 0);
-  };
-  
-  const handleOutputFormatChange = (format: "vtt" | "plain") => {
-    setOutputFormat(format);
-    setTimeout(updatePromptFromOptions, 0);
-  };
-  
-  const handleNotificationsChange = async (enabled: boolean) => {
-    if (enabled) {
-      const granted = await requestNotificationPermission();
-      setNotificationsEnabled(granted);
-    } else {
-      setNotificationsEnabled(false);
-    }
+  // When a file is selected
+  const handleFileSelected = (uploadedFile: File) => {
+    console.log("File selected in Index:", uploadedFile.name);
+    setFile(uploadedFile);
+    const newAudioUrl = URL.createObjectURL(uploadedFile);
+    setAudioUrl(newAudioUrl);
   };
   
   // When a transcription is selected from jobs or cards
   const handleSelectTranscription = (vtt: string, model: string) => {
     setSelectedTranscription(vtt);
     setSelectedModel(model);
-  };
-
-  // Handle when transcriptions are created
-  const handleTranscriptionsCreated = (jobIds: string[]) => {
-    setRefreshJobsTrigger(prev => prev + 1);
-    goToNextStep();
   };
   
   return (

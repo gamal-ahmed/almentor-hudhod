@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
@@ -13,7 +13,6 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [invalidFile, setInvalidFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -38,11 +37,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
     } catch (error) {
       console.error("Error handling dropped file:", error);
       setInvalidFile(true);
-      toast({
-        title: "Error processing file",
-        description: "There was a problem with the dropped file. Please try another one.",
-        variant: "destructive"
-      });
+      toast.error("Error processing file. Please try another one.");
     }
   };
 
@@ -55,11 +50,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
     } catch (error) {
       console.error("Error handling selected file:", error);
       setInvalidFile(true);
-      toast({
-        title: "Error processing file",
-        description: "There was a problem with the selected file. Please try another one.",
-        variant: "destructive"
-      });
+      toast.error("Error processing file. Please try another one.");
     }
   };
 
@@ -72,14 +63,12 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       
       // Check file type
       const isMP3 = file.type === "audio/mpeg" || file.name.toLowerCase().endsWith('.mp3');
+      const isM4A = file.type === "audio/m4a" || file.name.toLowerCase().endsWith('.m4a');
+      const isWAV = file.type === "audio/wav" || file.name.toLowerCase().endsWith('.wav');
       
-      if (!isMP3) {
+      if (!isMP3 && !isM4A && !isWAV) {
         setInvalidFile(true);
-        toast({
-          title: "Invalid file type",
-          description: "Please upload an MP3 file",
-          variant: "destructive"
-        });
+        toast.error("Please upload an MP3, M4A, or WAV file");
         return;
       }
       
@@ -87,24 +76,17 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       const maxSize = 100 * 1024 * 1024; // 100MB
       if (file.size > maxSize) {
         setInvalidFile(true);
-        toast({
-          title: "File too large",
-          description: "Please upload an MP3 file smaller than 100MB",
-          variant: "destructive"
-        });
+        toast.error("Please upload an audio file smaller than 100MB");
         return;
       }
       
       setInvalidFile(false);
+      console.log("File valid, uploading:", file.name);
       onFileUpload(file);
     } catch (error) {
       console.error("Error handling file:", error);
       setInvalidFile(true);
-      toast({
-        title: "Error processing file",
-        description: "There was a problem with your file. Please try another one.",
-        variant: "destructive"
-      });
+      toast.error("Error processing file. Please try another one.");
     }
   };
 
@@ -123,7 +105,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".mp3,audio/mpeg"
+        accept=".mp3,.m4a,.wav,audio/mpeg,audio/wav"
         onChange={handleFileInput}
         className="hidden"
       />
@@ -136,8 +118,8 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       ) : (
         <>
           <Upload className={`h-6 w-6 ${invalidFile ? "text-red-500" : "text-muted-foreground"} mb-2`} />
-          <p className="font-medium">Drag & drop an MP3 file here or click to browse</p>
-          <p className="text-sm text-muted-foreground mt-1">MP3 files only (max 100MB)</p>
+          <p className="font-medium">Drag & drop an audio file here or click to browse</p>
+          <p className="text-sm text-muted-foreground mt-1">MP3, M4A, or WAV files only (max 100MB)</p>
         </>
       )}
     </div>

@@ -35,6 +35,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
 
   // Handle file upload
   const handleFileUpload = (file: File) => {
+    console.log("File uploaded in UploadConfigStep:", file.name);
     setUploadedFile(file);
     addLog(`File uploaded: ${file.name}`, "info", {
       source: "FileUpload",
@@ -45,6 +46,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   // Handle SharePoint file selection
   const handleSharePointFileSelect = (files: File[]) => {
     if (files.length > 0) {
+      console.log("SharePoint file selected:", files[0].name);
       setUploadedFile(files[0]);
       addLog(`SharePoint file selected: ${files[0].name}`, "info", {
         source: "SharePoint",
