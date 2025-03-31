@@ -9,14 +9,35 @@ import TranscriptionJobs from "@/components/TranscriptionJobs";
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, Settings, FileAudio, Check, Zap } from "lucide-react";
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Settings, 
+  FileAudio, 
+  Check, 
+  ArrowUpRight,
+  UploadCloud,
+  ListChecks,
+  Sliders,
+  Sparkles
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { 
+  HoverCard, 
+  HoverCardContent, 
+  HoverCardTrigger 
+} from "@/components/ui/hover-card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Index = () => {
   const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>([]);
@@ -124,16 +145,18 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-muted/30">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-muted/10">
       <Header />
       
       <main className="flex-1 container max-w-7xl py-8 px-4">
         <div className="flex flex-col gap-6">
           {/* Welcome Section */}
           <div className="text-center mb-4 pt-4 pb-2">
-            <h1 className="text-3xl font-bold text-foreground">Audio Transcription Studio</h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
-              Upload your audio files, select AI models, and get accurate transcriptions in minutes
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Audio Transcription Studio
+            </h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Convert speech to text with our advanced AI models
             </p>
           </div>
           
@@ -153,8 +176,8 @@ const Index = () => {
                   <Card className="border shadow-sm overflow-hidden bg-card/95 backdrop-blur-sm">
                     <CardHeader className="bg-primary/5 border-b border-border/50 pb-4">
                       <CardTitle className="flex items-center text-xl font-medium">
-                        <FileAudio className="mr-2 h-5 w-5 text-primary" />
-                        Audio Transcription
+                        <UploadCloud className="mr-2 h-5 w-5 text-primary" />
+                        Audio Processing
                       </CardTitle>
                       <CardDescription>
                         Upload your audio files and configure transcription settings
@@ -166,25 +189,53 @@ const Index = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">1</Badge>
-                          Upload Audio File
+                          <h3>Upload Audio File</h3>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                                  <span className="sr-only">Info</span>
+                                  ?
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Upload audio files to be transcribed. Supported formats: MP3, WAV, M4A, FLAC</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
-                        <FileUpload 
-                          onFileUpload={handleFileUpload}
-                          isUploading={processing}
-                        />
+                        <div className="bg-muted/40 rounded-lg border border-border/50 p-4">
+                          <FileUpload 
+                            onFileUpload={handleFileUpload}
+                            isUploading={processing}
+                          />
+                        </div>
                       </div>
                       
                       {/* Step 2: Model Selection */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">2</Badge>
-                          Select AI Models
+                          <h3>Select AI Models</h3>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                                  <span className="sr-only">Info</span>
+                                  ?
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Choose one or more AI models to compare transcription results</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
-                        <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+                        <div className="bg-muted/40 rounded-lg border border-border/50 p-4">
                           <HoverCard>
                             <HoverCardTrigger asChild>
-                              <h3 className="font-medium text-sm flex items-center cursor-help">
-                                <Zap className="mr-2 h-4 w-4 text-amber-500" />
+                              <h3 className="font-medium text-sm flex items-center cursor-help mb-3">
+                                <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
                                 Transcription AI Models
                               </h3>
                             </HoverCardTrigger>
@@ -197,13 +248,11 @@ const Index = () => {
                               </div>
                             </HoverCardContent>
                           </HoverCard>
-                          <div className="mt-2">
-                            <ModelSelector 
-                              selectedModels={selectedModels}
-                              onModelChange={handleModelChange}
-                              disabled={processing}
-                            />
-                          </div>
+                          <ModelSelector 
+                            selectedModels={selectedModels}
+                            onModelChange={handleModelChange}
+                            disabled={processing}
+                          />
                         </div>
                       </div>
                       
@@ -211,12 +260,25 @@ const Index = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">3</Badge>
-                          Configuration Options
+                          <h3>Configuration Options</h3>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                                  <span className="sr-only">Info</span>
+                                  ?
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Configure advanced settings for transcription</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                         <Collapsible 
                           open={showAdvancedOptions}
                           onOpenChange={setShowAdvancedOptions}
-                          className="border rounded-lg overflow-hidden bg-card/50"
+                          className="border rounded-lg overflow-hidden bg-muted/40"
                         >
                           <CollapsibleTrigger asChild>
                             <Button 
@@ -224,7 +286,7 @@ const Index = () => {
                               className="w-full flex items-center justify-between p-3 h-auto rounded-none border-0"
                             >
                               <div className="flex items-center">
-                                <Settings className="h-4 w-4 mr-2 text-muted-foreground" />
+                                <Sliders className="h-4 w-4 mr-2 text-muted-foreground" />
                                 <span>Advanced Options</span>
                               </div>
                               {showAdvancedOptions ? (
@@ -252,9 +314,26 @@ const Index = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">4</Badge>
-                          Process Files
+                          <h3>File Queue</h3>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                                  <span className="sr-only">Info</span>
+                                  ?
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Manage your audio file queue and start processing</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
-                        <div className="bg-muted/60 border border-border/50 rounded-lg p-4">
+                        <div className="bg-muted/40 border border-border/50 rounded-lg p-4">
+                          <div className="flex items-center mb-3">
+                            <ListChecks className="h-4 w-4 text-primary mr-2" />
+                            <h3 className="font-medium text-sm">Processing Queue</h3>
+                          </div>
                           <FileQueue 
                             files={queuedFiles}
                             currentIndex={currentFileIndex}
@@ -264,6 +343,23 @@ const Index = () => {
                             isProcessing={processing}
                             notificationsEnabled={notificationsEnabled}
                           />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Quick Help Card */}
+                  <Card className="border shadow-sm overflow-hidden bg-card/95 backdrop-blur-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-blue-500/10 p-2 rounded-full mt-0.5">
+                          <ArrowUpRight className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-sm mb-1">Pro Tip</h3>
+                          <p className="text-xs text-muted-foreground">
+                            For best results, compare transcriptions from multiple AI models and use the advanced options to fine-tune the output format.
+                          </p>
                         </div>
                       </div>
                     </CardContent>
@@ -283,7 +379,7 @@ const Index = () => {
                       </CardDescription>
                     </CardHeader>
                     
-                    <CardContent className="p-4 lg:p-6 min-h-[500px]">
+                    <CardContent className="p-4 lg:p-6">
                       <TranscriptionJobs 
                         onSelectTranscription={handleTranscriptionSelect}
                         refreshTrigger={refreshTrigger}
@@ -297,9 +393,18 @@ const Index = () => {
         </div>
       </main>
       
-      <footer className="py-6 border-t bg-background mt-auto">
-        <div className="container text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} VoiceScribe - Advanced Audio Transcription Platform</p>
+      <footer className="py-6 border-t bg-background/95 backdrop-blur-sm mt-auto">
+        <div className="container flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-2">
+            <FileAudio className="h-4 w-4 text-primary" />
+            <span className="text-sm text-muted-foreground">VoiceScribe - Advanced Audio Transcription</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms</a>
+            <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
+            <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Support</a>
+            <span className="text-xs text-muted-foreground">© {new Date().getFullYear()} VoiceScribe</span>
+          </div>
         </div>
       </footer>
     </div>
