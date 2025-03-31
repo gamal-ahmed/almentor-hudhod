@@ -3,10 +3,11 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Copy, Play, Pause, Info } from "lucide-react";
+import { Check, Copy, Play, Pause, Info, Volume2, VolumeX, FastForward, Rewind } from "lucide-react";
 import { parseVTT } from "@/lib/vttParser";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLogsStore } from "@/lib/useLogsStore";
+import { Slider } from "@/components/ui/slider";
 
 interface TranscriptionCardProps {
   modelName: string;
@@ -36,6 +37,12 @@ const TranscriptionCard = ({
   const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeSegment, setActiveSegment] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isAudioLoaded, setIsAudioLoaded] = useState(false);
+  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const addLog = useLogsStore(state => state.addLog);
   
@@ -45,7 +52,8 @@ const TranscriptionCard = ({
       hasContent: !!vttContent, 
       contentLength: vttContent?.length || 0,
       isLoading, 
-      isSelected 
+      isSelected,
+      hasAudio: !!audioSrc
     });
     
     if (modelName.includes("Gemini")) {
@@ -54,7 +62,7 @@ const TranscriptionCard = ({
         details: `Content length: ${vttContent?.length || 0}, Loading: ${isLoading}, Content sample: ${vttContent?.substring(0, 100) || 'empty'}`
       });
     }
-  }, [vttContent, isLoading, modelName, addLog]);
+  }, [vttContent, isLoading, modelName, addLog, audioSrc]);
   
   // Parse VTT content and log results for debugging
   const parseVttContent = () => {
@@ -152,51 +160,81 @@ const TranscriptionCard = ({
   
   // Setup audio element and event handling
   useEffect(() => {
-    if (audioRef.current) {
-      // Event listeners for tracking playback time and updating active segment
-      const handleTimeUpdate = () => {
-        if (!audioRef.current) return;
-        
-        const currentTime = audioRef.current.currentTime;
-        
-        // Find the segment that corresponds to the current playback time
-        const index = vttSegments.findIndex((segment) => {
-          const startSeconds = parseTimeToSeconds(segment.startTime);
-          const endSeconds = parseTimeToSeconds(segment.endTime);
-          return currentTime >= startSeconds && currentTime <= endSeconds;
-        });
-        
-        if (index !== -1) {
-          setActiveSegment(index);
-        } else {
-          setActiveSegment(null);
-        }
-      };
+    if (!audioRef.current) return;
+    
+    // Event listeners for tracking playback time and updating active segment
+    const handleTimeUpdate = () => {
+      if (!audioRef.current) return;
       
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
-      const handleEnded = () => {
-        setIsPlaying(false);
+      const currentTime = audioRef.current.currentTime;
+      setCurrentTime(currentTime);
+      
+      // Find the segment that corresponds to the current playback time
+      const index = vttSegments.findIndex((segment) => {
+        const startSeconds = parseTimeToSeconds(segment.startTime);
+        const endSeconds = parseTimeToSeconds(segment.endTime);
+        return currentTime >= startSeconds && currentTime <= endSeconds;
+      });
+      
+      if (index !== -1) {
+        setActiveSegment(index);
+      } else {
         setActiveSegment(null);
-      };
+      }
+    };
+    
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setActiveSegment(null);
+      setCurrentTime(0);
       
-      // Add event listeners
-      audioRef.current.addEventListener('timeupdate', handleTimeUpdate);
-      audioRef.current.addEventListener('play', handlePlay);
-      audioRef.current.addEventListener('pause', handlePause);
-      audioRef.current.addEventListener('ended', handleEnded);
-      
-      // Cleanup function
-      return () => {
-        if (audioRef.current) {
-          audioRef.current.removeEventListener('timeupdate', handleTimeUpdate);
-          audioRef.current.removeEventListener('play', handlePlay);
-          audioRef.current.removeEventListener('pause', handlePause);
-          audioRef.current.removeEventListener('ended', handleEnded);
-        }
-      };
-    }
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+      }
+    };
+    
+    const handleLoadedMetadata = () => {
+      if (audioRef.current) {
+        setDuration(audioRef.current.duration);
+        setIsAudioLoaded(true);
+      }
+    };
+    
+    // Add event listeners
+    audioRef.current.addEventListener('timeupdate', handleTimeUpdate);
+    audioRef.current.addEventListener('play', handlePlay);
+    audioRef.current.addEventListener('pause', handlePause);
+    audioRef.current.addEventListener('ended', handleEnded);
+    audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    // Cleanup function
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.removeEventListener('timeupdate', handleTimeUpdate);
+        audioRef.current.removeEventListener('play', handlePlay);
+        audioRef.current.removeEventListener('pause', handlePause);
+        audioRef.current.removeEventListener('ended', handleEnded);
+        audioRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      }
+    };
   }, [vttSegments]);
+  
+  // Handle volume changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      audioRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted]);
+  
+  // Format time for display (MM:SS)
+  const formatTime = (timeInSeconds: number): string => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
   
   const handleCopy = () => {
     if (vttContent) {
@@ -217,8 +255,45 @@ const TranscriptionCard = ({
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(err => {
+        console.error('Error playing audio:', err);
+        addLog(`Error playing audio: ${err.message}`, "error", {
+          source: "TranscriptionCard",
+          details: err.stack
+        });
+      });
     }
+  };
+  
+  const handleSeek = (value: number[]) => {
+    if (!audioRef.current) return;
+    
+    const newTime = value[0];
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+  
+  const handleVolumeChange = (value: number[]) => {
+    const newVolume = value[0];
+    setVolume(newVolume);
+    setIsMuted(newVolume === 0);
+  };
+  
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    if (isMuted && volume === 0) {
+      setVolume(0.5);
+    }
+  };
+  
+  const jumpForward = () => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = Math.min(audioRef.current.currentTime + 10, duration);
+  };
+  
+  const jumpBackward = () => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = Math.max(audioRef.current.currentTime - 10, 0);
   };
   
   // Helper function to convert VTT timestamp to seconds
@@ -433,16 +508,101 @@ const TranscriptionCard = ({
           </div>
         )}
       </CardContent>
+      
+      {audioSrc && (
+        <div className={`px-6 pt-2 pb-0 border-t ${showAudioPlayer ? '' : 'hidden'}`}>
+          <div className="audio-player space-y-2">
+            <audio ref={audioRef} src={audioSrc} preload="metadata" />
+            
+            <div className="flex items-center justify-between space-x-2">
+              <div className="text-xs text-muted-foreground w-10">{formatTime(currentTime)}</div>
+              
+              <div className="flex-1">
+                <Slider
+                  value={[currentTime]}
+                  min={0}
+                  max={duration || 100}
+                  step={0.1}
+                  onValueChange={handleSeek}
+                  disabled={!isAudioLoaded}
+                  className="cursor-pointer"
+                />
+              </div>
+              
+              <div className="text-xs text-muted-foreground w-10">{formatTime(duration)}</div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleMute}
+                  className="h-8 w-8"
+                >
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </Button>
+                
+                <div className="w-20">
+                  <Slider
+                    value={[isMuted ? 0 : volume]}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    onValueChange={handleVolumeChange}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={jumpBackward}
+                  className="h-8 w-8"
+                  disabled={!isAudioLoaded}
+                >
+                  <Rewind className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={togglePlay}
+                  className="h-10 w-10 rounded-full"
+                  disabled={!isAudioLoaded}
+                >
+                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={jumpForward}
+                  className="h-8 w-8"
+                  disabled={!isAudioLoaded}
+                >
+                  <FastForward className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="w-24"></div> {/* Placeholder for balance */}
+            </div>
+          </div>
+        </div>
+      )}
+      
       <CardFooter className="flex justify-between border-t pt-4">
         <div className="flex space-x-2">
           {audioSrc && (
-            <>
-              <audio ref={audioRef} src={audioSrc} />
-              <Button size="sm" variant="outline" onClick={togglePlay} disabled={!vttContent}>
-                {isPlaying ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
-                {isPlaying ? "Pause" : "Play"}
-              </Button>
-            </>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => setShowAudioPlayer(!showAudioPlayer)}
+            >
+              {showAudioPlayer ? "Hide Player" : "Show Player"}
+            </Button>
           )}
           <Button size="sm" variant="outline" onClick={handleCopy} disabled={isLoading || !vttContent}>
             {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
