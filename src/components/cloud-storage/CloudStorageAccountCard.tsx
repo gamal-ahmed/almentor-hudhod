@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CloudStorageAccount, CloudStorageProvider } from '@/types/cloudStorage';
-import { FileCloud, Cloud, ExternalLink, Trash2 } from 'lucide-react';
+import { FileIcon, Cloud, ExternalLink, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { 
   AlertDialog, 
@@ -31,7 +31,7 @@ const CloudStorageAccountCard: React.FC<CloudStorageAccountCardProps> = ({
   const getProviderIcon = (provider: CloudStorageProvider) => {
     switch (provider) {
       case 'google-drive':
-        return <FileCloud className="h-5 w-5 text-red-500" />;
+        return <FileIcon className="h-5 w-5 text-red-500" />;
       case 'dropbox':
         return <Cloud className="h-5 w-5 text-blue-500" />;
       default:

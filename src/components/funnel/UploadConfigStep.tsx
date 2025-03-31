@@ -10,11 +10,10 @@ import { AlertCircle, Upload, FileAudio, Share, Pause, Play, Cloud } from 'lucid
 import FileUpload from '@/components/FileUpload';
 import SharePointDownloader from '@/components/SharePointDownloader';
 import CloudStorageImporter from '@/components/cloud-storage/CloudStorageImporter';
-import ModelSelector from '@/components/ModelSelector';
+import ModelSelector, { TranscriptionModel } from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
 import { createTranscriptionJob } from '@/lib/api';
 import { toast } from 'sonner';
-import { TranscriptionModel } from '@/components/ModelSelector';
 
 interface UploadConfigStepProps {
   onJobCreated: (jobId: string) => void;
@@ -23,7 +22,7 @@ interface UploadConfigStepProps {
 const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('openai');
+  const [selectedModel, setSelectedModel] = useState<TranscriptionModel>('openai');
   const [promptText, setPromptText] = useState<string>('');
   const [uploadTab, setUploadTab] = useState<string>('direct');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,7 +75,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     setIsPlaying(false);
   };
 
-  const handleModelChange = (model: string) => {
+  const handleModelChange = (model: TranscriptionModel) => {
     setSelectedModel(model);
   };
 
@@ -99,18 +98,15 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         details: `Model: ${selectedModel}, File: ${uploadedFile.name}`
       });
       
-      // Create a form data object to upload the file
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('model', selectedModel);
-      if (promptText) {
-        formData.append('prompt', promptText);
-      }
-
-      const response = await createTranscriptionJob(formData);
+      // Create a transcription job
+      const { jobId } = await createTranscriptionJob(
+        uploadedFile,
+        selectedModel,
+        promptText
+      );
       
-      if (response.jobId) {
-        addLog(`Transcription job created: ${response.jobId}`, "success", {
+      if (jobId) {
+        addLog(`Transcription job created: ${jobId}`, "success", {
           source: "TranscriptionJob",
           details: `The job has been queued for processing.`
         });
@@ -119,7 +115,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
           description: "Your audio is being processed."
         });
         
-        onJobCreated(response.jobId);
+        onJobCreated(jobId);
       } else {
         throw new Error("No job ID returned");
       }
