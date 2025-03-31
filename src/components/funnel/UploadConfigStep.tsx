@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useLogsStore } from '@/lib/useLogsStore';
 import { useNavigate } from 'react-router-dom';
@@ -5,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Upload, FileAudio, Share, Pause, Play, Cloud } from 'lucide-react';
+import { AlertCircle, Upload, FileAudio, Share, Pause, Play, Cloud, Link } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 import SharePointDownloader from '@/components/SharePointDownloader';
 import CloudStorageImporter from '@/components/cloud-storage/CloudStorageImporter';
+import UrlAudioProcessor from '@/components/UrlAudioProcessor';
 import ModelSelector, { TranscriptionModel } from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
 import { createTranscriptionJob } from '@/lib/api';
@@ -65,6 +67,16 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         details: `Type: ${files[0].type}`
       });
     }
+  };
+  
+  // Handler for URL-processed audio
+  const handleUrlProcessedAudio = (file: File) => {
+    console.log("URL-processed audio:", file.name);
+    setUploadedFile(file);
+    addLog(`URL-processed audio: ${file.name}`, "info", {
+      source: "UrlAudioProcessor",
+      details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
+    });
   };
   
   const toggleAudioPlayback = () => {
@@ -151,16 +163,20 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       <CardHeader>
         <CardTitle>Transcribe Audio</CardTitle>
         <CardDescription>
-          Upload an audio file to transcribe or use one from cloud storage
+          Upload an audio file, use a URL, or select from cloud storage
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
         <Tabs defaultValue={uploadTab} onValueChange={setUploadTab} className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
+          <TabsList className="grid grid-cols-4 mb-4">
             <TabsTrigger value="direct" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
-              <span>Direct Upload</span>
+              <span>Upload</span>
+            </TabsTrigger>
+            <TabsTrigger value="url" className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              <span>URL</span>
             </TabsTrigger>
             <TabsTrigger value="sharepoint" className="flex items-center gap-2">
               <Share className="h-4 w-4" />
@@ -176,6 +192,13 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
             <FileUpload 
               onFileUpload={handleFileUpload}
               isUploading={isProcessing}
+            />
+          </TabsContent>
+          
+          <TabsContent value="url" className="space-y-4">
+            <UrlAudioProcessor 
+              onAudioProcessed={handleUrlProcessedAudio}
+              isProcessing={isProcessing}
             />
           </TabsContent>
           
@@ -252,7 +275,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
           <Alert variant="default" className="bg-primary/5 border-primary/20">
             <AlertCircle className="h-4 w-4 text-primary" />
             <AlertDescription>
-              Please upload or select an audio file to begin transcription.
+              Please upload, provide a URL, or select an audio file to begin transcription.
             </AlertDescription>
           </Alert>
         )}
