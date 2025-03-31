@@ -3,6 +3,7 @@ import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio, createTranscriptionJob, checkTranscriptionJobStatus, getUserTranscriptionJobs, resetStuckJobs } from "./transcriptionService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
 import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./brightcoveService";
+import { getCloudStorageConfig, saveCloudStorageConfig, updatePlatformConfig, isPlatformConfigured } from "./cloudStorageService";
 
 // Re-export all API functions for easy access
 export {
@@ -14,7 +15,12 @@ export {
   downloadSharePointFile,
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
-  resetStuckJobs
+  resetStuckJobs,
+  // Cloud storage functions
+  getCloudStorageConfig,
+  saveCloudStorageConfig,
+  updatePlatformConfig,
+  isPlatformConfigured
 };
 
 // Cloud storage related types

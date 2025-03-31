@@ -19,7 +19,7 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
   useEffect(() => {
     // Skip initialization if the platform is not configured
     if (!isPlatformConfigured('dropbox')) {
-      addLog("Dropbox is not configured. Please add your API credentials.", "warn");
+      addLog("Dropbox is not configured. Please add your API credentials.", "warning");
       return;
     }
 

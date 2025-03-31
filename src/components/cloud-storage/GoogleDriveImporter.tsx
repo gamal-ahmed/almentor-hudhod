@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, FileIcon } from "lucide-react";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -21,7 +20,7 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
   useEffect(() => {
     // Skip initialization if the platform is not configured
     if (!isPlatformConfigured('googleDrive')) {
-      addLog("Google Drive is not configured. Please add your API credentials.", "warn");
+      addLog("Google Drive is not configured. Please add your API credentials.", "warning");
       return;
     }
 
@@ -117,11 +116,12 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
       }
 
       const token = window.gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
+      const config = getCloudStorageConfig();
       
       const picker = new window.google.picker.PickerBuilder()
         .addView(new window.google.picker.View(window.google.picker.ViewId.AUDIO))
         .setOAuthToken(token)
-        .setDeveloperKey(API_KEY)
+        .setDeveloperKey(config.googleDrive.apiKey)
         .setCallback(pickerCallback)
         .build();
         
