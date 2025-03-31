@@ -4,19 +4,15 @@ import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector from "@/components/ModelSelector";
 import FileQueue from "@/components/FileQueue";
-import LogsPanel from "@/components/LogsPanel";
 import PromptOptions from "@/components/PromptOptions";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
-import TranscriptionCard from "@/components/TranscriptionCard";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, Settings, Activity, FileText, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Settings, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const Index = () => {
   const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>([]);
@@ -32,7 +28,6 @@ const Index = () => {
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
   
   const logs = useLogsStore(state => state.logs);
   
@@ -178,38 +173,6 @@ const Index = () => {
                 />
               </CardContent>
             </Card>
-            
-            {/* Logs Panel (Collapsible) */}
-            <Collapsible 
-              open={showLogs}
-              onOpenChange={setShowLogs}
-              className="border rounded-lg shadow-sm"
-            >
-              <CollapsibleTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  className="w-full flex items-center justify-between p-3 h-auto"
-                >
-                  <div className="flex items-center">
-                    <Activity className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>System Logs</span>
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {logs.length}
-                    </Badge>
-                  </div>
-                  {showLogs ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pt-0 pb-4">
-                <ScrollArea className="h-[200px] rounded-md mt-2">
-                  <LogsPanel logs={logs} />
-                </ScrollArea>
-              </CollapsibleContent>
-            </Collapsible>
           </div>
           
           {/* Right Side - Results Panel */}
@@ -227,35 +190,6 @@ const Index = () => {
                   onSelectTranscription={handleTranscriptionSelect}
                   refreshTrigger={refreshTrigger}
                 />
-              </CardContent>
-            </Card>
-            
-            {/* Selected Transcription Preview */}
-            <Card className="border-none shadow-md">
-              <CardHeader className="bg-gradient-to-r from-purple-500/10 to-transparent pb-3">
-                <CardTitle className="text-lg">Transcription Preview</CardTitle>
-                <CardDescription>
-                  Review and edit selected transcription
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {selectedTranscription ? (
-                  <TranscriptionCard
-                    modelName={selectedTranscriptionModel || ""}
-                    vttContent={selectedTranscription}
-                    prompt={transcriptionPrompt}
-                    onSelect={() => {}}
-                    isSelected={true}
-                    audioSrc={audioFileUrl || undefined}
-                    isLoading={false}
-                  />
-                ) : (
-                  <div className="border rounded-lg p-6 text-center bg-muted/30">
-                    <p className="text-muted-foreground">
-                      Select a completed transcription job to preview
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
