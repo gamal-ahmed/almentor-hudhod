@@ -5,12 +5,14 @@ import { getUserTranscriptionJobs } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Clock, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Clock, FileText, CheckCircle, AlertCircle, Split, Columns, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 
 // Update the interface to match the actual data structure
 interface TranscriptionJobFromAPI {
@@ -64,6 +66,11 @@ const SessionDetails = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { toast } = useToast();
   
+  // New state for comparison view
+  const [comparisonMode, setComparisonMode] = useState(false);
+  const [jobsToCompare, setJobsToCompare] = useState<TranscriptionJob[]>([]);
+  const [viewMode, setViewMode] = useState<'single' | 'compare'>('single');
+  
   useEffect(() => {
     const fetchSessionJobs = async () => {
       try {
@@ -88,12 +95,13 @@ const SessionDetails = () => {
           return Math.abs(jobTime.getTime() - targetTimestamp.getTime()) <= 30000;
         }).map(convertToTranscriptionJob); // Convert API jobs to our internal type
         
-        setSessionJobs(matchingJobs);
+        // Filter for completed jobs
+        const completedJobs = matchingJobs.filter(job => job.status === 'completed');
+        setSessionJobs(completedJobs);
         
         // If we have a completed job, select it by default
-        const completedJob = matchingJobs.find((job: TranscriptionJob) => job.status === 'completed');
-        if (completedJob) {
-          setSelectedJob(completedJob);
+        if (completedJobs.length > 0) {
+          setSelectedJob(completedJobs[0]);
         }
       } catch (error) {
         console.error("Error fetching session jobs:", error);
@@ -186,8 +194,72 @@ const SessionDetails = () => {
   
   const handleSelectJob = (job: TranscriptionJob) => {
     if (job.status === 'completed') {
-      setSelectedJob(job);
+      if (comparisonMode) {
+        toggleJobForComparison(job);
+      } else {
+        setSelectedJob(job);
+        setViewMode('single');
+      }
     }
+  };
+  
+  // Add/remove job from comparison list
+  const toggleJobForComparison = (job: TranscriptionJob) => {
+    setJobsToCompare(prev => {
+      const isAlreadySelected = prev.some(j => j.id === job.id);
+      
+      if (isAlreadySelected) {
+        return prev.filter(j => j.id !== job.id);
+      } else {
+        // Limit to maximum of 2 jobs for comparison
+        const newJobs = [...prev, job];
+        if (newJobs.length > 2) {
+          toast({
+            title: "Comparison Limit",
+            description: "You can only compare up to 2 transcriptions at once",
+          });
+          return prev;
+        }
+        return newJobs;
+      }
+    });
+  };
+  
+  // Toggle comparison mode
+  const toggleComparisonMode = () => {
+    if (comparisonMode) {
+      // Exiting comparison mode
+      setComparisonMode(false);
+      setJobsToCompare([]);
+      setViewMode('single');
+    } else {
+      // Entering comparison mode
+      setComparisonMode(true);
+      setJobsToCompare([]);
+      toast({
+        title: "Comparison Mode Activated",
+        description: "Select up to 2 transcriptions to compare side by side.",
+      });
+    }
+  };
+  
+  // Start the comparison once jobs are selected
+  const startComparison = () => {
+    if (jobsToCompare.length < 2) {
+      toast({
+        title: "Select More Transcriptions",
+        description: "Please select 2 transcriptions to compare.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setViewMode('compare');
+  };
+  
+  // Check if a job is selected for comparison
+  const isJobSelectedForComparison = (jobId: string) => {
+    return jobsToCompare.some(job => job.id === jobId);
   };
   
   return (
@@ -195,17 +267,38 @@ const SessionDetails = () => {
       <Header />
       <div className="container py-6">
         <div className="max-w-[1440px] mx-auto p-4 md:p-6">
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="mb-6 flex items-center gap-1.5"
-            asChild
-          >
-            <Link to="/app">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
+          <div className="flex items-center justify-between mb-6">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-1.5"
+              asChild
+            >
+              <Link to="/app">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            </Button>
+            
+            <Button
+              variant={comparisonMode ? "default" : "outline"}
+              size="sm"
+              onClick={toggleComparisonMode}
+              className="flex items-center gap-1.5"
+            >
+              {comparisonMode ? (
+                <>
+                  <XCircle className="h-4 w-4" />
+                  Exit Comparison
+                </>
+              ) : (
+                <>
+                  <Split className="h-4 w-4" />
+                  Compare Results
+                </>
+              )}
+            </Button>
+          </div>
           
           <h1 className="text-2xl font-bold mb-4">Transcription Session Details</h1>
           <p className="text-muted-foreground mb-6">
@@ -236,123 +329,186 @@ const SessionDetails = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Left column - Jobs list */}
-              <Card className="md:col-span-5">
-                <CardHeader>
-                  <CardTitle>Transcription Jobs</CardTitle>
-                  <CardDescription>
-                    {sessionJobs.length} jobs in this session
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Model</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sessionJobs.map((job) => (
-                        <TableRow 
-                          key={job.id}
-                          className={job.id === selectedJob?.id ? "bg-muted/50" : ""}
-                          onClick={() => job.status === 'completed' && handleSelectJob(job)}
-                          style={{ cursor: job.status === 'completed' ? 'pointer' : 'default' }}
-                        >
-                          <TableCell className="font-medium">{getModelDisplayName(job.model)}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              {getStatusIcon(job.status)}
-                              <span className={getStatusColor(job.status)}>
-                                {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {job.status === 'completed' ? (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleSelectJob(job)}
-                              >
-                                View
-                              </Button>
-                            ) : (
-                              <div className="w-16">
-                                <Progress value={getProgressValue(job.status)} className="h-1.5" />
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-              
-              {/* Right column - Selected job details */}
-              <Card className="md:col-span-7">
-                <CardHeader>
-                  <CardTitle>Transcription Result</CardTitle>
-                  <CardDescription>
-                    {selectedJob 
-                      ? `${getModelDisplayName(selectedJob.model)} transcription` 
-                      : "Select a completed job to view details"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {selectedJob ? (
-                    <TranscriptionCard
-                      modelName={getModelDisplayName(selectedJob.model)}
-                      vttContent={extractVttContent(selectedJob)}
-                      prompt={selectedJob.result?.prompt || ""}
-                      onSelect={() => {}}
-                      isSelected={true}
-                      audioSrc={audioUrl || undefined}
-                      isLoading={false}
-                    />
-                  ) : (
-                    <div className="p-12 text-center border rounded-md border-dashed">
-                      <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Select a completed job from the list to view its transcription result
+            <>
+              {comparisonMode && jobsToCompare.length > 0 && (
+                <div className="mb-6 p-4 bg-muted rounded-lg border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Selected for comparison: {jobsToCompare.length}/2</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {jobsToCompare.map(job => getModelDisplayName(job.model)).join(' vs ')}
                       </p>
                     </div>
-                  )}
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    variant="outline"
-                    asChild
-                  >
-                    <Link to="/app">
-                      Back to Dashboard
-                    </Link>
-                  </Button>
-                  {selectedJob && (
+                    
                     <Button 
-                      variant="default"
-                      onClick={() => {
-                        toast({
-                          title: "Feature coming soon",
-                          description: "The export functionality will be available in a future update."
-                        });
-                      }}
+                      variant="default" 
+                      onClick={startComparison}
+                      disabled={jobsToCompare.length < 2}
+                      className="flex items-center gap-1.5"
                     >
-                      Export Transcription
+                      <Columns className="h-4 w-4" />
+                      Compare Side by Side
                     </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            </div>
+                  </div>
+                </div>
+              )}
+              
+              {viewMode === 'compare' ? (
+                /* Comparison View */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {jobsToCompare.map((job) => (
+                    <Card key={job.id} className="h-full">
+                      <CardHeader>
+                        <CardTitle className="text-xl">{getModelDisplayName(job.model)}</CardTitle>
+                        <CardDescription>
+                          Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <TranscriptionCard
+                          modelName={getModelDisplayName(job.model)}
+                          vttContent={extractVttContent(job)}
+                          prompt={job.result?.prompt || ""}
+                          onSelect={() => {}}
+                          isSelected={true}
+                          audioSrc={audioUrl || undefined}
+                          isLoading={false}
+                        />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                /* Standard View */
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                  {/* Left column - Jobs list */}
+                  <Card className="md:col-span-5">
+                    <CardHeader>
+                      <CardTitle>Transcription Jobs</CardTitle>
+                      <CardDescription>
+                        {sessionJobs.length} jobs in this session
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Model</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Created</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sessionJobs.map((job) => (
+                            <TableRow 
+                              key={job.id}
+                              className={`
+                                ${job.id === selectedJob?.id ? "bg-muted/50" : ""}
+                                ${isJobSelectedForComparison(job.id) ? "bg-primary/10" : ""}
+                              `}
+                              onClick={() => handleSelectJob(job)}
+                              style={{ cursor: job.status === 'completed' ? 'pointer' : 'default' }}
+                            >
+                              <TableCell className="font-medium">{getModelDisplayName(job.model)}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  {getStatusIcon(job.status)}
+                                  <span className={getStatusColor(job.status)}>
+                                    {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {job.status === 'completed' ? (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectJob(job);
+                                    }}
+                                  >
+                                    {comparisonMode ? (
+                                      isJobSelectedForComparison(job.id) ? "Deselect" : "Select"
+                                    ) : (
+                                      "View"
+                                    )}
+                                  </Button>
+                                ) : (
+                                  <div className="w-16">
+                                    <Progress value={getProgressValue(job.status)} className="h-1.5" />
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Right column - Selected job details */}
+                  <Card className="md:col-span-7">
+                    <CardHeader>
+                      <CardTitle>Transcription Result</CardTitle>
+                      <CardDescription>
+                        {selectedJob 
+                          ? `${getModelDisplayName(selectedJob.model)} transcription` 
+                          : "Select a completed job to view details"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {selectedJob ? (
+                        <TranscriptionCard
+                          modelName={getModelDisplayName(selectedJob.model)}
+                          vttContent={extractVttContent(selectedJob)}
+                          prompt={selectedJob.result?.prompt || ""}
+                          onSelect={() => {}}
+                          isSelected={true}
+                          audioSrc={audioUrl || undefined}
+                          isLoading={false}
+                        />
+                      ) : (
+                        <div className="p-12 text-center border rounded-md border-dashed">
+                          <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
+                          <p className="text-muted-foreground text-sm">
+                            Select a completed job from the list to view its transcription result
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                      <Button 
+                        variant="outline"
+                        asChild
+                      >
+                        <Link to="/app">
+                          Back to Dashboard
+                        </Link>
+                      </Button>
+                      {selectedJob && (
+                        <Button 
+                          variant="default"
+                          onClick={() => {
+                            toast({
+                              title: "Feature coming soon",
+                              description: "The export functionality will be available in a future update."
+                            });
+                          }}
+                        >
+                          Export Transcription
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
