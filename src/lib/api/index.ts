@@ -16,3 +16,14 @@ export {
   addCaptionToBrightcove,
   resetStuckJobs
 };
+
+// Cloud storage related types
+export interface CloudStorageConfig {
+  googleDrive: {
+    clientId: string;
+    apiKey: string;
+  };
+  dropbox: {
+    appKey: string;
+  };
+}
