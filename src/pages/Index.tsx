@@ -8,10 +8,6 @@ import LogsPanel from "@/components/LogsPanel";
 import PromptOptions from "@/components/PromptOptions";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
 import TranscriptionCard from "@/components/TranscriptionCard";
-import VideoIdInput from "@/components/VideoIdInput";
-import SessionHistory from "@/components/SessionHistory";
-import SharePointDownloader from "@/components/SharePointDownloader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +27,6 @@ const Index = () => {
   const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState("Please preserve all English words exactly as spoken");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [videoId, setVideoId] = useState("");
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [preserveEnglish, setPreserveEnglish] = useState(true);
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
@@ -83,10 +78,6 @@ const Index = () => {
     }
   };
   
-  const handleVideoIdChange = (id: string) => {
-    setVideoId(id);
-  };
-  
   const handlePreserveEnglishChange = (checked: boolean) => {
     setPreserveEnglish(checked);
     setTranscriptionPrompt(checked ? "Please preserve all English words exactly as spoken" : "");
@@ -121,36 +112,11 @@ const Index = () => {
               </CardHeader>
               
               <CardContent className="p-5 space-y-5">
-                {/* Source Selector Tabs */}
-                <Tabs defaultValue="upload" className="w-full">
-                  <TabsList className="mb-2 w-full">
-                    <TabsTrigger value="upload" className="flex-1">Upload File</TabsTrigger>
-                    <TabsTrigger value="video-id" className="flex-1">Brightcove</TabsTrigger>
-                    <TabsTrigger value="sharepoint" className="flex-1">SharePoint</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="upload">
-                    <FileUpload 
-                      onFileUpload={handleFileUpload}
-                      isUploading={processing}
-                    />
-                  </TabsContent>
-                  
-                  <TabsContent value="video-id">
-                    <VideoIdInput 
-                      videoId={videoId}
-                      onChange={handleVideoIdChange}
-                      disabled={processing}
-                    />
-                  </TabsContent>
-                  
-                  <TabsContent value="sharepoint">
-                    <SharePointDownloader 
-                      onFilesQueued={handleFileUpload}
-                      isProcessing={processing}
-                    />
-                  </TabsContent>
-                </Tabs>
+                {/* File Upload */}
+                <FileUpload 
+                  onFileUpload={handleFileUpload}
+                  isUploading={processing}
+                />
                 
                 {/* Model Selector */}
                 <div className="p-4 bg-muted/50 rounded-lg space-y-2">
@@ -210,16 +176,6 @@ const Index = () => {
                   isProcessing={processing}
                   notificationsEnabled={notificationsEnabled}
                 />
-              </CardContent>
-            </Card>
-            
-            {/* Session History */}
-            <Card className="border-none shadow-md">
-              <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent pb-3">
-                <CardTitle className="text-lg">Recent Sessions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SessionHistory />
               </CardContent>
             </Card>
             
