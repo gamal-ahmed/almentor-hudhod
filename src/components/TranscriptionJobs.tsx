@@ -1,16 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getUserTranscriptionJobs, checkTranscriptionJobStatus, resetStuckJobs } from '@/lib/api';
+import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle, Folder, FileText, ExternalLink } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, Clock, Play, ChevronDown, ChevronUp, Folder, FileText, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // Define a union type for all possible job statuses
@@ -41,32 +40,6 @@ interface TranscriptionJobsProps {
   refreshTrigger?: number;
 }
 
-// Helper component to show stuck jobs alert
-const QueueStatusAlert = ({ stuckJobs, onReset }: { stuckJobs: number, onReset: () => void }) => {
-  if (stuckJobs === 0) return null;
-  
-  return (
-    <Alert className="mb-4 border-amber-500 dark:border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-      <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
-      <AlertTitle>Stuck Transcription Jobs Detected</AlertTitle>
-      <AlertDescription className="mt-2">
-        <p className="mb-2">
-          {stuckJobs} {stuckJobs === 1 ? 'job has' : 'jobs have'} been stuck in processing for over 30 minutes.
-        </p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onReset}
-          className="mt-1"
-        >
-          <RotateCcw className="mr-2 h-3 w-3" />
-          Reset Stuck Jobs
-        </Button>
-      </AlertDescription>
-    </Alert>
-  );
-};
-
 const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({ 
   onSelectTranscription,
   refreshTrigger = 0
@@ -76,8 +49,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
-  const [stuckJobs, setStuckJobs] = useState<number>(0);
-  const [resettingJobs, setResettingJobs] = useState<boolean>(false);
   const { toast } = useToast();
   
   const groupJobsBySession = (jobs: TranscriptionJob[]) => {
@@ -118,16 +89,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       
       const groups = groupJobsBySession(typedJobs);
       setJobGroups(groups);
-      
-      const thirtyMinutesAgo = new Date();
-      thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
-      
-      const stuckJobsCount = jobsData.filter((job: any) => 
-        (job.status === 'pending' || job.status === 'processing') && 
-        new Date(job.updated_at) < thirtyMinutesAgo
-      ).length;
-      
-      setStuckJobs(stuckJobsCount);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast({
@@ -349,28 +310,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     setExpandedJob(expandedJob === jobId ? null : jobId);
   };
   
-  const handleResetStuckJobs = async () => {
-    try {
-      setResettingJobs(true);
-      const updatedCount = await resetStuckJobs();
-      
-      toast({
-        title: "Reset Successful",
-        description: `Successfully reset ${updatedCount} stuck jobs.`,
-      });
-      
-      fetchJobs();
-    } catch (error) {
-      toast({
-        title: "Reset Failed",
-        description: error instanceof Error ? error.message : "Failed to reset stuck jobs",
-        variant: "destructive",
-      });
-    } finally {
-      setResettingJobs(false);
-    }
-  };
-  
   const getGroupStatus = (group: JobGroup) => {
     if (group.jobs.some(job => job.status === 'pending' || job.status === 'processing')) {
       return 'processing';
@@ -423,13 +362,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   
   return (
     <div className="space-y-4 animate-fade-in">
-      {stuckJobs > 0 && (
-        <QueueStatusAlert 
-          stuckJobs={stuckJobs} 
-          onReset={handleResetStuckJobs} 
-        />
-      )}
-      
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xl font-semibold flex items-center gap-2">
           <Clock className="h-5 w-5 text-primary" />
@@ -449,10 +381,10 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
             variant="outline" 
             size="sm" 
             onClick={fetchJobs}
-            disabled={loading || resettingJobs}
+            disabled={loading}
             className="flex items-center gap-1 transition-all hover:bg-secondary"
           >
-            <RotateCcw className={cn("h-4 w-4", (loading || resettingJobs) && "animate-spin")} />
+            <Loader2 className={cn("h-4 w-4", loading && "animate-spin")} />
             Refresh
           </Button>
         </div>
@@ -593,12 +525,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                             <p className="text-xs p-2 bg-background/50 rounded-md my-2">
                               {job.status_message || "No detailed status available"}
                             </p>
-                            
-                            {job.error && (
-                              <div className="mt-2 text-xs text-red-500 bg-red-50 dark:bg-red-950/30 p-2 rounded border border-red-200 dark:border-red-800">
-                                {job.error}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -627,7 +553,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                               });
                             }}
                           >
-                            <RotateCcw className="h-3 w-3 mr-1" />
+                            <ExternalLink className="h-3 w-3 mr-1" />
                             Retry transcription
                           </Button>
                         )}
@@ -652,3 +578,4 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
 };
 
 export default TranscriptionJobs;
+
