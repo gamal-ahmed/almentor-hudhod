@@ -3,6 +3,9 @@ import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useLogsStore } from "@/lib/useLogsStore";
+import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { InfoIcon } from "lucide-react";
 
 export type TranscriptionModel = "openai" | "gemini-2.0-flash" | "phi4";
 
@@ -44,10 +47,25 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
     }
   };
 
-  const models: {id: TranscriptionModel, label: string}[] = [
-    { id: "openai", label: "OpenAI Whisper" },
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-    { id: "phi4", label: "Microsoft Phi-4" }
+  const models = [
+    { 
+      id: "openai" as TranscriptionModel, 
+      label: "OpenAI Whisper",
+      description: "Highly accurate with excellent multilingual support",
+      speed: "Balanced"
+    },
+    { 
+      id: "gemini-2.0-flash" as TranscriptionModel, 
+      label: "Gemini 2.0 Flash",
+      description: "Fast processing with good accuracy",
+      speed: "Fast" 
+    },
+    { 
+      id: "phi4" as TranscriptionModel, 
+      label: "Microsoft Phi-4",
+      description: "Excellent for technical content and specialized terminology",
+      speed: "Standard"
+    }
   ];
 
   // Ensure selectedModels is always treated as an array
@@ -60,20 +78,46 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
   });
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3">
         {models.map(model => (
-          <div key={model.id} className="flex items-center space-x-1.5">
+          <div 
+            key={model.id} 
+            className={`flex items-start space-x-2 p-2.5 rounded-md border border-border/50 transition-colors ${
+              safeSelectedModels.includes(model.id) 
+                ? "bg-primary/5 border-primary/20" 
+                : "bg-background hover:bg-muted/30"
+            } ${disabled ? "opacity-60" : ""}`}
+          >
             <Checkbox 
               id={model.id} 
               checked={safeSelectedModels.includes(model.id)} 
               onCheckedChange={() => handleModelToggle(model.id)}
               disabled={disabled}
-              className="h-3 w-3"
+              className="mt-0.5"
             />
-            <Label htmlFor={model.id} className={`text-xs ${disabled ? "text-muted-foreground" : ""}`}>
-              {model.label}
-            </Label>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Label 
+                  htmlFor={model.id} 
+                  className={`text-sm font-medium ${disabled ? "text-muted-foreground" : ""}`}
+                >
+                  {model.label}
+                </Label>
+                <Badge variant="outline" className="text-xs font-normal h-5">
+                  {model.speed}
+                </Badge>
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-64">
+                    <p className="text-xs">{model.description}</p>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+              <p className="text-xs text-muted-foreground">{model.description}</p>
+            </div>
           </div>
         ))}
       </div>
