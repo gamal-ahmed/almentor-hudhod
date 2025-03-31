@@ -3,17 +3,6 @@ import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio, createTranscriptionJob, checkTranscriptionJobStatus, getUserTranscriptionJobs, resetStuckJobs } from "./transcriptionService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
 import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
-import { 
-  getCloudStorageConfig, 
-  saveCloudStorageConfig, 
-  updatePlatformConfig, 
-  isPlatformConfigured,
-  getConnectionStatus,
-  saveConnectionStatus,
-  connectPlatform,
-  disconnectPlatform,
-  isPlatformConnected
-} from "./cloudStorageService";
 
 // Re-export all API functions for easy access
 export {
@@ -27,19 +16,5 @@ export {
   addCaptionToBrightcove,
   resetStuckJobs,
   // Brightcove key function
-  fetchBrightcoveKeys,
-  // Cloud storage functions
-  getCloudStorageConfig,
-  saveCloudStorageConfig,
-  updatePlatformConfig,
-  isPlatformConfigured,
-  // New connection status functions
-  getConnectionStatus,
-  saveConnectionStatus,
-  connectPlatform,
-  disconnectPlatform,
-  isPlatformConnected
+  fetchBrightcoveKeys
 };
-
-// Export CloudStorageConfig type
-export type { CloudStorageConfig, ConnectionStatus } from "./cloudStorageService";
