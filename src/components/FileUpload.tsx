@@ -37,7 +37,9 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
     } catch (error) {
       console.error("Error handling dropped file:", error);
       setInvalidFile(true);
-      toast.error("Error processing file. Please try another one.");
+      toast("Error processing file", {
+        description: "Please try another file"
+      });
     }
   };
 
@@ -50,7 +52,9 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
     } catch (error) {
       console.error("Error handling selected file:", error);
       setInvalidFile(true);
-      toast.error("Error processing file. Please try another one.");
+      toast("Error processing file", {
+        description: "Please try another file"
+      });
     }
   };
 
@@ -69,7 +73,9 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       if (!isMP3 && !isM4A && !isWAV) {
         console.error("Invalid file type:", file.type, file.name);
         setInvalidFile(true);
-        toast.error("Please upload an MP3, M4A, or WAV file");
+        toast("Invalid file type", {
+          description: "Please upload an MP3, M4A, or WAV file"
+        });
         return;
       }
       
@@ -77,7 +83,9 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
       const maxSize = 100 * 1024 * 1024; // 100MB
       if (file.size > maxSize) {
         setInvalidFile(true);
-        toast.error("Please upload an audio file smaller than 100MB");
+        toast("File too large", {
+          description: "Please upload an audio file smaller than 100MB"
+        });
         return;
       }
       
@@ -87,7 +95,9 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
     } catch (error) {
       console.error("Error handling file:", error);
       setInvalidFile(true);
-      toast.error("Error processing file. Please try another one.");
+      toast("Error processing file", {
+        description: "Please try another file"
+      });
     }
   };
 

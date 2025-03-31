@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { TranscriptionModel } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
@@ -91,14 +92,14 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   
   const startTranscription = async () => {
     if (!uploadedFile) {
-      toast.error("No file selected", {
+      toast("No file selected", {
         description: "Please upload an audio file before starting transcription"
       });
       return;
     }
     
     if (selectedModels.length === 0) {
-      toast.error("No transcription models selected", {
+      toast("No transcription models selected", {
         description: "Please select at least one transcription model"
       });
       return;
@@ -125,7 +126,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       console.log("Transcription jobs created:", jobIds);
       
-      toast.success("Transcription jobs created", {
+      toast("Transcription jobs created", {
         description: `Started ${jobIds.length} transcription jobs`
       });
       
@@ -137,7 +138,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     } catch (error) {
       console.error("Error starting transcription:", error);
       
-      toast.error("Transcription failed", {
+      toast("Transcription failed", {
         description: error instanceof Error ? error.message : "An unknown error occurred"
       });
       
