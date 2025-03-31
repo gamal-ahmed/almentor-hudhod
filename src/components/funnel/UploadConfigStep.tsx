@@ -26,6 +26,9 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const [prompt, setPrompt] = useState("Please preserve all English words exactly as spoken");
   const [uploadTab, setUploadTab] = useState('direct');
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [preserveEnglish, setPreserveEnglish] = useState(true);
+  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
   const { addLog, startTimedLog } = useLogsStore();
@@ -35,17 +38,19 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     setUploadedFile(file);
     addLog(`File uploaded: ${file.name}`, "info", {
       source: "FileUpload",
-      details: `Size: ${file.size}, Type: ${file.type}`
+      details: `Type: ${file.type}`
     });
   };
   
   // Handle SharePoint file selection
-  const handleSharePointFileSelect = (file: File) => {
-    setUploadedFile(file);
-    addLog(`SharePoint file selected: ${file.name}`, "info", {
-      source: "SharePoint",
-      details: `Size: ${file.size}, Type: ${file.type}`
-    });
+  const handleSharePointFileSelect = (files: File[]) => {
+    if (files.length > 0) {
+      setUploadedFile(files[0]);
+      addLog(`SharePoint file selected: ${files[0].name}`, "info", {
+        source: "SharePoint",
+        details: `Type: ${files[0].type}`
+      });
+    }
   };
   
   // Toggle audio playback
@@ -71,6 +76,23 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const handleAudioEnded = () => {
     setIsAudioPlaying(false);
   };
+
+  // Update prompt based on options
+  useEffect(() => {
+    let newPrompt = "";
+    
+    if (preserveEnglish) {
+      newPrompt += "Please preserve all English words exactly as spoken. ";
+    }
+    
+    if (outputFormat === "vtt") {
+      newPrompt += "Generate output with timestamps in VTT format.";
+    } else {
+      newPrompt += "Generate output as plain text without timestamps.";
+    }
+    
+    setPrompt(newPrompt.trim());
+  }, [preserveEnglish, outputFormat]);
   
   // Start transcription process
   const startTranscription = async () => {
@@ -161,7 +183,10 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           </TabsContent>
           
           <TabsContent value="sharepoint" className="space-y-4">
-            <SharePointDownloader />
+            <SharePointDownloader 
+              onFilesQueued={handleSharePointFileSelect}
+              isProcessing={isProcessing}
+            />
           </TabsContent>
         </Tabs>
         
@@ -228,8 +253,13 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           <div>
             <h3 className="text-lg font-medium mb-2">Transcription Prompt</h3>
             <PromptOptions
-              value={prompt}
-              onChange={setPrompt}
+              preserveEnglish={preserveEnglish}
+              onPreserveEnglishChange={setPreserveEnglish}
+              outputFormat={outputFormat}
+              onOutputFormatChange={setOutputFormat}
+              notificationsEnabled={notificationsEnabled}
+              onNotificationsChange={setNotificationsEnabled}
+              disabled={isProcessing}
             />
           </div>
         </div>

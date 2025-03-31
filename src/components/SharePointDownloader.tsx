@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Cloud, Download, Loader2, FileAudio, RefreshCw, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { fetchSharePointFiles } from "@/lib/api";
+import { fetchSharePointFiles, downloadSharePointFile } from "@/lib/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface SharePointDownloaderProps {
@@ -90,35 +90,24 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       for (const file of selectedFiles) {
         toast.info(`Downloading ${file.name}...`);
         
-        const response = await fetch(`https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy/download-file`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk`,
-          },
-          body: JSON.stringify({
-            fileUrl: file.url
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to download ${file.name}: ${response.status}`);
+        try {
+          const fileObject = await downloadSharePointFile(file.url);
+          downloadedFiles.push(fileObject);
+        } catch (error) {
+          console.error(`Error downloading ${file.name}:`, error);
+          toast.error(`Failed to download ${file.name}`);
         }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const fileBlob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
-        
-        // Create a File object from the blob
-        const fileObject = new File([fileBlob], file.name, { type: 'audio/mpeg' });
-        downloadedFiles.push(fileObject);
       }
       
-      toast.success(`Downloaded ${downloadedFiles.length} audio files from SharePoint`);
-      onFilesQueued(downloadedFiles);
-      
-      // Clear selections after successful download
-      setSelectedFiles([]);
+      if (downloadedFiles.length > 0) {
+        toast.success(`Downloaded ${downloadedFiles.length} audio files from SharePoint`);
+        onFilesQueued(downloadedFiles);
+        
+        // Clear selections after successful download
+        setSelectedFiles([]);
+      } else {
+        toast.error("Failed to download any files");
+      }
       
     } catch (error) {
       console.error("Error downloading from SharePoint:", error);
