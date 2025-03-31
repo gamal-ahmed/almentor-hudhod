@@ -33,6 +33,9 @@ serve(async (req) => {
     if (path === 'export-file') {
       return await handleExportFile(req);
     }
+    else if (path === 'start-job') {
+      return await handleStartJob(req);
+    }
 
     // Default response for unmatched paths
     return new Response(JSON.stringify({ error: 'Endpoint not found' }), {
@@ -157,5 +160,167 @@ async function handleExportFile(req: Request) {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+}
+
+// Handle starting a transcription job
+async function handleStartJob(req: Request) {
+  console.log("Starting transcription job");
+  
+  try {
+    const formData = await req.formData();
+    const audioFile = formData.get('audio');
+    const prompt = formData.get('prompt')?.toString() || '';
+    const jobId = formData.get('jobId')?.toString();
+    
+    if (!audioFile || !(audioFile instanceof File)) {
+      return new Response(JSON.stringify({ error: 'No audio file provided' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    if (!jobId) {
+      return new Response(JSON.stringify({ error: 'No job ID provided' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    console.log(`Received job ID: ${jobId}, audioFile: ${audioFile.name}, size: ${audioFile.size}`);
+    
+    // Get the auth header to determine the user
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    // Update job status to processing
+    const { error: updateError } = await supabase
+      .from('transcriptions')
+      .update({ 
+        status: 'processing',
+        status_message: 'Job started, processing audio file',
+        user_id: user?.id || null
+      })
+      .eq('id', jobId);
+    
+    if (updateError) {
+      console.error('Error updating job status:', updateError);
+      throw new Error(`Failed to update job status: ${updateError.message}`);
+    }
+    
+    // Start processing in the background
+    EdgeRuntime.waitUntil(processTranscription(jobId, audioFile, prompt));
+    
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Transcription job started',
+      jobId
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error starting transcription job:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// Process the transcription in the background
+async function processTranscription(jobId: string, audioFile: File, prompt: string) {
+  try {
+    console.log(`Processing transcription for job ${jobId}`);
+    
+    // Get model from the database
+    const { data: jobData, error: jobError } = await supabase
+      .from('transcriptions')
+      .select('model')
+      .eq('id', jobId)
+      .single();
+    
+    if (jobError) {
+      throw new Error(`Error retrieving job: ${jobError.message}`);
+    }
+    
+    const model = jobData.model;
+    console.log(`Using transcription model: ${model}`);
+    
+    // Choose the appropriate API based on the model
+    let apiEndpoint = '';
+    
+    switch (model) {
+      case 'openai':
+        apiEndpoint = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
+        break;
+      case 'gemini-2.0-flash':
+        apiEndpoint = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
+        break;
+      case 'phi4':
+        apiEndpoint = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
+        break;
+      default:
+        throw new Error(`Unsupported model: ${model}`);
+    }
+    
+    // Prepare FormData for the transcription request
+    const transcriptionData = new FormData();
+    transcriptionData.append('audio', audioFile);
+    transcriptionData.append('prompt', prompt);
+    
+    console.log(`Sending request to ${apiEndpoint}`);
+    
+    // Call the appropriate transcription service
+    const response = await fetch(apiEndpoint, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: transcriptionData,
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Transcription API error: ${response.status} - ${errorText}`);
+    }
+    
+    const transcriptionResult = await response.json();
+    console.log(`Transcription completed successfully for job ${jobId}`);
+    
+    // Update job with successful results
+    const { error: updateError } = await supabase
+      .from('transcriptions')
+      .update({
+        status: 'completed',
+        result: transcriptionResult,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+    
+    if (updateError) {
+      throw new Error(`Failed to update job with results: ${updateError.message}`);
+    }
+    
+    console.log(`Job ${jobId} marked as completed`);
+    
+  } catch (error) {
+    console.error(`Error processing transcription for job ${jobId}:`, error);
+    
+    // Update job with error status
+    try {
+      await supabase
+        .from('transcriptions')
+        .update({
+          status: 'failed',
+          error: error.message,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+    } catch (updateError) {
+      console.error('Failed to update job with error status:', updateError);
+    }
   }
 }
