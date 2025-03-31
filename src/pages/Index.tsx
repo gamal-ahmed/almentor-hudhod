@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, Settings, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Settings, FileText, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
