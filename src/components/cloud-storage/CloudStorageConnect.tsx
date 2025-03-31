@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CloudStorageProvider } from '@/types/cloudStorage';
-import { GoogleDrive, Dropbox, Loader2 } from 'lucide-react';
+import { FileCloud, Cloud, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cloudStorageService } from '@/lib/api/cloudStorageService';
 
@@ -84,7 +84,7 @@ const CloudStorageConnect: React.FC<CloudStorageConnectProps> = ({ onSuccess }) 
       <Card className="overflow-hidden hover:shadow-md transition-shadow duration-300">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20">
           <CardTitle className="flex items-center gap-2">
-            <Dropbox className="h-5 w-5 text-blue-500" />
+            <Cloud className="h-5 w-5 text-blue-500" />
             Dropbox
           </CardTitle>
           <CardDescription>
@@ -118,7 +118,7 @@ const CloudStorageConnect: React.FC<CloudStorageConnectProps> = ({ onSuccess }) 
       <Card className="overflow-hidden hover:shadow-md transition-shadow duration-300">
         <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-900/20">
           <CardTitle className="flex items-center gap-2">
-            <GoogleDrive className="h-5 w-5 text-red-500" />
+            <FileCloud className="h-5 w-5 text-red-500" />
             Google Drive
           </CardTitle>
           <CardDescription>

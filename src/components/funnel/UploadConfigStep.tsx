@@ -14,6 +14,7 @@ import ModelSelector from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
 import { createTranscriptionJob } from '@/lib/api';
 import { toast } from 'sonner';
+import { TranscriptionModel } from '@/components/ModelSelector';
 
 interface UploadConfigStepProps {
   onJobCreated: (jobId: string) => void;
@@ -73,6 +74,14 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
   
   const handleAudioEnded = () => {
     setIsPlaying(false);
+  };
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+  };
+
+  const handlePromptChange = (prompt: string) => {
+    setPromptText(prompt);
   };
 
   const handleSubmit = async () => {
@@ -217,7 +226,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
           <div className="text-sm font-medium">Transcription Model</div>
           <ModelSelector
             selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
+            onModelChange={handleModelChange}
             disabled={isProcessing}
           />
         </div>
@@ -225,8 +234,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         <div className="space-y-2">
           <div className="text-sm font-medium">Prompt (Optional)</div>
           <PromptOptions
-            promptText={promptText}
-            onPromptChange={setPromptText}
+            prompt={promptText}
+            onPromptChange={handlePromptChange}
             disabled={isProcessing}
           />
         </div>

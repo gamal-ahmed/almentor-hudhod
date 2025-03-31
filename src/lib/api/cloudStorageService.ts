@@ -3,6 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { CloudStorageAccount, CloudStorageFile, CloudStorageProvider } from '@/types/cloudStorage';
 import { API_ENDPOINTS } from './utils';
 
+// Type guard to verify CloudStorageAccount type
+const isCloudStorageAccount = (data: any): data is CloudStorageAccount => {
+  return data && 
+    typeof data.id === 'string' && 
+    typeof data.provider === 'string' &&
+    (data.provider === 'google-drive' || data.provider === 'dropbox');
+};
+
 // Main interface for cloud storage operations
 export const cloudStorageService = {
   // OAuth authentication
@@ -61,7 +69,21 @@ export const cloudStorageService = {
 
       if (error) throw error;
       
-      return data as CloudStorageAccount[];
+      // Transform the raw data to match CloudStorageAccount type
+      const accounts: CloudStorageAccount[] = (data || []).map(account => ({
+        id: account.id,
+        provider: account.provider as CloudStorageProvider,
+        userId: account.user_id,
+        email: account.email,
+        name: account.name || '',
+        accessToken: account.access_token,
+        refreshToken: account.refresh_token,
+        expiresAt: account.expires_at,
+        createdAt: account.created_at,
+        lastUsed: account.last_used
+      }));
+      
+      return accounts;
     } catch (error) {
       console.error('Error getting connected accounts:', error);
       throw error;
