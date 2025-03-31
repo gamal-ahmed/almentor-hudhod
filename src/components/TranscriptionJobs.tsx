@@ -62,7 +62,9 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
         status: job.status,
         model: job.model,
         created_at: job.created_at,
-        result: job.result ? { vttContent: job.result.vttContent || '' } : undefined,
+        result: job.result && typeof job.result === 'object' ? { 
+          vttContent: typeof job.result.vttContent === 'string' ? job.result.vttContent : '' 
+        } : undefined,
         error: job.error,
         status_message: job.status_message
       }));
