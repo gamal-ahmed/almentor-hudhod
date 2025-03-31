@@ -6,7 +6,7 @@ import { checkTranscriptionJobStatus } from '@/lib/api';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { getAudioFileName } from '@/lib/transcription-utils';
+import { getAudioFileName, getModelDisplayName } from '@/lib/transcription-utils';
 import ExportMenu from '@/components/ExportMenu';
 import LoadingState from '@/components/transcription/LoadingState';
 import ErrorState from '@/components/transcription/ErrorState';
@@ -23,7 +23,7 @@ export default function TranscriptionDetail() {
   const { data: job, isLoading, error } = useQuery({
     queryKey: ['transcription-job', jobId],
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
-    refetchInterval: (data) => {
+    refetchInterval: (data, query) => {
       // Poll every 5 seconds for non-completed jobs
       if (data && (data.status === 'pending' || data.status === 'processing')) {
         return 5000;

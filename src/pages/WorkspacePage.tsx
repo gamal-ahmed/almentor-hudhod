@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from '@/lib/utils';
 import LogsPanel from "@/components/LogsPanel";
 import { useLogsStore } from "@/lib/useLogsStore";
+import { getModelDisplayName, getAudioFileName } from '@/lib/transcription-utils';
 
 export default function WorkspacePage() {
   const { jobId } = useParams();
@@ -33,7 +34,7 @@ export default function WorkspacePage() {
   const { data: job, isLoading, error } = useQuery({
     queryKey: ['transcription-job', jobId],
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
-    refetchInterval: (data) => {
+    refetchInterval: (data, query) => {
       // Poll every 5 seconds for non-completed jobs
       if (data && (data.status === 'pending' || data.status === 'processing')) {
         return 5000;
@@ -53,19 +54,6 @@ export default function WorkspacePage() {
     j.file_path === job?.file_path && j.id !== job?.id
   ) || [];
   
-  const getModelDisplayName = (model: string) => {
-    switch (model) {
-      case "openai":
-        return "OpenAI Whisper";
-      case "gemini-2.0-flash":
-        return "Gemini 2.0 Flash";
-      case "phi4":
-        return "Microsoft Phi-4";
-      default:
-        return model;
-    }
-  };
-  
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -79,12 +67,6 @@ export default function WorkspacePage() {
     }
   };
   
-  const getAudioFileName = (filePath: string) => {
-    if (!filePath) return 'Unknown file';
-    return filePath.split('/').pop()?.replace(/_/g, ' ') || 'Unknown file';
-  };
-  
-  // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!job?.result || !videoId) {
       toast({
