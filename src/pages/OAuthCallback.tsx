@@ -18,11 +18,13 @@ const OAuthCallback: React.FC = () => {
     const handleOAuthCallback = async () => {
       if (!isAuthenticated) {
         setError('You must be logged in to connect cloud storage accounts.');
+        setIsProcessing(false);
         return;
       }
 
       if (!provider) {
         setError('Invalid provider specified.');
+        setIsProcessing(false);
         return;
       }
       

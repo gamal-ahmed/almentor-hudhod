@@ -1,3 +1,4 @@
+
 // API base URL (Proxy for external services or Edge Functions)
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -25,10 +26,13 @@ export const API_ENDPOINTS = {
   BRIGHTCOVE_PROXY: `${API_BASE_URL}/brightcove-proxy`,
   
   // Cloud storage integration
-  CLOUD_STORAGE_AUTH: "/cloud-storage-auth",
-  CLOUD_STORAGE_TOKEN: "/cloud-storage-token",
-  CLOUD_STORAGE_FILES: "/cloud-storage-files",
-  CLOUD_STORAGE_DOWNLOAD: "/cloud-storage-download",
+  CLOUD_STORAGE_AUTH: `${API_BASE_URL}/cloud-storage-auth`,
+  CLOUD_STORAGE_TOKEN: `${API_BASE_URL}/cloud-storage-token`,
+  CLOUD_STORAGE_FILES: `${API_BASE_URL}/cloud-storage-files`,
+  CLOUD_STORAGE_DOWNLOAD: `${API_BASE_URL}/cloud-storage-download`,
+  
+  // Transcription service
+  TRANSCRIPTION_SERVICE: `${API_BASE_URL}/transcription-service`,
 };
 
 // Error handling helper
