@@ -6,7 +6,8 @@ export {
   transcribeAudio,
   createTranscriptionJob,
   checkTranscriptionJobStatus,
-  getUserTranscriptionJobs 
+  getUserTranscriptionJobs,
+  resetAllJobs
 } from './transcriptionService';
 
 // SharePoint API

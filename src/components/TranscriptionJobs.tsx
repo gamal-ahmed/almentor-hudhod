@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus, resetAllJobs } from '@/lib/api';
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 import TranscriptionCard from './TranscriptionCard';
 import { useLogsStore } from '@/lib/useLogsStore';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TranscriptionJob {
   id: string;
@@ -43,7 +43,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   
-  // Auto-refresh interval for jobs (10 seconds)
   const AUTO_REFRESH_INTERVAL = 10000;
   
   const fetchJobs = async () => {
@@ -51,7 +50,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       setLoading(true);
       setError(null);
       
-      // Use the transcription_jobs view which includes all necessary job data
       const { data, error } = await supabase
         .from('transcription_jobs')
         .select('*')
@@ -72,7 +70,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     }
   };
   
-  // Reset all jobs
   const handleResetAllJobs = async () => {
     try {
       setIsResetting(true);
@@ -84,7 +81,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
         description: "All transcription jobs have been deleted.",
       });
       
-      // Refresh the jobs list
       fetchJobs();
     } catch (err) {
       console.error('Error resetting jobs:', err);
@@ -98,11 +94,9 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     }
   };
   
-  // Initial fetch and periodic refresh
   useEffect(() => {
     fetchJobs();
     
-    // Set up auto-refresh for jobs that are pending or processing
     const intervalId = setInterval(() => {
       const hasActiveJobs = jobs.some(job => 
         job.status === 'pending' || job.status === 'processing'
@@ -116,7 +110,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     return () => clearInterval(intervalId);
   }, [refreshTrigger]);
   
-  // Set up auto-refresh for jobs that are pending or processing
   useEffect(() => {
     const hasActiveJobs = jobs.some(job => 
       job.status === 'pending' || job.status === 'processing'
@@ -302,7 +295,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                       {job.result?.vttContent ? (
                         <TranscriptionCard 
                           vttContent={job.result.vttContent}
-                          height="150px"
+                          maxHeight="150px"
                           onSelect={() => handleSelectTranscription(job)}
                         />
                       ) : (
