@@ -12,7 +12,8 @@ import {
   Home, 
   History, 
   HelpCircle,
-  Sparkles 
+  Sparkles,
+  Cloud
 } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -79,6 +80,21 @@ export default function Header() {
                     >
                       <Home className="h-4 w-4" />
                       Dashboard
+                    </NavigationMenuLink>
+                  </Link>
+                </NavigationMenuItem>
+                <NavigationMenuItem>
+                  <Link to="/cloud-storage">
+                    <NavigationMenuLink
+                      className={cn(
+                        "px-3 py-2 text-sm rounded-md inline-flex items-center gap-1.5 transition-all duration-300",
+                        isActive("/cloud-storage") 
+                          ? "bg-primary/10 text-primary font-medium" 
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      )}
+                    >
+                      <Cloud className="h-4 w-4" />
+                      Cloud Storage
                     </NavigationMenuLink>
                   </Link>
                 </NavigationMenuItem>

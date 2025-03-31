@@ -10,6 +10,7 @@ import Landing from "./pages/Landing";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SessionDetails from "./pages/SessionDetails";
+import CloudStorage from "./pages/CloudStorage";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
@@ -45,6 +46,11 @@ const App = () => (
                 <Route path="/session/:sessionTimestamp" element={
                   <AuthGuard>
                     <SessionDetails />
+                  </AuthGuard>
+                } />
+                <Route path="/cloud-storage" element={
+                  <AuthGuard>
+                    <CloudStorage />
                   </AuthGuard>
                 } />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
