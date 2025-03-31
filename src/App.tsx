@@ -10,6 +10,7 @@ import Landing from "./pages/Landing";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SessionDetails from "./pages/SessionDetails";
+import CloudStorage from "./pages/CloudStorage";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
@@ -40,6 +41,16 @@ const App = () => (
                 <Route path="/app" element={
                   <AuthGuard>
                     <Index />
+                  </AuthGuard>
+                } />
+                <Route path="/cloud-storage" element={
+                  <AuthGuard>
+                    <CloudStorage />
+                  </AuthGuard>
+                } />
+                <Route path="/cloud-storage/callback" element={
+                  <AuthGuard>
+                    <CloudStorage />
                   </AuthGuard>
                 } />
                 <Route path="/session/:sessionTimestamp" element={

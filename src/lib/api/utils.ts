@@ -6,7 +6,11 @@ export const API_ENDPOINTS = {
   PHI4_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe',
   BRIGHTCOVE_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy',
   SHAREPOINT_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
-  TRANSCRIPTION_SERVICE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/transcription-service'
+  TRANSCRIPTION_SERVICE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/transcription-service',
+  CLOUD_STORAGE_AUTH: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/cloud-storage-auth',
+  CLOUD_STORAGE_TOKEN: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/cloud-storage-token',
+  CLOUD_STORAGE_FILES: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/cloud-storage-files',
+  CLOUD_STORAGE_DOWNLOAD: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/cloud-storage-download'
 };
 
 // Supabase API key for authentication
