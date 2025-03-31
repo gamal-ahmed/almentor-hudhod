@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector from "@/components/ModelSelector";
@@ -13,9 +14,11 @@ import SharePointDownloader from "@/components/SharePointDownloader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TranscriptionModel } from "@/components/ModelSelector";
+import { useLogsStore } from "@/lib/useLogsStore";
 
 const Index = () => {
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>([]);
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
@@ -23,12 +26,20 @@ const Index = () => {
   const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState("Please preserve all English words exactly as spoken");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [videoId, setVideoId] = useState("");
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [preserveEnglish, setPreserveEnglish] = useState(true);
+  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   
-  const handleModelSelection = (models: string[]) => {
+  // Get logs from the store
+  const logs = useLogsStore(state => state.logs);
+  
+  const handleModelChange = (models: TranscriptionModel[]) => {
     setSelectedModels(models);
   };
   
-  const handleFileQueued = (file: File) => {
+  const handleFileUpload = (file: File) => {
     setQueuedFiles(prevFiles => [...prevFiles, file]);
   };
   
@@ -36,13 +47,23 @@ const Index = () => {
     setQueuedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   };
   
-  const handleProcessFiles = () => {
+  const handleProcessNext = () => {
     setProcessing(true);
     // Placeholder for actual processing logic
     setTimeout(() => {
       setProcessing(false);
+      setCurrentFileIndex(prev => prev + 1);
       setRefreshTrigger(prev => prev + 1);
     }, 2000);
+  };
+  
+  const handleSkip = () => {
+    setCurrentFileIndex(prev => prev + 1);
+  };
+  
+  const handleReset = () => {
+    setQueuedFiles([]);
+    setCurrentFileIndex(0);
   };
   
   const handleTranscriptionSelect = (vtt: string, model: string) => {
@@ -57,12 +78,21 @@ const Index = () => {
     }
   };
   
-  const handleVideoIdSubmit = (videoId: string) => {
-    console.log("Video ID submitted:", videoId);
+  const handleVideoIdChange = (id: string) => {
+    setVideoId(id);
   };
   
-  const handlePromptUpdate = (newPrompt: string) => {
-    setTranscriptionPrompt(newPrompt);
+  const handlePreserveEnglishChange = (checked: boolean) => {
+    setPreserveEnglish(checked);
+    setTranscriptionPrompt(checked ? "Please preserve all English words exactly as spoken" : "");
+  };
+
+  const handleOutputFormatChange = (format: "vtt" | "plain") => {
+    setOutputFormat(format);
+  };
+
+  const handleNotificationsChange = (enabled: boolean) => {
+    setNotificationsEnabled(enabled);
   };
 
   return (
@@ -83,33 +113,52 @@ const Index = () => {
                 </TabsList>
                 
                 <TabsContent value="upload">
-                  <FileUpload onFileQueued={handleFileQueued} />
+                  <FileUpload 
+                    onFileUpload={handleFileUpload}
+                    isUploading={processing}
+                  />
                 </TabsContent>
                 
                 <TabsContent value="video-id">
-                  <VideoIdInput onVideoIdSubmit={handleVideoIdSubmit} />
+                  <VideoIdInput 
+                    videoId={videoId}
+                    onChange={handleVideoIdChange}
+                    disabled={processing}
+                  />
                 </TabsContent>
                 
                 <TabsContent value="sharepoint">
-                  <SharePointDownloader onFileDownloaded={handleFileQueued} />
+                  <SharePointDownloader 
+                    onFilesQueued={handleFileUpload}
+                    isProcessing={processing}
+                  />
                 </TabsContent>
               </Tabs>
               
               <ModelSelector 
-                onModelSelect={handleModelSelection} 
                 selectedModels={selectedModels}
+                onModelChange={handleModelChange}
+                disabled={processing}
               />
               
               <PromptOptions 
-                onPromptUpdate={handlePromptUpdate}
-                prompt={transcriptionPrompt}
+                preserveEnglish={preserveEnglish}
+                onPreserveEnglishChange={handlePreserveEnglishChange}
+                outputFormat={outputFormat}
+                onOutputFormatChange={handleOutputFormatChange}
+                notificationsEnabled={notificationsEnabled}
+                onNotificationsChange={handleNotificationsChange}
+                disabled={processing}
               />
               
               <FileQueue 
-                files={queuedFiles} 
-                onRemoveFile={handleRemoveFile}
-                onProcessFiles={handleProcessFiles}
-                processing={processing}
+                files={queuedFiles}
+                currentIndex={currentFileIndex}
+                onProcessNext={handleProcessNext}
+                onSkip={handleSkip}
+                onReset={handleReset}
+                isProcessing={processing}
+                notificationsEnabled={notificationsEnabled}
               />
             </div>
             
@@ -150,7 +199,7 @@ const Index = () => {
               
               <ScrollArea className="h-[500px] rounded-md border">
                 <div className="p-4">
-                  <LogsPanel />
+                  <LogsPanel logs={logs} />
                 </div>
               </ScrollArea>
             </div>
