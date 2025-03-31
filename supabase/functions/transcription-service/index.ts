@@ -1,3 +1,4 @@
+
 // Supabase Edge Function for transcription-related services
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
@@ -295,6 +296,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
       .update({
         status: 'completed',
         result: transcriptionResult,
+        status_message: 'Transcription completed successfully',
         updated_at: new Date().toISOString()
       })
       .eq('id', jobId);
@@ -315,6 +317,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
         .update({
           status: 'failed',
           error: error.message,
+          status_message: `Transcription failed: ${error.message}`,
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);

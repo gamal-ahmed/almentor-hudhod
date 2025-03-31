@@ -28,7 +28,8 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
       .insert({
         model: model as string, // Cast model to string
         file_path: fileName,
-        status: 'pending'
+        status: 'pending',
+        status_message: 'Waiting in queue...'
       })
       .select()
       .single();
@@ -36,14 +37,6 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     if (jobError) {
       throw new Error(`Failed to create transcription job: ${jobError.message}`);
     }
-    
-    // Now update the status message in a separate query
-    await supabase
-      .from('transcriptions')
-      .update({
-        error: null // Clear any previous errors
-      })
-      .eq('id', jobData.id);
     
     // Prepare FormData for the transcription request
     const formData = new FormData();
@@ -63,6 +56,17 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     
     if (!response.ok) {
       const errorText = await response.text();
+      
+      // If job creation succeeded but starting failed, update the job status
+      await supabase
+        .from('transcriptions')
+        .update({
+          status: 'failed',
+          error: `Failed to start transcription: ${errorText}`,
+          status_message: `Failed to start: ${response.status} - ${errorText}`
+        })
+        .eq('id', jobData.id);
+        
       throw new Error(`Failed to start transcription job: ${response.status} - ${errorText}`);
     }
     
