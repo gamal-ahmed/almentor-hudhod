@@ -27,7 +27,7 @@ interface CloudStorageConfigFormProps {
 }
 
 const CloudStorageConfigForm: React.FC<CloudStorageConfigFormProps> = ({ onConfigSaved }) => {
-  const [config, setConfig] = useState<CloudStorageConfig>({
+  const [config, setConfig] = useState<CloudStorageConfigType>({
     googleDrive: { clientId: '', apiKey: '' },
     dropbox: { appKey: '' }
   });
