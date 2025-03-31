@@ -1,10 +1,12 @@
+
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus, resetStuckJobs } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle, Folder, FileText } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle, Folder, FileText, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
@@ -459,6 +461,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       <Accordion type="single" collapsible className="space-y-4">
         {jobGroups.map((group, index) => {
           const groupStatus = getGroupStatus(group);
+          const encodedTimestamp = encodeURIComponent(group.timestamp.toISOString());
           
           return (
             <AccordionItem 
@@ -472,47 +475,56 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                 "border-amber-200 dark:border-amber-800"
               )}
             >
-              <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                <div className="flex items-center gap-3 w-full">
-                  <div className={cn(
-                    "p-2 rounded-full",
-                    groupStatus === 'completed' ? "bg-green-100 dark:bg-green-900/20" :
-                    groupStatus === 'processing' ? "bg-blue-100 dark:bg-blue-900/20" :
-                    groupStatus === 'failed' ? "bg-red-100 dark:bg-red-900/20" :
-                    "bg-amber-100 dark:bg-amber-900/20"
-                  )}>
-                    <Folder className={cn(
-                      "h-5 w-5",
-                      groupStatus === 'completed' ? "text-green-500 dark:text-green-400" :
-                      groupStatus === 'processing' ? "text-blue-500 dark:text-blue-400" :
-                      groupStatus === 'failed' ? "text-red-500 dark:text-red-400" :
-                      "text-amber-500 dark:text-amber-400"
-                    )} />
+              <div className="flex justify-between items-center pr-4">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline grow">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className={cn(
+                      "p-2 rounded-full",
+                      groupStatus === 'completed' ? "bg-green-100 dark:bg-green-900/20" :
+                      groupStatus === 'processing' ? "bg-blue-100 dark:bg-blue-900/20" :
+                      groupStatus === 'failed' ? "bg-red-100 dark:bg-red-900/20" :
+                      "bg-amber-100 dark:bg-amber-900/20"
+                    )}>
+                      <Folder className={cn(
+                        "h-5 w-5",
+                        groupStatus === 'completed' ? "text-green-500 dark:text-green-400" :
+                        groupStatus === 'processing' ? "text-blue-500 dark:text-blue-400" :
+                        groupStatus === 'failed' ? "text-red-500 dark:text-red-400" :
+                        "text-amber-500 dark:text-amber-400"
+                      )} />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-medium text-sm">
+                        {formatDistanceToNow(group.timestamp)} ago
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        {group.jobs.length} models: {group.jobs.map(job => getModelDisplayName(job.model)).join(', ')}
+                      </p>
+                    </div>
+                    <div className="ml-auto flex gap-2">
+                      {group.jobs.map(job => (
+                        <span 
+                          key={job.id} 
+                          className={cn(
+                            "h-2 w-2 rounded-full",
+                            job.status === 'completed' ? "bg-green-500" :
+                            job.status === 'processing' ? "bg-blue-500" :
+                            job.status === 'pending' ? "bg-amber-500" :
+                            "bg-red-500"
+                          )}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <h4 className="font-medium text-sm">
-                      {formatDistanceToNow(group.timestamp)} ago
-                    </h4>
-                    <p className="text-xs text-muted-foreground">
-                      {group.jobs.length} models: {group.jobs.map(job => getModelDisplayName(job.model)).join(', ')}
-                    </p>
-                  </div>
-                  <div className="ml-auto flex gap-2">
-                    {group.jobs.map(job => (
-                      <span 
-                        key={job.id} 
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          job.status === 'completed' ? "bg-green-500" :
-                          job.status === 'processing' ? "bg-blue-500" :
-                          job.status === 'pending' ? "bg-amber-500" :
-                          "bg-red-500"
-                        )}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </AccordionTrigger>
+                </AccordionTrigger>
+                <Link 
+                  to={`/session/${encodedTimestamp}`}
+                  className="flex items-center text-sm font-medium text-blue-500 hover:text-blue-600 px-2.5 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                >
+                  <span className="mr-1.5">Details</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
               <AccordionContent className="px-4 pb-4">
                 <div className="grid grid-cols-1 gap-3">
                   {group.jobs.map((job) => (

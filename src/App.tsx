@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import Landing from "./pages/Landing";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import SessionDetails from "./pages/SessionDetails";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 
@@ -28,6 +29,11 @@ const App = () => (
             <Route path="/app" element={
               <AuthGuard>
                 <Index />
+              </AuthGuard>
+            } />
+            <Route path="/session/:sessionTimestamp" element={
+              <AuthGuard>
+                <SessionDetails />
               </AuthGuard>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
