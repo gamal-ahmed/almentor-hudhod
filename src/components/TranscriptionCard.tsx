@@ -9,13 +9,14 @@ import { useLogsStore } from "@/lib/useLogsStore";
 import ExportMenu from "@/components/ExportMenu";
 
 interface TranscriptionCardProps {
-  modelName: string;
+  modelName?: string;
   vttContent: string;
   prompt?: string;
   onSelect: () => void;
-  isSelected: boolean;
+  isSelected?: boolean;
   audioSrc?: string;
   isLoading?: boolean;
+  maxHeight?: string;
 }
 
 interface VTTSegment {
@@ -25,13 +26,14 @@ interface VTTSegment {
 }
 
 const TranscriptionCard = ({ 
-  modelName, 
+  modelName = "", 
   vttContent = "", 
   prompt = "",
   onSelect, 
-  isSelected,
+  isSelected = false,
   audioSrc,
-  isLoading = false
+  isLoading = false,
+  maxHeight = "300px"
 }: TranscriptionCardProps) => {
   const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -312,7 +314,7 @@ const TranscriptionCard = ({
           </div>
         )}
       </CardHeader>
-      <CardContent className={`h-[300px] overflow-y-auto ${isLoading ? 'flex items-center justify-center' : ''}`}>
+      <CardContent className={`overflow-y-auto ${isLoading ? 'flex items-center justify-center' : ''}`} style={{ height: maxHeight }}>
         {isLoading ? (
           <div className="text-center text-muted-foreground animate-pulse-opacity">
             Generating transcription...

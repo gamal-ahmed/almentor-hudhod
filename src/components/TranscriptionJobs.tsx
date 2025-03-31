@@ -57,7 +57,17 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       
       if (error) throw error;
       
-      setJobs(data || []);
+      const transformedJobs: TranscriptionJob[] = (data || []).map(job => ({
+        id: job.id,
+        status: job.status,
+        model: job.model,
+        created_at: job.created_at,
+        result: job.result ? { vttContent: job.result.vttContent || '' } : undefined,
+        error: job.error,
+        status_message: job.status_message
+      }));
+      
+      setJobs(transformedJobs);
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setError('Failed to load transcription jobs');
@@ -293,11 +303,9 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                   <CardContent className="p-4 pt-2">
                     <div className="text-sm">
                       {job.result?.vttContent ? (
-                        <TranscriptionCard 
-                          vttContent={job.result.vttContent}
-                          maxHeight="150px"
-                          onSelect={() => handleSelectTranscription(job)}
-                        />
+                        <div className="max-h-[150px] overflow-y-auto border rounded p-2">
+                          <pre className="text-xs whitespace-pre-wrap">{job.result.vttContent.substring(0, 500)}...</pre>
+                        </div>
                       ) : (
                         <div className="text-muted-foreground">No content available</div>
                       )}
