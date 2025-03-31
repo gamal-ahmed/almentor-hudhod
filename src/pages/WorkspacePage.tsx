@@ -155,6 +155,7 @@ export default function WorkspacePage() {
       </div>
     );
   }
+  
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
