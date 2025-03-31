@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, ArrowLeft, Send, AlertCircle } from "lucide-react";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import LogsPanel from "@/components/LogsPanel";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken } from "@/lib/api";
+import { addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getUserTranscriptionJobs } from "@/lib/api";
 
 interface ResultsPublishStepProps {
   selectedTranscription: string | null;
@@ -45,6 +45,23 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
 }) => {
   const { toast } = useToast();
   const { logs, addLog, startTimedLog } = useLogsStore();
+  const [completedJobs, setCompletedJobs] = useState<any[]>([]);
+
+  // Fetch completed jobs to display in the results tab
+  useEffect(() => {
+    const fetchCompletedJobs = async () => {
+      try {
+        const jobs = await getUserTranscriptionJobs();
+        // Filter for completed jobs only
+        const completed = jobs.filter(job => job.status === 'completed');
+        setCompletedJobs(completed);
+      } catch (error) {
+        console.error("Error fetching completed jobs:", error);
+      }
+    };
+
+    fetchCompletedJobs();
+  }, [refreshJobsTrigger]);
 
   // Publish caption to Brightcove
   const publishCaption = async () => {
@@ -118,6 +135,30 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     } finally {
       setIsPublishing(false);
     }
+  };
+
+  // Extract VTT content from job result safely
+  const extractVttContent = (job: any) => {
+    if (!job || !job.result) return "";
+    
+    // Handle different result shapes
+    try {
+      if (typeof job.result === 'string') {
+        try {
+          const parsedResult = JSON.parse(job.result);
+          return parsedResult.vttContent || "";
+        } catch {
+          return "";
+        }
+      } else if (typeof job.result === 'object') {
+        return job.result.vttContent || "";
+      }
+    } catch (error) {
+      console.error("Error extracting VTT content:", error);
+      return "";
+    }
+    
+    return "";
   };
 
   return (
@@ -217,9 +258,36 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
             </TabsContent>
             
             <TabsContent value="results" className="space-y-3">
-              <h2 className="text-xl font-semibold mb-4">Direct Transcription Results</h2>
+              <h2 className="text-xl font-semibold mb-4">Transcription Results</h2>
               
-              {selectedModels.length > 0 ? (
+              {completedJobs.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {completedJobs.map(job => {
+                    const vttContent = extractVttContent(job);
+                    const modelName = job.model || "";
+                    const promptUsed = job.result?.prompt || "Default prompt used";
+                    
+                    return (
+                      <TranscriptionCard
+                        key={job.id}
+                        modelName={
+                          modelName === "openai" 
+                            ? "OpenAI Whisper" 
+                            : modelName === "gemini-2.0-flash" 
+                              ? "Gemini 2.0 Flash" 
+                              : "Microsoft Phi-4"
+                        }
+                        vttContent={vttContent}
+                        prompt={promptUsed}
+                        onSelect={() => handleSelectTranscription(vttContent, modelName)}
+                        isSelected={selectedModel === modelName && selectedTranscription === vttContent}
+                        audioSrc={audioUrl || undefined}
+                        isLoading={false}
+                      />
+                    );
+                  })}
+                </div>
+              ) : selectedModels.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {selectedModels.map((model) => {
                     const transcription = transcriptions[model] || { vtt: "", prompt: "", loading: false };
@@ -246,7 +314,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
                 </div>
               ) : (
                 <div className="text-center p-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                  <p className="text-muted-foreground">No transcription models were selected.</p>
+                  <p className="text-muted-foreground">No transcription results available yet.</p>
                 </div>
               )}
             </TabsContent>

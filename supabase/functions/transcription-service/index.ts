@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
@@ -26,6 +25,8 @@ serve(async (req) => {
     return await handleStartJob(req);
   } else if (endpoint === 'job-status') {
     return await handleJobStatus(req);
+  } else if (endpoint === 'reset-stuck-jobs') {
+    return await handleResetStuckJobs(req);
   } else {
     return new Response(
       JSON.stringify({ error: "Invalid endpoint" }),
@@ -121,6 +122,61 @@ async function handleJobStatus(req: Request) {
     );
   } catch (error) {
     console.error("Error checking job status:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+}
+
+// Handle resetting stuck jobs
+async function handleResetStuckJobs(req: Request) {
+  try {
+    console.log("Resetting all stuck transcription jobs");
+    
+    // Get current time minus 30 minutes
+    const thirtyMinutesAgo = new Date();
+    thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
+    
+    // Update all jobs that are stuck in pending or processing for more than 30 minutes
+    const { data: updatedJobs, error } = await supabase
+      .from('transcriptions')
+      .update({
+        status: 'failed',
+        error: 'Job was stuck and automatically reset by the system',
+        updated_at: new Date().toISOString()
+      })
+      .in('status', ['pending', 'processing'])
+      .lt('updated_at', thirtyMinutesAgo.toISOString())
+      .select('id');
+    
+    if (error) {
+      throw new Error(`Failed to reset stuck jobs: ${error.message}`);
+    }
+    
+    const updatedCount = updatedJobs?.length || 0;
+    console.log(`Reset ${updatedCount} stuck jobs`);
+    
+    return new Response(
+      JSON.stringify({ 
+        message: "Successfully reset stuck jobs",
+        updatedCount 
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error resetting stuck jobs:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

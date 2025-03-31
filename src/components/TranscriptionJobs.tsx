@@ -1,13 +1,15 @@
+
 import React, { useEffect, useState } from 'react';
-import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
+import { getUserTranscriptionJobs, checkTranscriptionJobStatus, resetStuckJobs } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, Clock, RotateCcw, Play, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Define a union type for all possible job statuses
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -32,6 +34,32 @@ interface TranscriptionJobsProps {
   refreshTrigger?: number;
 }
 
+// Helper component to show stuck jobs alert
+const QueueStatusAlert = ({ stuckJobs, onReset }: { stuckJobs: number, onReset: () => void }) => {
+  if (stuckJobs === 0) return null;
+  
+  return (
+    <Alert variant="warning" className="mb-4">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertTitle>Stuck Transcription Jobs Detected</AlertTitle>
+      <AlertDescription className="mt-2">
+        <p className="mb-2">
+          {stuckJobs} {stuckJobs === 1 ? 'job has' : 'jobs have'} been stuck in processing for over 30 minutes.
+        </p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onReset}
+          className="mt-1"
+        >
+          <RotateCcw className="mr-2 h-3 w-3" />
+          Reset Stuck Jobs
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+};
+
 const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({ 
   onSelectTranscription,
   refreshTrigger = 0
@@ -40,6 +68,8 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
+  const [stuckJobs, setStuckJobs] = useState<number>(0);
+  const [resettingJobs, setResettingJobs] = useState<boolean>(false);
   const { toast } = useToast();
   
   const fetchJobs = async () => {
@@ -47,6 +77,17 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       setLoading(true);
       const jobsData = await getUserTranscriptionJobs();
       setJobs(jobsData as unknown as TranscriptionJob[]);
+      
+      // Check for stuck jobs (pending or processing for > 30 minutes)
+      const thirtyMinutesAgo = new Date();
+      thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
+      
+      const stuckJobsCount = jobsData.filter((job: any) => 
+        (job.status === 'pending' || job.status === 'processing') && 
+        new Date(job.updated_at) < thirtyMinutesAgo
+      ).length;
+      
+      setStuckJobs(stuckJobsCount);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast({
@@ -219,15 +260,47 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     }
   };
   
+  // Helper function to safely extract VTT content from job result
+  const extractVttContent = (job: TranscriptionJob) => {
+    if (!job.result) return "";
+    
+    try {
+      if (typeof job.result === 'string') {
+        try {
+          const parsedResult = JSON.parse(job.result);
+          return parsedResult.vttContent || "";
+        } catch {
+          return "";
+        }
+      } else if (typeof job.result === 'object') {
+        // Handle result when it's an object
+        const result = job.result as any;
+        return result.vttContent || "";
+      }
+    } catch (error) {
+      console.error("Error extracting VTT content:", error);
+      return "";
+    }
+    
+    return "";
+  };
+  
   const handleSelectTranscription = (job: TranscriptionJob) => {
     if (job.status === 'completed' && job.result && onSelectTranscription) {
-      const result = job.result as any;
-      if (result.vttContent) {
-        onSelectTranscription(result.vttContent, job.model);
+      const vttContent = extractVttContent(job);
+      
+      if (vttContent) {
+        onSelectTranscription(vttContent, job.model);
         
         toast({
           title: "Transcription selected",
           description: `Using ${getModelDisplayName(job.model)} transcription`,
+        });
+      } else {
+        toast({
+          title: "Invalid transcription",
+          description: "Could not extract VTT content from this job",
+          variant: "destructive",
         });
       }
     }
@@ -235,6 +308,29 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   
   const toggleExpandJob = (jobId: string) => {
     setExpandedJob(expandedJob === jobId ? null : jobId);
+  };
+  
+  const handleResetStuckJobs = async () => {
+    try {
+      setResettingJobs(true);
+      const updatedCount = await resetStuckJobs();
+      
+      toast({
+        title: "Reset Successful",
+        description: `Successfully reset ${updatedCount} stuck jobs.`,
+      });
+      
+      // Refresh the job list
+      fetchJobs();
+    } catch (error) {
+      toast({
+        title: "Reset Failed",
+        description: error instanceof Error ? error.message : "Failed to reset stuck jobs",
+        variant: "destructive",
+      });
+    } finally {
+      setResettingJobs(false);
+    }
   };
   
   if (loading && jobs.length === 0) {
@@ -270,6 +366,13 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   
   return (
     <div className="space-y-4 animate-fade-in">
+      {stuckJobs > 0 && (
+        <QueueStatusAlert 
+          stuckJobs={stuckJobs} 
+          onReset={handleResetStuckJobs} 
+        />
+      )}
+      
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xl font-semibold flex items-center gap-2">
           <Clock className="h-5 w-5 text-primary" />
@@ -289,10 +392,10 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
             variant="outline" 
             size="sm" 
             onClick={fetchJobs}
-            disabled={loading}
+            disabled={loading || resettingJobs}
             className="flex items-center gap-1 transition-all hover:bg-secondary"
           >
-            <RotateCcw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RotateCcw className={cn("h-4 w-4", (loading || resettingJobs) && "animate-spin")} />
             Refresh
           </Button>
         </div>

@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -186,6 +185,50 @@ export async function transcribeAudio(file: File, model: TranscriptionModel, pro
       details: error.stack
     });
     console.error(`Error in ${model} transcription:`, error);
+    logOperation.error(`${error.message}`, error.stack);
+    throw error;
+  }
+}
+
+// Reset stuck jobs
+export async function resetStuckJobs() {
+  const addLog = getLogsStore().addLog;
+  const startTimedLog = getLogsStore().startTimedLog;
+  
+  const logOperation = startTimedLog(`Resetting stuck jobs`, "info", "System");
+  
+  try {
+    // Call the Supabase Function to reset stuck jobs
+    const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/reset-stuck-jobs`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to reset stuck jobs: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    addLog(`Successfully reset ${data.updatedCount} stuck jobs`, "success", {
+      source: "System",
+      details: `Jobs were updated from 'pending' or 'processing' to 'failed'`
+    });
+    
+    logOperation.complete(`Reset stuck jobs`, `${data.updatedCount} jobs updated`);
+    
+    return data.updatedCount;
+  } catch (error) {
+    addLog(`Error resetting stuck jobs: ${error.message}`, "error", {
+      source: "System",
+      details: error.stack
+    });
+    console.error('Error resetting stuck jobs:', error);
     logOperation.error(`${error.message}`, error.stack);
     throw error;
   }
