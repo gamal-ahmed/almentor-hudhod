@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
+import { API_ENDPOINTS } from "./utils";
 import { CloudStorageAccount, CloudStorageFile, CloudStorageProvider } from "@/types/cloudStorage";
 import { handleApiError } from "./utils";
 
@@ -18,8 +18,6 @@ export const cloudStorageService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({ provider }),
       });
@@ -46,8 +44,6 @@ export const cloudStorageService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({ provider, code }),
       });
@@ -68,13 +64,11 @@ export const cloudStorageService = {
   /**
    * Get a list of connected cloud storage accounts for the current user
    */
-  async getAccounts(): Promise<CloudStorageAccount[]> {
+  async getConnectedAccounts(): Promise<CloudStorageAccount[]> {
     try {
-      // We need to cast this to any because the Supabase client is generated
-      // from the database schema which doesn't include the custom table yet
-      const { data, error } = await (supabase as any)
-        .from("cloud_storage_accounts")
-        .select("*");
+      const { data, error } = await supabase
+        .from('cloud_storage_accounts')
+        .select('*');
       
       if (error) {
         throw error;
@@ -106,12 +100,10 @@ export const cloudStorageService = {
    */
   async disconnectAccount(accountId: string): Promise<void> {
     try {
-      // We need to cast this to any because the Supabase client is generated
-      // from the database schema which doesn't include the custom table yet
-      const { error } = await (supabase as any)
-        .from("cloud_storage_accounts")
+      const { error } = await supabase
+        .from('cloud_storage_accounts')
         .delete()
-        .eq("id", accountId);
+        .eq('id', accountId);
       
       if (error) {
         throw error;
@@ -131,8 +123,6 @@ export const cloudStorageService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({ accountId }),
       });
@@ -145,17 +135,15 @@ export const cloudStorageService = {
       const data = await response.json();
       
       // Update the account in the database
-      // We need to cast this to any because the Supabase client is generated
-      // from the database schema which doesn't include the custom table yet
-      const { error } = await (supabase as any)
-        .from("cloud_storage_accounts")
+      const { error } = await supabase
+        .from('cloud_storage_accounts')
         .update({
           access_token: data.account.accessToken,
           refresh_token: data.account.refreshToken,
           expires_at: data.account.expiresAt,
           last_used: new Date().toISOString(),
         })
-        .eq("id", accountId);
+        .eq('id', accountId);
       
       if (error) {
         throw error;
@@ -177,8 +165,6 @@ export const cloudStorageService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({ accountId, folderId }),
       });
@@ -199,14 +185,12 @@ export const cloudStorageService = {
   /**
    * Download a file from cloud storage
    */
-  async downloadFile(accountId: string, fileId: string, fileName: string): Promise<File> {
+  async downloadFile(accountId: string, fileId: string): Promise<File> {
     try {
       const response = await fetch(`${API_ENDPOINTS.CLOUD_STORAGE_DOWNLOAD}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({ accountId, fileId }),
       });
@@ -218,22 +202,16 @@ export const cloudStorageService = {
       
       const arrayBuffer = await response.arrayBuffer();
       
-      // Determine file type based on extension
-      const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-      let fileType = 'application/octet-stream'; // Default MIME type
+      // Get the file name and type from the Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const fileName = contentDisposition 
+        ? contentDisposition.split('filename=')[1].trim().replace(/"/g, '') 
+        : 'download.mp3';
       
-      if (fileExtension === 'mp3') {
-        fileType = 'audio/mpeg';
-      } else if (fileExtension === 'wav') {
-        fileType = 'audio/wav';
-      } else if (fileExtension === 'ogg') {
-        fileType = 'audio/ogg';
-      } else if (fileExtension === 'm4a') {
-        fileType = 'audio/mp4';
-      }
+      const contentType = response.headers.get('Content-Type') || 'audio/mpeg';
       
       // Create a File object from the array buffer
-      return new File([arrayBuffer], fileName, { type: fileType });
+      return new File([arrayBuffer], fileName, { type: contentType });
     } catch (error) {
       console.error('Error downloading file:', error);
       throw error;

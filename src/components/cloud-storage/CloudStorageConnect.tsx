@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CloudStorageProvider } from '@/types/cloudStorage';
-import { FileIcon, Cloud } from 'lucide-react';
+import { FileIcon, Cloud, CloudIcon } from 'lucide-react';
 import { cloudStorageService } from '@/lib/api';
 
 interface CloudStorageConnectProps {
@@ -55,7 +55,7 @@ const CloudStorageConnect: React.FC<CloudStorageConnectProps> = ({ onConnected }
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Cloud className="h-5 w-5 text-blue-500" />
+              <CloudIcon className="h-5 w-5 text-blue-500" />
               <CardTitle className="text-base">Dropbox</CardTitle>
             </div>
             <CardDescription>

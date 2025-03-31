@@ -8,12 +8,27 @@ export interface PromptOptionsProps {
   prompt: string;
   onPromptChange: (prompt: string) => void;
   disabled?: boolean;
+  // Additional props that may be passed but not used in this component
+  preserveEnglish?: boolean;
+  onPreserveEnglishChange?: (checked: boolean) => void;
+  outputFormat?: "vtt" | "plain";
+  onOutputFormatChange?: (format: "vtt" | "plain") => void;
+  notificationsEnabled?: boolean;
+  onNotificationsChange?: (enabled: boolean) => void;
 }
 
 const PromptOptions: React.FC<PromptOptionsProps> = ({ 
   prompt, 
   onPromptChange, 
-  disabled = false 
+  disabled = false,
+  // We don't use these props in this component, but we accept them
+  // to avoid TypeScript errors when they're passed
+  preserveEnglish,
+  onPreserveEnglishChange,
+  outputFormat,
+  onOutputFormatChange,
+  notificationsEnabled,
+  onNotificationsChange
 }) => {
   // Sample prompts that can help improve transcription
   const samplePrompts = [

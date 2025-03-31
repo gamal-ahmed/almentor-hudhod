@@ -30,7 +30,6 @@ const CloudStorageFileBrowser: React.FC<CloudStorageFileBrowserProps> = ({
     try {
       setLoading(true);
       const filesList = await cloudStorageService.listFiles(
-        account.provider, 
         account.id, 
         currentFolderId
       );
@@ -38,7 +37,7 @@ const CloudStorageFileBrowser: React.FC<CloudStorageFileBrowserProps> = ({
     } catch (error) {
       console.error('Error fetching files:', error);
       toast.error('Error loading files', {
-        description: error.message || 'Failed to load files from your account. Please try again.',
+        description: (error as Error).message || 'Failed to load files from your account. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -54,14 +53,10 @@ const CloudStorageFileBrowser: React.FC<CloudStorageFileBrowserProps> = ({
       setDownloadingFileId(file.id);
       
       // Download the file
-      const blob = await cloudStorageService.downloadFile(
-        account.provider,
+      const fileObject = await cloudStorageService.downloadFile(
         account.id,
         file.id
       );
-      
-      // Convert the blob to a File object
-      const fileObject = new File([blob], file.name, { type: file.mimeType });
       
       // Pass the file to the parent component
       onFileSelect(fileObject);
@@ -69,7 +64,7 @@ const CloudStorageFileBrowser: React.FC<CloudStorageFileBrowserProps> = ({
     } catch (error) {
       console.error('Error downloading file:', error);
       toast.error('Error importing file', {
-        description: error.message || 'Failed to download the file. Please try again.',
+        description: (error as Error).message || 'Failed to download the file. Please try again.',
       });
     } finally {
       setDownloadingFileId(null);

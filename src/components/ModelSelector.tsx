@@ -10,12 +10,18 @@ import { InfoIcon } from "lucide-react";
 export type TranscriptionModel = "openai" | "gemini-2.0-flash" | "phi4";
 
 interface ModelSelectorProps {
-  selectedModels: TranscriptionModel[];
+  selectedModel: TranscriptionModel;
   onModelChange: (models: TranscriptionModel[]) => void;
   disabled: boolean;
+  selectedModels?: TranscriptionModel[];
 }
 
-const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelectorProps) => {
+const ModelSelector = ({ 
+  selectedModel, 
+  selectedModels = [], 
+  onModelChange, 
+  disabled 
+}: ModelSelectorProps) => {
   const addLog = useLogsStore(state => state.addLog);
 
   const handleModelToggle = (model: TranscriptionModel) => {
@@ -23,8 +29,11 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
       // Log the action
       addLog(`Toggling model: ${model}`, "info", { source: "ModelSelector" });
       
-      // Ensure selectedModels is always an array
-      const currentModels = Array.isArray(selectedModels) ? selectedModels : [];
+      // For backwards compatibility, we support both single model and multiple models
+      // If selectedModels is provided, use it, otherwise create an array from selectedModel
+      const currentModels = selectedModels.length > 0 
+        ? selectedModels 
+        : selectedModel ? [selectedModel] : [];
       
       // Log current selection state
       addLog(`Current selected models: ${currentModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
@@ -32,16 +41,16 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
       if (currentModels.includes(model)) {
         const updatedModels = currentModels.filter(m => m !== model);
         addLog(`Removing ${model}, new selection: ${updatedModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
-        onModelChange(updatedModels);
+        onModelChange(updatedModels.length ? updatedModels : [model]); // Always keep at least one model selected
       } else {
         const updatedModels = [...currentModels, model];
         addLog(`Adding ${model}, new selection: ${updatedModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
         onModelChange(updatedModels);
       }
     } catch (error) {
-      addLog(`Error toggling model: ${error.message}`, "error", { 
+      addLog(`Error toggling model: ${(error as Error).message}`, "error", { 
         source: "ModelSelector", 
-        details: error.stack 
+        details: (error as Error).stack 
       });
       console.error("Error toggling model:", error);
     }
@@ -68,12 +77,18 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
     }
   ];
 
-  // Ensure selectedModels is always treated as an array
-  const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
+  // Determine if model is selected
+  const isModelSelected = (model: TranscriptionModel) => {
+    if (selectedModels.length > 0) {
+      return selectedModels.includes(model);
+    }
+    return selectedModel === model;
+  };
 
   // Add additional logging for debugging
   console.log("ModelSelector render:", { 
-    selectedModels: safeSelectedModels,
+    selectedModel,
+    selectedModels,
     disabled
   });
 
@@ -84,14 +99,14 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
           <div 
             key={model.id} 
             className={`flex items-start space-x-2 p-2.5 rounded-md border border-border/50 transition-colors ${
-              safeSelectedModels.includes(model.id) 
+              isModelSelected(model.id) 
                 ? "bg-primary/5 border-primary/20" 
                 : "bg-background hover:bg-muted/30"
             } ${disabled ? "opacity-60" : ""}`}
           >
             <Checkbox 
               id={model.id} 
-              checked={safeSelectedModels.includes(model.id)} 
+              checked={isModelSelected(model.id)} 
               onCheckedChange={() => handleModelToggle(model.id)}
               disabled={disabled}
               className="mt-0.5"

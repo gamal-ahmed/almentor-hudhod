@@ -34,7 +34,7 @@ const CloudStorageImporter: React.FC<CloudStorageImporterProps> = ({
     } catch (error) {
       console.error('Error fetching cloud storage accounts:', error);
       toast.error('Failed to load connected accounts', {
-        description: error.message || 'Please try refreshing the page.',
+        description: (error as Error).message || 'Please try refreshing the page.',
       });
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ const CloudStorageImporter: React.FC<CloudStorageImporterProps> = ({
     } catch (error) {
       console.error('Error disconnecting account:', error);
       toast.error('Failed to disconnect account', {
-        description: error.message || 'Please try again.',
+        description: (error as Error).message || 'Please try again.',
       });
     }
   };
@@ -121,7 +121,7 @@ const CloudStorageImporter: React.FC<CloudStorageImporterProps> = ({
       
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Connect New Account</h3>
-        <CloudStorageConnect onSuccess={fetchAccounts} />
+        <CloudStorageConnect onConnected={fetchAccounts} />
       </div>
     </div>
   );

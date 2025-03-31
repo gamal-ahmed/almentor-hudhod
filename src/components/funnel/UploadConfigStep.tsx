@@ -30,7 +30,11 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
   const { addLog } = useLogsStore();
   const navigate = useNavigate();
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = (files: File[] | File) => {
+    // Handle both single file and array of files
+    const file = Array.isArray(files) ? files[0] : files;
+    if (!file) return;
+    
     console.log("File uploaded:", file.name);
     setUploadedFile(file);
     addLog(`File uploaded: ${file.name}`, "info", {
@@ -75,8 +79,11 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     setIsPlaying(false);
   };
 
-  const handleModelChange = (model: TranscriptionModel) => {
-    setSelectedModel(model);
+  const handleModelChange = (models: TranscriptionModel[]) => {
+    // Just take the first selected model if multiple are selected
+    if (models.length > 0) {
+      setSelectedModel(models[0]);
+    }
   };
 
   const handlePromptChange = (prompt: string) => {
@@ -123,11 +130,11 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       console.error("Error starting transcription:", error);
       addLog(`Transcription job failed to start`, "error", {
         source: "TranscriptionJob",
-        details: error.message || "Unknown error"
+        details: (error as Error).message || "Unknown error"
       });
       
       toast.error("Failed to start transcription", {
-        description: error.message || "Please try again or contact support."
+        description: (error as Error).message || "Please try again or contact support."
       });
     } finally {
       setIsProcessing(false);
