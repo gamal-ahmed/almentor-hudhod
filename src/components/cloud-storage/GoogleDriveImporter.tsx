@@ -5,12 +5,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, FileIcon } from "lucide-react";
 import { useLogsStore } from "@/lib/useLogsStore";
-
-// Google Drive API configuration
-const CLIENT_ID = "YOUR_GOOGLE_DRIVE_CLIENT_ID"; // Replace with your actual client ID
-const API_KEY = "YOUR_GOOGLE_API_KEY"; // Replace with your actual API key
-const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+import { getCloudStorageConfig, isPlatformConfigured } from "@/lib/api/cloudStorageService";
 
 interface GoogleDriveImporterProps {
   onFilesSelected: (files: File[]) => void;
@@ -24,47 +19,24 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
   const { addLog } = useLogsStore();
 
   useEffect(() => {
+    // Skip initialization if the platform is not configured
+    if (!isPlatformConfigured('googleDrive')) {
+      addLog("Google Drive is not configured. Please add your API credentials.", "warn");
+      return;
+    }
+
+    const config = getCloudStorageConfig();
+    
     const loadGapiScript = () => {
       const script = document.createElement("script");
       script.src = "https://apis.google.com/js/api.js";
-      script.onload = () => initializeGapiClient();
+      script.onload = () => initializeGapiClient(config.googleDrive.clientId, config.googleDrive.apiKey);
       script.onerror = () => {
         console.error("Error loading Google API script");
         addLog("Error loading Google Drive API", "error");
         toast.error("Failed to load Google Drive integration");
       };
       document.body.appendChild(script);
-    };
-
-    const initializeGapiClient = () => {
-      window.gapi.load('client:auth2', async () => {
-        try {
-          await window.gapi.client.init({
-            apiKey: API_KEY,
-            clientId: CLIENT_ID,
-            discoveryDocs: DISCOVERY_DOCS,
-            scope: SCOPES
-          });
-
-          // Listen for sign-in state changes
-          window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-          
-          // Set the initial sign-in state
-          updateSigninStatus(window.gapi.auth2.getAuthInstance().isSignedIn.get());
-          
-          setIsInitialized(true);
-          addLog("Google Drive API initialized", "info");
-        } catch (error) {
-          console.error("Error initializing Google API client", error);
-          addLog("Error initializing Google Drive API", "error");
-          toast.error("Failed to initialize Google Drive");
-        }
-      });
-    };
-
-    const updateSigninStatus = (isSignedIn: boolean) => {
-      setIsSignedIn(isSignedIn);
-      addLog(`Google Drive authentication status: ${isSignedIn ? "Signed in" : "Signed out"}`, "info");
     };
 
     loadGapiScript();
@@ -74,9 +46,44 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
     };
   }, [addLog]);
 
+  const initializeGapiClient = (clientId: string, apiKey: string) => {
+    window.gapi.load('client:auth2', async () => {
+      try {
+        await window.gapi.client.init({
+          apiKey: apiKey,
+          clientId: clientId,
+          discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+          scope: "https://www.googleapis.com/auth/drive.readonly"
+        });
+
+        // Listen for sign-in state changes
+        window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        
+        // Set the initial sign-in state
+        updateSigninStatus(window.gapi.auth2.getAuthInstance().isSignedIn.get());
+        
+        setIsInitialized(true);
+        addLog("Google Drive API initialized", "info");
+      } catch (error) {
+        console.error("Error initializing Google API client", error);
+        addLog("Error initializing Google Drive API", "error");
+        toast.error("Failed to initialize Google Drive");
+      }
+    });
+  };
+
+  const updateSigninStatus = (isSignedIn: boolean) => {
+    setIsSignedIn(isSignedIn);
+    addLog(`Google Drive authentication status: ${isSignedIn ? "Signed in" : "Signed out"}`, "info");
+  };
+
   const handleAuthClick = () => {
     if (!isInitialized) {
-      toast.error("Google Drive API is not initialized yet");
+      if (!isPlatformConfigured('googleDrive')) {
+        toast.error("Please configure your Google Drive API credentials first");
+      } else {
+        toast.error("Google Drive API is not initialized yet");
+      }
       return;
     }
 
@@ -175,32 +182,43 @@ const GoogleDriveImporter: React.FC<GoogleDriveImporterProps> = ({ onFilesSelect
 
   return (
     <div className="space-y-4">
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="w-full h-auto py-4 flex flex-col items-center gap-2"
-        onClick={handleAuthClick}
-        disabled={isLoading || isProcessing}
-      >
-        {isLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
-        ) : (
-          <>
-            <div className="rounded-full bg-red-100 p-2 dark:bg-red-900/20">
-              <FileIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">
-                {isSignedIn ? "Select from Google Drive" : "Connect to Google Drive"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {isSignedIn ? "Choose audio files to import" : "Sign in to your Google account"}
-              </span>
-            </div>
-          </>
-        )}
-      </Button>
+      {!isPlatformConfigured('googleDrive') ? (
+        <div className="p-4 border border-dashed rounded-md bg-muted/50 text-center">
+          <p className="text-sm text-muted-foreground mb-2">
+            Google Drive integration requires API configuration
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Please use the Configure Storage button to add your credentials
+          </p>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="w-full h-auto py-4 flex flex-col items-center gap-2"
+          onClick={handleAuthClick}
+          disabled={isLoading || isProcessing}
+        >
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <>
+              <div className="rounded-full bg-red-100 p-2 dark:bg-red-900/20">
+                <FileIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">
+                  {isSignedIn ? "Select from Google Drive" : "Connect to Google Drive"}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {isSignedIn ? "Choose audio files to import" : "Sign in to your Google account"}
+                </span>
+              </div>
+            </>
+          )}
+        </Button>
+      )}
       
       {isInitialized && !isSignedIn && (
         <p className="text-xs text-muted-foreground">

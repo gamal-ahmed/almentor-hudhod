@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, FileIcon } from "lucide-react";
 import { useLogsStore } from "@/lib/useLogsStore";
-
-// Dropbox API configuration
-const APP_KEY = "YOUR_DROPBOX_APP_KEY"; // Replace with your actual app key
+import { getCloudStorageConfig, isPlatformConfigured } from "@/lib/api/cloudStorageService";
 
 interface DropboxImporterProps {
   onFilesSelected: (files: File[]) => void;
@@ -19,11 +17,19 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
   const { addLog } = useLogsStore();
 
   useEffect(() => {
+    // Skip initialization if the platform is not configured
+    if (!isPlatformConfigured('dropbox')) {
+      addLog("Dropbox is not configured. Please add your API credentials.", "warn");
+      return;
+    }
+
+    const config = getCloudStorageConfig();
+    
     const loadDropboxScript = () => {
       const script = document.createElement("script");
       script.src = "https://www.dropbox.com/static/api/2/dropins.js";
       script.id = "dropboxjs";
-      script.setAttribute("data-app-key", APP_KEY);
+      script.setAttribute("data-app-key", config.dropbox.appKey);
       
       script.onload = () => {
         setIsInitialized(true);
@@ -48,7 +54,11 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
 
   const openDropboxChooser = () => {
     if (!isInitialized) {
-      toast.error("Dropbox API is not initialized yet");
+      if (!isPlatformConfigured('dropbox')) {
+        toast.error("Please configure your Dropbox API credentials first");
+      } else {
+        toast.error("Dropbox API is not initialized yet");
+      }
       return;
     }
 
@@ -125,30 +135,41 @@ const DropboxImporter: React.FC<DropboxImporterProps> = ({ onFilesSelected, isPr
 
   return (
     <div className="space-y-4">
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="w-full h-auto py-4 flex flex-col items-center gap-2"
-        onClick={openDropboxChooser}
-        disabled={isLoading || isProcessing || !isInitialized}
-      >
-        {isLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
-        ) : (
-          <>
-            <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/20">
-              <FileIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">Select from Dropbox</span>
-              <span className="text-xs text-muted-foreground">Import audio files from your Dropbox</span>
-            </div>
-          </>
-        )}
-      </Button>
+      {!isPlatformConfigured('dropbox') ? (
+        <div className="p-4 border border-dashed rounded-md bg-muted/50 text-center">
+          <p className="text-sm text-muted-foreground mb-2">
+            Dropbox integration requires API configuration
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Please use the Configure Storage button to add your credentials
+          </p>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="w-full h-auto py-4 flex flex-col items-center gap-2"
+          onClick={openDropboxChooser}
+          disabled={isLoading || isProcessing || !isInitialized}
+        >
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <>
+              <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/20">
+                <FileIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">Select from Dropbox</span>
+                <span className="text-xs text-muted-foreground">Import audio files from your Dropbox</span>
+              </div>
+            </>
+          )}
+        </Button>
+      )}
       
-      {!isInitialized && (
+      {!isInitialized && isPlatformConfigured('dropbox') && (
         <p className="text-xs text-muted-foreground">
           Loading Dropbox integration...
         </p>
