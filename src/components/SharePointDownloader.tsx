@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,10 +38,8 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       setIsLoading(true);
       setErrorMessage(null);
       
-      // Fetch files list from SharePoint via our proxy
       const files = await fetchSharePointFiles(sharePointUrl);
       
-      // Filter only audio files
       const audioFiles = files.filter((file) => 
         file.name.toLowerCase().endsWith('.mp3') || 
         file.name.toLowerCase().endsWith('.m4a') || 
@@ -86,7 +83,6 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
       
       const downloadedFiles: File[] = [];
       
-      // Download each selected file
       for (const file of selectedFiles) {
         toast.info(`Downloading ${file.name}...`);
         
@@ -103,7 +99,6 @@ const SharePointDownloader = ({ onFilesQueued, isProcessing }: SharePointDownloa
         toast.success(`Downloaded ${downloadedFiles.length} audio files from SharePoint`);
         onFilesQueued(downloadedFiles);
         
-        // Clear selections after successful download
         setSelectedFiles([]);
       } else {
         toast.error("Failed to download any files");

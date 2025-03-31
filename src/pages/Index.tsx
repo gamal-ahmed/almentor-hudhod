@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
@@ -32,15 +31,15 @@ const Index = () => {
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   
-  // Get logs from the store
   const logs = useLogsStore(state => state.logs);
   
   const handleModelChange = (models: TranscriptionModel[]) => {
     setSelectedModels(models);
   };
   
-  const handleFileUpload = (file: File) => {
-    setQueuedFiles(prevFiles => [...prevFiles, file]);
+  const handleFileUpload = (files: File | File[]) => {
+    const fileArray = Array.isArray(files) ? files : [files];
+    setQueuedFiles(prevFiles => [...prevFiles, ...fileArray]);
   };
   
   const handleRemoveFile = (index: number) => {
@@ -49,7 +48,6 @@ const Index = () => {
   
   const handleProcessNext = () => {
     setProcessing(true);
-    // Placeholder for actual processing logic
     setTimeout(() => {
       setProcessing(false);
       setCurrentFileIndex(prev => prev + 1);
@@ -70,8 +68,7 @@ const Index = () => {
     setSelectedTranscription(vtt);
     setSelectedTranscriptionModel(model);
     
-    // Create a temporary URL for the audio file
-    const audioFile = queuedFiles[0]; // Assuming the first file is the audio
+    const audioFile = queuedFiles[0];
     if (audioFile) {
       const url = URL.createObjectURL(audioFile);
       setAudioFileUrl(url);
@@ -102,7 +99,6 @@ const Index = () => {
       <div className="flex-1 container py-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           
-          {/* Left column */}
           <div className="md:col-span-8 space-y-6">
             <div className="space-y-6">
               <Tabs defaultValue="upload" className="w-full">
@@ -162,17 +158,14 @@ const Index = () => {
               />
             </div>
             
-            {/* Session History Section */}
             <SessionHistory />
             
-            {/* Current Transcription jobs */}
             <TranscriptionJobs 
               onSelectTranscription={handleTranscriptionSelect}
               refreshTrigger={refreshTrigger}
             />
           </div>
           
-          {/* Right column */}
           <div className="md:col-span-4 md:border-l md:pl-6">
             <div className="sticky top-4 space-y-6">
               <h2 className="text-xl font-semibold mb-2">Transcription Preview</h2>
