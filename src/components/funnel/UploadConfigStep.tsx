@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Upload, FileAudio, Share, Pause, Play, Cloud } from 'lucide-react';
+import { AlertCircle, Upload, FileAudio, Share, Pause, Play } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 import SharePointDownloader from '@/components/SharePointDownloader';
-import CloudStorageImporter from '@/components/cloud-storage/CloudStorageImporter';
 import ModelSelector from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
 import { createTranscriptionJob } from '@/lib/api';
@@ -48,17 +47,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       setUploadedFile(files[0]);
       addLog(`SharePoint file selected: ${files[0].name}`, "info", {
         source: "SharePoint",
-        details: `Type: ${files[0].type}`
-      });
-    }
-  };
-  
-  const handleCloudStorageFilesSelect = (files: File[]) => {
-    if (files.length > 0) {
-      console.log("Cloud storage file selected:", files[0].name);
-      setUploadedFile(files[0]);
-      addLog(`Cloud storage file selected: ${files[0].name}`, "info", {
-        source: "CloudStorage",
         details: `Type: ${files[0].type}`
       });
     }
@@ -170,7 +158,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       <CardContent className="space-y-6">
         <Tabs defaultValue={uploadTab} onValueChange={setUploadTab} className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
+          <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="direct" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
               <span>Direct Upload</span>
@@ -178,10 +166,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
             <TabsTrigger value="sharepoint" className="flex items-center gap-2">
               <Share className="h-4 w-4" />
               <span>SharePoint</span>
-            </TabsTrigger>
-            <TabsTrigger value="cloud" className="flex items-center gap-2">
-              <Cloud className="h-4 w-4" />
-              <span>Cloud Storage</span>
             </TabsTrigger>
           </TabsList>
           
@@ -195,13 +179,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           <TabsContent value="sharepoint" className="space-y-4">
             <SharePointDownloader 
               onFilesQueued={handleSharePointFileSelect}
-              isProcessing={isProcessing}
-            />
-          </TabsContent>
-          
-          <TabsContent value="cloud" className="space-y-4">
-            <CloudStorageImporter
-              onFilesSelected={handleCloudStorageFilesSelect}
               isProcessing={isProcessing}
             />
           </TabsContent>
