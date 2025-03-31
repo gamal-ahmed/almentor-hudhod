@@ -57,17 +57,27 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       
       if (error) throw error;
       
-      const transformedJobs: TranscriptionJob[] = (data || []).map(job => ({
-        id: job.id,
-        status: job.status,
-        model: job.model,
-        created_at: job.created_at,
-        result: job.result && typeof job.result === 'object' ? { 
-          vttContent: typeof job.result.vttContent === 'string' ? job.result.vttContent : '' 
-        } : undefined,
-        error: job.error,
-        status_message: job.status_message
-      }));
+      const transformedJobs: TranscriptionJob[] = (data || []).map(job => {
+        const extractVttContent = (result: any): string | undefined => {
+          if (!result) return undefined;
+          
+          if (typeof result === 'object' && !Array.isArray(result)) {
+            return typeof result.vttContent === 'string' ? result.vttContent : '';
+          }
+          
+          return '';
+        };
+        
+        return {
+          id: job.id,
+          status: job.status,
+          model: job.model,
+          created_at: job.created_at,
+          result: job.result ? { vttContent: extractVttContent(job.result) || '' } : undefined,
+          error: job.error,
+          status_message: job.status_message
+        };
+      });
       
       setJobs(transformedJobs);
     } catch (err) {
