@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -73,15 +72,6 @@ const Index = () => {
 
   // Handle navigation between steps
   const goToNextStep = () => {
-    if (currentStep === 0 && !file) {
-      toast({
-        title: "Missing File",
-        description: "Please upload an audio file first to continue.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     setCurrentStep(1);
   };
 
