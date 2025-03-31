@@ -34,8 +34,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const handleFileUpload = (file: File) => {
     setUploadedFile(file);
     addLog(`File uploaded: ${file.name}`, "info", {
-      size: file.size,
-      type: file.type
+      source: "FileUpload",
+      details: `Size: ${file.size}, Type: ${file.type}`
     });
   };
   
@@ -43,8 +43,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const handleSharePointFileSelect = (file: File) => {
     setUploadedFile(file);
     addLog(`SharePoint file selected: ${file.name}`, "info", {
-      size: file.size,
-      type: file.type
+      source: "SharePoint",
+      details: `Size: ${file.size}, Type: ${file.type}`
     });
   };
   
@@ -156,13 +156,12 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           <TabsContent value="direct" className="space-y-4">
             <FileUpload 
               onFileUpload={handleFileUpload} 
-              accept="audio/*"
-              maxSize={50 * 1024 * 1024} // 50 MB
+              isUploading={isProcessing}
             />
           </TabsContent>
           
           <TabsContent value="sharepoint" className="space-y-4">
-            <SharePointDownloader onFileSelect={handleSharePointFileSelect} />
+            <SharePointDownloader />
           </TabsContent>
         </Tabs>
         
@@ -212,7 +211,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
             <h3 className="text-lg font-medium mb-2">Transcription Models</h3>
             <ModelSelector 
               selectedModels={selectedModels} 
-              onChange={(models) => setSelectedModels(models)} 
+              onModelChange={setSelectedModels} 
+              disabled={isProcessing}
             />
             
             {selectedModels.length === 0 && (
@@ -228,7 +228,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           <div>
             <h3 className="text-lg font-medium mb-2">Transcription Prompt</h3>
             <PromptOptions
-              prompt={prompt}
+              value={prompt}
               onChange={setPrompt}
             />
           </div>

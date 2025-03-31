@@ -112,11 +112,17 @@ const Index = () => {
     
     if (isAudioPlaying) {
       audioRef.current.pause();
+      setIsAudioPlaying(false);
     } else {
-      audioRef.current.play();
+      audioRef.current.play()
+        .then(() => {
+          setIsAudioPlaying(true);
+        })
+        .catch(error => {
+          console.error("Error playing audio:", error);
+          setIsAudioPlaying(false);
+        });
     }
-    
-    setIsAudioPlaying(!isAudioPlaying);
   };
   
   // Handle SharePoint files being queued
@@ -209,6 +215,12 @@ const Index = () => {
     setSelectedTranscription(vtt);
     setSelectedModel(model);
   };
+
+  // Handle when transcriptions are created
+  const handleTranscriptionsCreated = (jobIds: string[]) => {
+    setRefreshJobsTrigger(prev => prev + 1);
+    goToNextStep();
+  };
   
   return (
     <>
@@ -247,43 +259,8 @@ const Index = () => {
           <div className="animate-fade-in">
             {currentStep === 0 ? (
               <UploadConfigStep 
-                file={file}
-                audioUrl={audioUrl}
-                isAudioPlaying={isAudioPlaying}
-                toggleAudioPlayback={toggleAudioPlayback}
-                audioRef={audioRef}
-                handleFileUpload={handleFileUpload}
-                isUploading={isUploading}
-                selectedModels={selectedModels}
-                setSelectedModels={setSelectedModels}
-                isProcessing={isProcessing}
-                processTranscriptions={(file) => {
-                  // Simulate transcription process and move to next step
-                  setIsProcessing(true);
-                  setTimeout(() => {
-                    setIsProcessing(false);
-                    goToNextStep();
-                    setRefreshJobsTrigger(prev => prev + 1);
-                    toast({
-                      title: "Transcription Jobs Created",
-                      description: `Transcription jobs have been created for the selected models.`,
-                    });
-                  }, 1500);
-                }}
-                transcriptionPrompt={transcriptionPrompt}
-                preserveEnglish={preserveEnglish}
-                handlePreserveEnglishChange={handlePreserveEnglishChange}
-                outputFormat={outputFormat}
-                handleOutputFormatChange={handleOutputFormatChange}
-                notificationsEnabled={notificationsEnabled}
-                handleNotificationsChange={handleNotificationsChange}
-                fileQueue={fileQueue}
-                currentQueueIndex={currentQueueIndex}
-                handleFilesQueued={handleFilesQueued}
-                processNextInQueue={processNextInQueue}
-                skipCurrentInQueue={skipCurrentInQueue}
-                resetQueue={resetQueue}
-                goToNextStep={goToNextStep}
+                onTranscriptionsCreated={handleTranscriptionsCreated}
+                onStepComplete={goToNextStep}
               />
             ) : (
               <ResultsPublishStep
