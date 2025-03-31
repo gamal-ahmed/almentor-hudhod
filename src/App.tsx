@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -44,11 +45,6 @@ const App = () => (
                   </AuthGuard>
                 } />
                 <Route path="/cloud-storage" element={
-                  <AuthGuard>
-                    <CloudStorage />
-                  </AuthGuard>
-                } />
-                <Route path="/cloud-storage/callback" element={
                   <AuthGuard>
                     <CloudStorage />
                   </AuthGuard>

@@ -16,19 +16,19 @@ const OAuthCallback: React.FC = () => {
   
   useEffect(() => {
     const handleOAuthCallback = async () => {
-      if (!isAuthenticated) {
-        setError('You must be logged in to connect cloud storage accounts.');
-        setIsProcessing(false);
-        return;
-      }
-
-      if (!provider) {
-        setError('Invalid provider specified.');
-        setIsProcessing(false);
-        return;
-      }
-      
       try {
+        if (!isAuthenticated) {
+          setError('You must be logged in to connect cloud storage accounts.');
+          setIsProcessing(false);
+          return;
+        }
+
+        if (!provider) {
+          setError('Invalid provider specified.');
+          setIsProcessing(false);
+          return;
+        }
+        
         // Parse the code from the URL
         const urlParams = new URLSearchParams(location.search);
         const code = urlParams.get('code');
@@ -41,6 +41,8 @@ const OAuthCallback: React.FC = () => {
         // Construct the redirect URL that was originally used
         const baseUrl = window.location.origin;
         const redirectUrl = `${baseUrl}/auth/callback/${provider}`;
+        
+        console.log('OAuthCallback: Exchanging code for token', { provider, redirectUrl });
         
         // Exchange the code for a token
         await cloudStorageService.exchangeCodeForToken(

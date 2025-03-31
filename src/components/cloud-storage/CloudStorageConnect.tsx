@@ -6,23 +6,24 @@ import { CloudStorageProvider } from '@/types/cloudStorage';
 import { FileIcon, Cloud, CloudIcon } from 'lucide-react';
 import { cloudStorageService } from '@/lib/api';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 
 interface CloudStorageConnectProps {
   onConnected: () => void;
 }
 
 const CloudStorageConnect: React.FC<CloudStorageConnectProps> = ({ onConnected }) => {
-  const navigate = useNavigate();
-
   const connectToProvider = async (provider: CloudStorageProvider) => {
     try {
       // Get the current URL to construct the redirect URL
       const baseUrl = window.location.origin;
       const redirectUrl = `${baseUrl}/auth/callback/${provider}`;
       
+      console.log('Connecting to provider:', provider, 'with redirectUrl:', redirectUrl);
+      
       // Request the auth URL from our backend
       const authUrl = await cloudStorageService.getAuthUrl(provider, redirectUrl);
+      
+      console.log('Received auth URL:', authUrl);
       
       // Store the current path so we can return after auth
       localStorage.setItem('cloud_storage_redirect_path', window.location.pathname);
