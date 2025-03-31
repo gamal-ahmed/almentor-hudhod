@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -34,8 +35,9 @@ export default function WorkspacePage() {
   const { data: job, isLoading, error } = useQuery({
     queryKey: ['transcription-job', jobId],
     queryFn: () => checkTranscriptionJobStatus(jobId as string),
-    refetchInterval: (data, query) => {
+    refetchInterval: (query) => {
       // Poll every 5 seconds for non-completed jobs
+      const data = query.state.data;
       if (data && (data.status === 'pending' || data.status === 'processing')) {
         return 5000;
       }
