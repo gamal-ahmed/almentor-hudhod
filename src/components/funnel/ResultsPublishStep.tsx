@@ -51,41 +51,48 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     "gemini-2.0-flash": null,
     phi4: null
   });
+  const [currentJobs, setCurrentJobs] = useState<string[]>([]);
 
   // Fetch completed jobs to display in the results tab
   useEffect(() => {
     const fetchCompletedJobs = async () => {
       try {
         const jobs = await getUserTranscriptionJobs();
+        
         // Filter for completed jobs only
         const completed = jobs.filter(job => job.status === 'completed');
         setCompletedJobs(completed);
         
-        // Extract the most recent completed job for each model
-        const latest: Record<string, any> = {
+        // Get the current ongoing jobs (pending or processing)
+        const ongoing = jobs.filter(job => job.status === 'pending' || job.status === 'processing');
+        setCurrentJobs(ongoing.map(job => job.model));
+        
+        // Extract only jobs for selected models
+        const latestForSelectedModels: Record<string, any> = {
           openai: null,
           "gemini-2.0-flash": null,
           phi4: null
         };
         
-        // Sort jobs by created_at in descending order (newest first)
+        // Sort completed jobs by created_at in descending order (newest first)
         const sortedJobs = [...completed].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         
-        // Get the latest job for each model
+        // Get the latest job for each selected model
         for (const job of sortedJobs) {
-          if (!latest[job.model] && job.result) {
-            latest[job.model] = job;
+          // Check if this model was selected in the current session
+          if (selectedModels.includes(job.model) && !latestForSelectedModels[job.model] && job.result) {
+            latestForSelectedModels[job.model] = job;
           }
         }
         
-        setLatestResults(latest);
+        setLatestResults(latestForSelectedModels);
         
         // Log for debugging
-        addLog(`Found latest results for models: ${Object.keys(latest).filter(k => latest[k]).join(', ')}`, "debug", {
+        addLog(`Found latest results for selected models: ${Object.keys(latestForSelectedModels).filter(k => latestForSelectedModels[k]).join(', ')}`, "debug", {
           source: "ResultsPublishStep",
-          details: `Total completed jobs: ${completed.length}`
+          details: `Selected models: ${selectedModels.join(', ')}, Total completed jobs: ${completed.length}`
         });
       } catch (error) {
         console.error("Error fetching completed jobs:", error);
@@ -93,7 +100,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     };
 
     fetchCompletedJobs();
-  }, [refreshJobsTrigger, addLog]);
+  }, [refreshJobsTrigger, addLog, selectedModels]);
 
   // Publish caption to Brightcove
   const publishCaption = async () => {
@@ -191,6 +198,11 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     }
     
     return "";
+  };
+
+  // Check if a model has an ongoing job (pending or processing)
+  const isModelProcessing = (model: string) => {
+    return currentJobs.includes(model);
   };
 
   return (
@@ -293,12 +305,12 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
               <h2 className="text-xl font-semibold mb-4">Transcription Results</h2>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Always show cards for all three models, with latest results if available */}
-                {["openai", "gemini-2.0-flash", "phi4"].map((model) => {
+                {/* Only show cards for the selected models */}
+                {selectedModels.map((model) => {
                   const latestJob = latestResults[model];
                   const vttContent = latestJob ? extractVttContent(latestJob) : "";
                   const promptUsed = latestJob?.result?.prompt || "Default prompt used";
-                  const isLoading = false; // Set based on job status if needed
+                  const isLoading = isModelProcessing(model);
                   
                   return (
                     <TranscriptionCard
