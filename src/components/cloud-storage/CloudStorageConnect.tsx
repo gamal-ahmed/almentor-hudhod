@@ -5,19 +5,35 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CloudStorageProvider } from '@/types/cloudStorage';
 import { FileIcon, Cloud, CloudIcon } from 'lucide-react';
 import { cloudStorageService } from '@/lib/api';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface CloudStorageConnectProps {
   onConnected: () => void;
 }
 
 const CloudStorageConnect: React.FC<CloudStorageConnectProps> = ({ onConnected }) => {
+  const navigate = useNavigate();
+
   const connectToProvider = async (provider: CloudStorageProvider) => {
     try {
-      const authUrl = await cloudStorageService.getAuthUrl(provider);
-      // Open the OAuth window
+      // Get the current URL to construct the redirect URL
+      const baseUrl = window.location.origin;
+      const redirectUrl = `${baseUrl}/auth/callback/${provider}`;
+      
+      // Request the auth URL from our backend
+      const authUrl = await cloudStorageService.getAuthUrl(provider, redirectUrl);
+      
+      // Store the current path so we can return after auth
+      localStorage.setItem('cloud_storage_redirect_path', window.location.pathname);
+      
+      // Redirect to the OAuth provider
       window.location.href = authUrl;
     } catch (error) {
       console.error('Error getting auth URL:', error);
+      toast.error('Failed to connect to cloud storage', {
+        description: (error as Error).message || 'Please try again later.'
+      });
     }
   };
 

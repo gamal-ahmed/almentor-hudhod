@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { useLogsStore } from '@/lib/useLogsStore';
 import { useNavigate } from 'react-router-dom';
@@ -56,7 +55,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     });
   };
   
-  // Update this function to accept an array of files
+  // Update this function to use the first file from the array
   const handleCloudStorageFilesSelect = (files: File[]) => {
     if (files.length > 0) {
       console.log("Cloud storage file selected:", files[0].name);

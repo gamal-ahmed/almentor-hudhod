@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import CloudStorage from "./pages/CloudStorage";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
+import OAuthCallback from './pages/OAuthCallback';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +58,7 @@ const App = () => (
                     <SessionDetails />
                   </AuthGuard>
                 } />
+                <Route path="/auth/callback/:provider" element={<OAuthCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

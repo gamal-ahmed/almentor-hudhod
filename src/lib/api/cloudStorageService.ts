@@ -12,14 +12,22 @@ export const cloudStorageService = {
   /**
    * Get the authentication URL for a cloud storage provider
    */
-  async getAuthUrl(provider: CloudStorageProvider): Promise<string> {
+  async getAuthUrl(provider: CloudStorageProvider, redirectUrl: string): Promise<string> {
     try {
-      const response = await fetch(`${API_ENDPOINTS.CLOUD_STORAGE_AUTH}`, {
-        method: 'POST',
+      // Get the authorization token for the authenticated user
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+      
+      if (!authToken) {
+        throw new Error('User must be authenticated to connect cloud storage');
+      }
+      
+      const response = await fetch(`${API_ENDPOINTS.CLOUD_STORAGE_AUTH}?provider=${provider}&redirectUrl=${encodeURIComponent(redirectUrl)}`, {
+        method: 'GET',
         headers: {
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ provider }),
       });
       
       if (!response.ok) {
@@ -38,14 +46,23 @@ export const cloudStorageService = {
   /**
    * Exchange an OAuth code for tokens and store the connection
    */
-  async exchangeCodeForToken(provider: CloudStorageProvider, code: string): Promise<CloudStorageAccount> {
+  async exchangeCodeForToken(provider: CloudStorageProvider, code: string, redirectUrl: string): Promise<CloudStorageAccount> {
     try {
+      // Get the authorization token for the authenticated user
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+      
+      if (!authToken) {
+        throw new Error('User must be authenticated to connect cloud storage');
+      }
+      
       const response = await fetch(`${API_ENDPOINTS.CLOUD_STORAGE_TOKEN}`, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ provider, code }),
+        body: JSON.stringify({ provider, code, redirectUrl }),
       });
       
       if (!response.ok) {
