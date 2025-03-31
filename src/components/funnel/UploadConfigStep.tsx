@@ -43,8 +43,11 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     });
   };
   
-  // Modified to accept a single File instead of an array
-  const handleSharePointFileSelect = (file: File) => {
+  // Modified to accept an array of Files instead of a single File
+  const handleSharePointFileSelect = (files: File[]) => {
+    if (files.length === 0) return;
+    
+    const file = files[0];
     console.log("SharePoint file selected:", file.name);
     setUploadedFile(file);
     addLog(`SharePoint file selected: ${file.name}`, "info", {
