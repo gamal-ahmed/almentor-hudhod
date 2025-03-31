@@ -18,6 +18,7 @@ import PromptOptions from "@/components/PromptOptions";
 import SharePointDownloader from "@/components/SharePointDownloader";
 import FileQueue from "@/components/FileQueue";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
+import QueueStatus from "@/components/QueueStatus";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
   transcribeAudio, 
@@ -418,6 +419,23 @@ const Index = () => {
     }
   };
   
+  // Handle queue reset
+  const handleQueueReset = () => {
+    setRefreshJobsTrigger(prev => prev + 1);
+    
+    setTranscriptions({
+      openai: { vtt: "", prompt: "", loading: false },
+      "gemini-2.0-flash": { vtt: "", prompt: "", loading: false },
+      phi4: { vtt: "", prompt: "", loading: false }
+    });
+    
+    if (file) {
+      addLog(`Reset triggered. Ready for new transcription.`, "info", {
+        source: "System"
+      });
+    }
+  };
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       <Header />
@@ -516,6 +534,9 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* Queue Status Card */}
+            <QueueStatus onReset={handleQueueReset} />
             
             {/* Transcription Settings Card */}
             <Card className="overflow-hidden border-none shadow-lg bg-gradient-to-br from-card to-background/80 backdrop-blur-sm transition-all hover:shadow-xl">

@@ -132,6 +132,54 @@ export async function getUserTranscriptionJobs() {
   }
 }
 
+// Delete all jobs and reset the queue
+export async function resetAllJobs() {
+  const addLog = getLogsStore().addLog;
+  const startTimedLog = getLogsStore().startTimedLog;
+  
+  const logOperation = startTimedLog(`Resetting all transcription jobs`, "warning", "System");
+  
+  try {
+    addLog(`Deleting all transcription jobs`, "warning", {
+      source: "System",
+      details: "Resetting the transcription queue"
+    });
+    
+    const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/reset-jobs`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to reset jobs: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    
+    addLog(`Successfully reset all transcription jobs`, "success", {
+      source: "System",
+      details: result.message
+    });
+    
+    logOperation.complete(`Reset all transcription jobs`, `All jobs have been deleted from the queue`);
+    
+    return result;
+  } catch (error) {
+    addLog(`Error resetting transcription jobs: ${error.message}`, "error", {
+      source: "System",
+      details: error.stack
+    });
+    
+    console.error(`Error resetting transcription jobs:`, error);
+    logOperation.error(`${error.message}`, error.stack);
+    throw error;
+  }
+}
+
 // Legacy function that now creates a job and then periodically polls for results
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
   const addLog = getLogsStore().addLog;

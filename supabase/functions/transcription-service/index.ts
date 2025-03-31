@@ -1,4 +1,3 @@
-
 // Supabase Edge Function for transcription-related services
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
@@ -8,7 +7,7 @@ import { v4 as uuidv4 } from 'https://esm.sh/uuid@9.0.1';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
 };
 
 // Create Supabase client
@@ -35,6 +34,9 @@ serve(async (req) => {
     }
     else if (path === 'start-job') {
       return await handleStartJob(req);
+    }
+    else if (path === 'reset-jobs') {
+      return await handleResetJobs(req);
     }
 
     // Default response for unmatched paths
@@ -155,6 +157,55 @@ async function handleExportFile(req: Request) {
     });
   } catch (error) {
     console.error('Error exporting file:', error);
+    
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// Handle resetting all jobs
+async function handleResetJobs(req: Request) {
+  try {
+    console.log("Resetting all transcription jobs");
+    
+    // Get the auth header to determine the user
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Filter for the current user's jobs if a user is authenticated
+    let query = supabase.from('transcriptions').delete();
+    
+    if (user) {
+      query = query.eq('user_id', user.id);
+    }
+    
+    const { error: deleteError } = await query;
+    
+    if (deleteError) {
+      console.error('Error deleting jobs:', deleteError);
+      throw new Error(`Failed to delete jobs: ${deleteError.message}`);
+    }
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'All transcription jobs have been deleted' 
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error resetting jobs:', error);
     
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
