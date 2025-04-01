@@ -24,6 +24,20 @@ const queryClient = new QueryClient({
   },
 });
 
+// Create a storage bucket for transcription files if it doesn't exist
+const setupSupabaseStorage = async () => {
+  try {
+    // Note: This runs on the client, but creating buckets requires admin privileges
+    // For production, consider moving this to a server-side function
+    console.log("Storage buckets would be set up in a server-side function");
+  } catch (error) {
+    console.error("Error setting up storage buckets:", error);
+  }
+};
+
+// Initialize storage buckets on app load
+setupSupabaseStorage();
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -42,7 +56,7 @@ const App = () => (
                     <Index />
                   </AuthGuard>
                 } />
-                <Route path="/session/:sessionTimestamp" element={
+                <Route path="/session/:sessionId" element={
                   <AuthGuard>
                     <SessionDetails />
                   </AuthGuard>

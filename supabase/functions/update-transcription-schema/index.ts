@@ -46,8 +46,33 @@ serve(async (req) => {
         throw new Error(`Error altering table: ${alterTableError.message}`);
       }
       
+      // Also add vtt_file_url column to transcription_sessions if it doesn't exist
+      const { data: vttUrlColumnCheck, error: vttUrlColumnCheckError } = await supabase.rpc('check_column_exists', {
+        table_name: 'transcription_sessions',
+        column_name: 'vtt_file_url'
+      });
+      
+      if (vttUrlColumnCheckError) {
+        throw new Error(`Error checking vtt_file_url column: ${vttUrlColumnCheckError.message}`);
+      }
+      
+      if (!vttUrlColumnCheck) {
+        const { error: addVttUrlColumnError } = await supabase.rpc('add_column_if_not_exists', {
+          table_name: 'transcription_sessions',
+          column_name: 'vtt_file_url',
+          column_type: 'text'
+        });
+        
+        if (addVttUrlColumnError) {
+          throw new Error(`Error adding vtt_file_url column: ${addVttUrlColumnError.message}`);
+        }
+      }
+      
       return new Response(
-        JSON.stringify({ success: true, message: 'Added session_id column to transcriptions table' }),
+        JSON.stringify({ 
+          success: true, 
+          message: 'Added session_id column to transcriptions table and vtt_file_url column to transcription_sessions table' 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

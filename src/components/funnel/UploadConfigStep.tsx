@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { TranscriptionModel } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
@@ -14,9 +13,10 @@ import { createTranscriptionJob } from '@/lib/api';
 import { toast } from 'sonner';
 import { useLogsStore } from '@/lib/useLogsStore';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/AuthContext';
 
 interface UploadConfigStepProps {
-  onTranscriptionsCreated: (jobIdsArray: string[]) => void;
+  onTranscriptionsCreated: (jobIdsArray: string[], sessionId?: string) => void;
   onStepComplete: () => void;
 }
 
@@ -32,6 +32,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { addLog, startTimedLog } = useLogsStore();
+  const { user } = useAuth();
 
   const handleFileUpload = async (file: File) => {
     console.log("File uploaded in UploadConfigStep:", file.name);
@@ -86,11 +87,16 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   // Create a session in Supabase and return the session ID
   const createTranscriptionSession = async (fileName: string) => {
     try {
+      if (!user) {
+        throw new Error("User must be logged in to create a transcription session");
+      }
+      
       const { data, error } = await supabase
         .from('transcription_sessions')
         .insert({
           audio_file_name: fileName,
           selected_models: selectedModels,
+          user_id: user.id,
         })
         .select()
         .single();
@@ -171,7 +177,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         
         timedLogOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
         
-        onTranscriptionsCreated(jobIds);
+        // Pass both jobIds and sessionId to the parent component
+        onTranscriptionsCreated(jobIds, sessionId);
         onStepComplete();
       } else {
         toast.error("Transcription failed", {
