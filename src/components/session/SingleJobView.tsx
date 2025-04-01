@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { CopyIcon, Download, FileSymlink } from "lucide-react";
 import TranscriptionCard from "@/components/TranscriptionCard";
-import AudioPlayer from "@/components/AudioPlayer";
+import AudioPlayer from "@/components/ui/AudioPlayer";
 import PublishDialog from "@/components/session/PublishDialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -79,9 +79,9 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         brightcoveKeys.brightcove_client_secret
       );
 
-      // Publish caption to Brightcove
-      publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
-      await addCaptionToBrightcove(
+      // Publish caption to Brightcove using Ingest API
+      publishLog.update(`Adding caption to Brightcove video ID: ${videoId} via Ingest API`);
+      const result = await addCaptionToBrightcove(
         videoId,
         vttContent,
         'ar', // Language code (Arabic)
@@ -91,13 +91,13 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
       );
       
       publishLog.complete(
-        "Caption published successfully", 
-        `Video ID: ${videoId} | Language: Arabic`
+        "Caption ingestion job started successfully", 
+        `Video ID: ${videoId} | Ingest Job ID: ${result.ingestJobId}`
       );
       
       toast({
         title: "Success",
-        description: "Caption successfully published to Brightcove",
+        description: "Caption ingestion job started successfully. The caption will be available on the video shortly.",
       });
       
       setPublishDialogOpen(false);

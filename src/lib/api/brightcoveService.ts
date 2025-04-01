@@ -66,7 +66,7 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
   }
 }
 
-// Add caption to Brightcove video using our proxy
+// Add caption to Brightcove video using our proxy and Ingest API
 export async function addCaptionToBrightcove(
   videoId: string, 
   vttContent: string, 
@@ -105,7 +105,7 @@ export async function addCaptionToBrightcove(
       throw new Error(`Error checking video: ${checkResponse.status} - ${errorText}`);
     }
     
-    // Once we know the video exists, add the caption
+    // Once we know the video exists, add the caption using the Ingest API
     const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/captions`, {
       method: 'POST',
       headers: {
@@ -136,7 +136,11 @@ export async function addCaptionToBrightcove(
       }
     }
     
-    return true;
+    // Get the response data to check for the ingest job ID
+    const responseData = await response.json();
+    console.log('Caption ingestion started:', responseData);
+    
+    return responseData;
   } catch (error) {
     console.error('Error adding caption to Brightcove:', error);
     throw error;

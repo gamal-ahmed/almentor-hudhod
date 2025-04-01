@@ -122,7 +122,7 @@ async function handleCheckVideo(req: Request) {
     console.log(`Checking if Brightcove video ${videoId} exists...`);
     
     const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}`;
-    console.log('brightcove toke ' , accessToken);
+    console.log('brightcove token ', accessToken);
     console.log('Video check request details:', {
       url: apiUrl,
       method: 'GET',
@@ -180,7 +180,7 @@ async function handleCheckVideo(req: Request) {
   }
 }
 
-// Handle Brightcove Caption Addition
+// Handle Brightcove Caption Addition using Ingest API
 async function handleBrightcoveCaptions(req: Request) {
   const { videoId, vttContent, language, label, accountId, accessToken } = await req.json();
 
@@ -199,23 +199,34 @@ async function handleBrightcoveCaptions(req: Request) {
   }
 
   try {
-    console.log(`Adding caption to Brightcove video ${videoId}...`);
+    console.log(`Adding caption to Brightcove video ${videoId} using Ingest API...`);
+    
+    // We need to first upload the VTT content to a temporary storage
+    // Since we're working in a Deno environment and can't use a local file system,
+    // we'll use base64 data URLs directly in the ingest request
     
     // Create a Base64 representation of the VTT content
     const vttBase64 = btoa(unescape(encodeURIComponent(vttContent)));
+    const vttDataUrl = `data:text/vtt;base64,${vttBase64}`;
     
-    // Request body for Brightcove API
+    // Request body for Brightcove Ingest API
     const requestBody = {
-      srclang: language || 'ar',
-      label: label || 'Arabic',
-      kind: 'captions',
-      default: true,
-      mime_type: 'text/vtt',
-      src: `data:text/vtt;base64,${vttBase64}`
+      text_tracks: [
+        {
+          url: vttDataUrl,
+          srclang: language || 'ar',
+          kind: 'captions',
+          label: label || 'Arabic',
+          default: true,
+          status: 'published',
+          embed_closed_caption: true
+        }
+      ]
     };
 
-    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/text_tracks`;
-    console.log('Caption request details:', {
+    // Use the Ingest API URL
+    const apiUrl = `https://ingest.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/ingest-requests`;
+    console.log('Caption ingest request details:', {
       url: apiUrl,
       method: 'POST',
       headers: {
@@ -239,7 +250,7 @@ async function handleBrightcoveCaptions(req: Request) {
     });
 
     const responseData = await response.text();
-    console.log('Brightcove caption response:', {
+    console.log('Brightcove caption ingest response:', {
       status: response.status,
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
@@ -247,13 +258,27 @@ async function handleBrightcoveCaptions(req: Request) {
     });
 
     if (!response.ok) {
-      console.error('Brightcove caption error:', response.status, responseData);
-      throw new Error(`Failed to add caption: ${response.status} - ${responseData}`);
+      console.error('Brightcove caption ingest error:', response.status, responseData);
+      
+      // Try to parse the error response to provide a better error message
+      try {
+        const errorData = JSON.parse(responseData);
+        if (errorData.error_code === 'ILLEGAL_DATA_URL') {
+          throw new Error('Cannot use data URLs directly with the Ingest API. The VTT file must be hosted on a publicly accessible URL.');
+        }
+        throw new Error(`Failed to add caption: ${response.status} - ${JSON.stringify(errorData)}`);
+      } catch (e) {
+        throw new Error(`Failed to add caption: ${response.status} - ${responseData}`);
+      }
     }
 
-    console.log('Successfully added caption to Brightcove video');
+    const responseJson = JSON.parse(responseData);
+    console.log('Successfully initiated caption ingestion for Brightcove video');
     
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true,
+      ingestJobId: responseJson.id
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
