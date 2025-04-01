@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useLogsStore } from '@/lib/useLogsStore';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +21,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardContent, 
+  HoverCardTrigger 
+} from "@/components/ui/hover-card";
 
 interface UploadConfigStepProps {
   onJobCreated: (jobId: string) => void;
@@ -37,7 +43,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
   const { addLog } = useLogsStore();
   const navigate = useNavigate();
 
-  const handleFileUpload = (files: File[] | File) => {
+  const handleFileUpload = async (files: File[] | File) => {
     const file = Array.isArray(files) ? files[0] : files;
     if (!file) return;
     
@@ -47,9 +53,12 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       source: "FileUpload",
       details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
     });
+    
+    // Start transcription immediately
+    await startTranscription(file);
   };
   
-  const handleUrlProcessedAudio = (file: File) => {
+  const handleUrlProcessedAudio = async (file: File) => {
     console.log("URL-processed audio:", file.name);
     setUploadedFile(file);
     addLog(`URL-processed audio: ${file.name}`, "info", {
@@ -57,6 +66,9 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
     });
     setShowUrlInput(false);
+    
+    // Start transcription immediately
+    await startTranscription(file);
   };
   
   const toggleAudioPlayback = () => {
@@ -85,8 +97,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     setPromptText(prompt);
   };
 
-  const handleSubmit = async () => {
-    if (!uploadedFile) {
+  const startTranscription = async (file: File) => {
+    if (!file) {
       toast.error("No file selected", {
         description: "Please upload an audio file to transcribe."
       });
@@ -97,11 +109,16 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       setIsProcessing(true);
       addLog(`Starting transcription job`, "info", {
         source: "TranscriptionJob",
-        details: `Model: ${selectedModel}, File: ${uploadedFile.name}`
+        details: `Model: ${selectedModel}, File: ${file.name}`
+      });
+      
+      toast.loading("Processing audio...", {
+        id: "processing-toast",
+        duration: 100000
       });
       
       const { jobId } = await createTranscriptionJob(
-        uploadedFile,
+        file,
         selectedModel,
         promptText
       );
@@ -113,6 +130,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         });
         
         toast.success("Transcription started", {
+          id: "processing-toast",
           description: "Your audio is being processed."
         });
         
@@ -128,6 +146,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       });
       
       toast.error("Failed to start transcription", {
+        id: "processing-toast",
         description: (error as Error).message || "Please try again or contact support."
       });
     } finally {
@@ -141,33 +160,38 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
 
   return (
     <Card className="border-border/50 shadow-soft">
-      <CardHeader>
-        <CardTitle>Transcribe Audio</CardTitle>
+      <CardHeader className="bg-primary/5 border-b border-border/50 pb-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center">
+            <FileAudio className="mr-2 h-5 w-5 text-primary" />
+            Transcribe Audio
+          </CardTitle>
+          <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20 font-medium">
+            Instant Processing
+          </Badge>
+        </div>
         <CardDescription>
           Upload an audio file or use a URL to transcribe
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 p-6">
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Badge variant="outline" className="rounded-full px-3 bg-blue-500/10 text-blue-500 border-blue-500/20">1</Badge>
-            <h3 className="flex items-center font-medium">
-              Upload Audio File
-              <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                Required
-              </span>
-            </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Badge variant="outline" className="rounded-full px-3 bg-blue-500/10 text-blue-500 border-blue-500/20">1</Badge>
+              <h3 className="font-medium">Upload Audio File</h3>
+            </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
                     <span className="sr-only">Info</span>
                     ?
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>Upload audio files to be transcribed. Supported formats: MP3, WAV, M4A, FLAC</p>
+                  <p>Upload audio files to be transcribed. Transcription will start automatically.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -177,6 +201,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
             <FileUpload 
               onFileUpload={handleFileUpload}
               isUploading={isProcessing}
+              autoProcess={true}
             />
           </div>
           
@@ -241,33 +266,30 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         )}
         
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Badge variant="outline" className="rounded-full px-3 bg-indigo-500/10 text-indigo-500 border-indigo-500/20">2</Badge>
-            <h3 className="flex items-center font-medium">
-              Select AI Models
-              <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
-                Required
-              </span>
-            </h3>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
-                    <span className="sr-only">Info</span>
-                    ?
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>Choose one or more AI models to compare transcription results</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
-            <div className="flex items-center mb-3">
-              <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
-              <h3 className="font-medium text-sm">Transcription AI Models</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Badge variant="outline" className="rounded-full px-3 bg-indigo-500/10 text-indigo-500 border-indigo-500/20">2</Badge>
+              <h3 className="font-medium">Select AI Model</h3>
             </div>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                  <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                  Model Info
+                </Button>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-medium">About Models</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Each AI model has different strengths. OpenAI Whisper excels with accents, Gemini is faster, and Phi-4 handles technical content better.
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+          
+          <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
             <ModelSelector 
               selectedModel={selectedModel}
               selectedModels={[selectedModel]}
@@ -278,23 +300,22 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         </div>
         
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">3</Badge>
-            <h3>Configuration Options</h3>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
-                    <span className="sr-only">Info</span>
-                    ?
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>Configure advanced settings for transcription</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">3</Badge>
+              <h3 className="font-medium">Configuration Options</h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+              className="h-7 px-2 text-xs"
+            >
+              <Sliders className="h-3.5 w-3.5 mr-1" />
+              {showAdvancedOptions ? "Hide Options" : "Show Options"}
+            </Button>
           </div>
+          
           <Collapsible 
             open={showAdvancedOptions}
             onOpenChange={setShowAdvancedOptions}
@@ -325,26 +346,16 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
             </CollapsibleContent>
           </Collapsible>
         </div>
-        
-        {!uploadedFile && (
-          <Alert variant="default" className="bg-primary/5 border-primary/20">
-            <AlertCircle className="h-4 w-4 text-primary" />
-            <AlertDescription>
-              Please upload an audio file or provide a URL to begin transcription.
-            </AlertDescription>
-          </Alert>
-        )}
       </CardContent>
       
-      <CardFooter>
-        <Button
-          onClick={handleSubmit}
-          disabled={!uploadedFile || isProcessing}
-          className="w-full shine-effect bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all duration-300"
-        >
-          {isProcessing ? 'Processing...' : 'Start Transcription'}
-        </Button>
-      </CardFooter>
+      {!uploadedFile && (
+        <Alert variant="default" className="mx-6 mb-6 bg-primary/5 border-primary/20">
+          <AlertCircle className="h-4 w-4 text-primary" />
+          <AlertDescription>
+            Upload an audio file or provide a URL to begin instant transcription
+          </AlertDescription>
+        </Alert>
+      )}
     </Card>
   );
 };

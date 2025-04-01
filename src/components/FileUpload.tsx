@@ -7,9 +7,10 @@ import { toast } from "sonner";
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
   isUploading: boolean;
+  autoProcess?: boolean;
 }
 
-const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
+const FileUpload = ({ onFileUpload, isUploading, autoProcess = false }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [invalidFile, setInvalidFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -139,7 +140,7 @@ const FileUpload = ({ onFileUpload, isUploading }: FileUploadProps) => {
           <p className={`font-medium ${invalidFile ? "text-red-500" : ""}`}>
             {invalidFile ? "Invalid file selected" : "Drop your audio file here or click to browse"}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">MP3, M4A, or WAV files (max 100MB)</p>
+          <p className="text-xs text-muted-foreground mt-1">MP3, M4A, or WAV files (max 100MB) {autoProcess && "• Processing starts automatically"}</p>
         </>
       )}
     </div>

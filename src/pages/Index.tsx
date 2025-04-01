@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector from "@/components/ModelSelector";
-import FileQueue from "@/components/FileQueue";
 import PromptOptions from "@/components/PromptOptions";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
 import { TranscriptionModel } from "@/components/ModelSelector";
@@ -13,9 +13,8 @@ import {
   ChevronUp, 
   FileAudio, 
   Check, 
-  ArrowUpRight,
-  UploadCloud,
-  ListChecks,
+  Play,
+  Pause,
   Sliders,
   Sparkles,
   Wand2,
@@ -26,7 +25,7 @@ import {
   Link2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -43,24 +42,26 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import UrlAudioProcessor from "@/components/UrlAudioProcessor";
+import { createTranscriptionJob } from "@/lib/api";
 
 const Index = () => {
   const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai"]);
-  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedTranscriptionModel, setSelectedTranscriptionModel] = useState<string | null>(null);
   const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
   const [transcriptionPrompt, setTranscriptionPrompt] = useState("Please preserve all English words exactly as spoken");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [preserveEnglish, setPreserveEnglish] = useState(true);
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
-  const logs = useLogsStore(state => state.logs);
+  const { addLog } = useLogsStore();
   
   const handleModelChange = (models: TranscriptionModel[]) => {
     setSelectedModels(models);
@@ -71,20 +72,35 @@ const Index = () => {
     }
   };
   
-  const handleFileUpload = (files: File | File[]) => {
-    const fileArray = Array.isArray(files) ? files : [files];
-    setQueuedFiles(prevFiles => [...prevFiles, ...fileArray]);
-    toast.success("File added to queue", {
-      description: `Added ${fileArray.length} file${fileArray.length > 1 ? 's' : ''} to the processing queue`
+  const handleFileUpload = async (files: File | File[]) => {
+    const file = Array.isArray(files) ? files[0] : files;
+    if (!file) return;
+    
+    console.log("File uploaded:", file.name);
+    setUploadedFile(file);
+    addLog(`File uploaded: ${file.name}`, "info", {
+      source: "FileUpload",
+      details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
     });
+
+    // Start transcription immediately
+    await startTranscription(file);
   };
   
-  const handleRemoveFile = (index: number) => {
-    setQueuedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
-    toast.info("File removed from queue");
+  const handleUrlProcessedAudio = async (file: File) => {
+    console.log("URL-processed audio:", file.name);
+    setUploadedFile(file);
+    addLog(`URL-processed audio: ${file.name}`, "info", {
+      source: "UrlAudioProcessor",
+      details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
+    });
+    setShowUrlInput(false);
+    
+    // Start transcription immediately
+    await startTranscription(file);
   };
-  
-  const handleProcessNext = () => {
+
+  const startTranscription = async (file: File) => {
     if (selectedModels.length === 0) {
       toast.error("No models selected", {
         description: "Please select at least one transcription model"
@@ -92,41 +108,76 @@ const Index = () => {
       return;
     }
     
-    setProcessing(true);
-    toast.loading("Processing file...", {
-      id: "processing-toast",
-      duration: 2000
-    });
-    
-    setTimeout(() => {
-      setProcessing(false);
-      setCurrentFileIndex(prev => prev + 1);
-      setRefreshTrigger(prev => prev + 1);
-      toast.success("Transcription complete", {
-        id: "processing-toast",
-        description: "File has been successfully transcribed"
+    try {
+      setProcessing(true);
+      addLog(`Starting transcription job`, "info", {
+        source: "TranscriptionJob",
+        details: `Model: ${selectedModels[0]}, File: ${file.name}`
       });
-    }, 2000);
+      
+      toast.loading("Processing audio...", {
+        id: "processing-toast",
+        duration: 100000
+      });
+      
+      const { jobId } = await createTranscriptionJob(
+        file,
+        selectedModels[0],
+        transcriptionPrompt
+      );
+      
+      if (jobId) {
+        addLog(`Transcription job created: ${jobId}`, "success", {
+          source: "TranscriptionJob",
+          details: `The job has been queued for processing.`
+        });
+        
+        toast.success("Transcription started", {
+          id: "processing-toast",
+          description: "Your audio is being processed."
+        });
+        
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        throw new Error("No job ID returned");
+      }
+    } catch (error) {
+      console.error("Error starting transcription:", error);
+      addLog(`Transcription job failed to start`, "error", {
+        source: "TranscriptionJob",
+        details: (error as Error).message || "Unknown error"
+      });
+      
+      toast.error("Failed to start transcription", {
+        id: "processing-toast",
+        description: (error as Error).message || "Please try again or contact support."
+      });
+    } finally {
+      setProcessing(false);
+    }
   };
   
-  const handleSkip = () => {
-    setCurrentFileIndex(prev => prev + 1);
-    toast.info("File skipped");
+  const toggleAudioPlayback = () => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    
+    setIsPlaying(!isPlaying);
   };
   
-  const handleReset = () => {
-    setQueuedFiles([]);
-    setCurrentFileIndex(0);
-    toast.info("Queue reset", {
-      description: "All files have been removed from the queue"
-    });
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
   };
   
   const handleTranscriptionSelect = (vtt: string, model: string) => {
     setSelectedTranscription(vtt);
     setSelectedTranscriptionModel(model);
     
-    const audioFile = queuedFiles[0];
+    const audioFile = uploadedFile;
     if (audioFile) {
       const url = URL.createObjectURL(audioFile);
       setAudioFileUrl(url);
@@ -188,46 +239,46 @@ const Index = () => {
                     <CardHeader className="bg-primary/5 border-b border-border/50 pb-4">
                       <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center text-xl font-medium">
-                          <UploadCloud className="mr-2 h-5 w-5 text-primary" />
-                          Audio Processing
+                          <FileAudio className="mr-2 h-5 w-5 text-primary" />
+                          Audio Transcription
                         </CardTitle>
                         <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20 font-medium">
-                          Step 1
+                          Instant Processing
                         </Badge>
                       </div>
                       <CardDescription>
-                        Upload your audio files and configure transcription settings
+                        Upload your audio files for immediate transcription
                       </CardDescription>
                     </CardHeader>
                     
                     <CardContent className="p-6 space-y-6">
+                      {/* Section 1: Upload */}
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <Badge variant="outline" className="rounded-full px-3 bg-blue-500/10 text-blue-500 border-blue-500/20">1</Badge>
-                          <h3 className="flex items-center font-medium">
-                            Upload Audio File
-                            <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                              Required
-                            </span>
-                          </h3>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <Badge variant="outline" className="rounded-full px-3 bg-blue-500/10 text-blue-500 border-blue-500/20">1</Badge>
+                            <h3 className="font-medium">Upload Audio</h3>
+                          </div>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
                                   <span className="sr-only">Info</span>
                                   ?
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
-                                <p>Upload audio files to be transcribed. Supported formats: MP3, WAV, M4A, FLAC</p>
+                                <p>Upload audio files to be transcribed. Transcription will start automatically.</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </div>
+                        
                         <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
                           <FileUpload 
                             onFileUpload={handleFileUpload}
                             isUploading={processing}
+                            autoProcess={true}
                           />
                         </div>
                         
@@ -249,53 +300,39 @@ const Index = () => {
                         {showUrlInput && (
                           <div className="mt-2">
                             <UrlAudioProcessor 
-                              onAudioProcessed={handleFileUpload}
+                              onAudioProcessed={handleUrlProcessedAudio}
                               isProcessing={processing}
                             />
                           </div>
                         )}
                       </div>
                       
+                      {/* Section 2: AI Models with improved UX */}
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <Badge variant="outline" className="rounded-full px-3 bg-indigo-500/10 text-indigo-500 border-indigo-500/20">2</Badge>
-                          <h3 className="flex items-center font-medium">
-                            Select AI Models
-                            <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
-                              Required
-                            </span>
-                          </h3>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
-                                  <span className="sr-only">Info</span>
-                                  ?
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p>Choose one or more AI models to compare transcription results</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <Badge variant="outline" className="rounded-full px-3 bg-indigo-500/10 text-indigo-500 border-indigo-500/20">2</Badge>
+                            <h3 className="font-medium">AI Model Selection</h3>
+                          </div>
                           <HoverCard>
                             <HoverCardTrigger asChild>
-                              <h3 className="font-medium text-sm flex items-center cursor-help mb-3">
-                                <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
-                                Transcription AI Models
-                              </h3>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                                <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                                Model Info
+                              </Button>
                             </HoverCardTrigger>
                             <HoverCardContent className="w-80">
                               <div className="space-y-2">
                                 <h4 className="font-medium">About Models</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  Select multiple models to compare transcription quality. Each model has different strengths for different types of audio.
+                                  Each AI model has different strengths. OpenAI Whisper excels with accents, Gemini is faster, and Phi-4 handles technical content better.
                                 </p>
                               </div>
                             </HoverCardContent>
                           </HoverCard>
+                        </div>
+                        
+                        <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
                           <ModelSelector 
                             selectedModel={selectedModels[0] || "openai"}
                             selectedModels={selectedModels}
@@ -305,24 +342,24 @@ const Index = () => {
                         </div>
                       </div>
                       
+                      {/* Section 3: Advanced Options with improved UX */}
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">3</Badge>
-                          <h3>Configuration Options</h3>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
-                                  <span className="sr-only">Info</span>
-                                  ?
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p>Configure advanced settings for transcription</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">3</Badge>
+                            <h3 className="font-medium">Configuration Options</h3>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Sliders className="h-3.5 w-3.5 mr-1" />
+                            {showAdvancedOptions ? "Hide Options" : "Show Options"}
+                          </Button>
                         </div>
+                        
                         <Collapsible 
                           open={showAdvancedOptions}
                           onOpenChange={setShowAdvancedOptions}
@@ -335,7 +372,7 @@ const Index = () => {
                             >
                               <div className="flex items-center">
                                 <Sliders className="h-4 w-4 mr-2 text-muted-foreground" />
-                                <span>Advanced Options</span>
+                                <span>Advanced Transcription Options</span>
                               </div>
                               {showAdvancedOptions ? (
                                 <ChevronUp className="h-4 w-4" />
@@ -344,7 +381,7 @@ const Index = () => {
                               )}
                             </Button>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="p-4 border-t bg-background/80 animate-slide-up">
+                          <CollapsibleContent className="p-4 border-t bg-background/80 animate-slide-up space-y-4">
                             <PromptOptions 
                               prompt={transcriptionPrompt}
                               onPromptChange={setTranscriptionPrompt}
@@ -360,45 +397,41 @@ const Index = () => {
                         </Collapsible>
                       </div>
                       
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <Badge variant="outline" className="rounded-full px-3 bg-green-500/10 text-green-500 border-green-500/20">4</Badge>
-                          <h3 className="flex items-center font-medium">
-                            Processing Queue
-                            <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                              Final Step
-                            </span>
-                          </h3>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
-                                  <span className="sr-only">Info</span>
-                                  ?
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p>Manage your audio file queue and start processing</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <div className="bg-muted/40 border border-border/50 rounded-lg p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
-                          <div className="flex items-center mb-3">
-                            <ListChecks className="h-4 w-4 text-green-500 mr-2" />
-                            <h3 className="font-medium text-sm">Files Ready for Processing</h3>
+                      {/* Display currently uploaded file if present */}
+                      {uploadedFile && (
+                        <div className="space-y-2 mt-4">
+                          <div className="text-sm font-medium">Selected File</div>
+                          <div className="flex items-center gap-2 p-3 bg-accent/50 rounded-md">
+                            <div className="p-2 bg-primary/10 rounded-full">
+                              <FileAudio className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{uploadedFile.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {Math.round(uploadedFile.size / 1024)} KB
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={toggleAudioPlayback}
+                            >
+                              {isPlaying ? (
+                                <Pause className="h-4 w-4" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <audio 
+                              ref={audioRef} 
+                              src={uploadedFile ? URL.createObjectURL(uploadedFile) : ''} 
+                              onEnded={handleAudioEnded}
+                              className="hidden"
+                            />
                           </div>
-                          <FileQueue 
-                            files={queuedFiles}
-                            currentIndex={currentFileIndex}
-                            onProcessNext={handleProcessNext}
-                            onSkip={handleSkip}
-                            onReset={handleReset}
-                            isProcessing={processing}
-                            notificationsEnabled={notificationsEnabled}
-                          />
                         </div>
-                      </div>
+                      )}
                     </CardContent>
                   </Card>
                   
@@ -412,10 +445,10 @@ const Index = () => {
                           <h3 className="font-medium text-sm mb-1">Pro Tips</h3>
                           <div className="space-y-2">
                             <p className="text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground inline-block mb-0.5">🔍 Compare models:</span> Use multiple AI models to get the best transcription quality.
+                              <span className="font-medium text-foreground inline-block mb-0.5">🔍 Better accuracy:</span> Add context in advanced options to help the AI understand technical terms.
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground inline-block mb-0.5">⚡ Process faster:</span> Smaller audio files (under 10 minutes) process more quickly.
+                              <span className="font-medium text-foreground inline-block mb-0.5">⚡ Process faster:</span> Shorter audio files (under 10 minutes) process more quickly.
                             </p>
                           </div>
                         </div>
@@ -433,11 +466,11 @@ const Index = () => {
                           Transcription Results
                         </CardTitle>
                         <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 font-medium">
-                          Step 2
+                          Live Updates
                         </Badge>
                       </div>
                       <CardDescription>
-                        View and select from completed transcriptions
+                        View completed and in-progress transcriptions
                       </CardDescription>
                     </CardHeader>
                     
