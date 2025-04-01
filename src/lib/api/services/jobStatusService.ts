@@ -1,6 +1,24 @@
 
-import { TranscriptionJob } from "../types/transcription";
-import { baseService } from "./baseService";
+import { TranscriptionJob, TranscriptionRecord } from "../types/transcription";
+import { baseService, getLogsStore } from "./baseService";
+
+// Helper function to convert database record to TranscriptionJob with proper types
+function mapToTranscriptionJob(record: TranscriptionRecord): TranscriptionJob {
+  return {
+    id: record.id || '',
+    status: record.status as 'pending' | 'processing' | 'completed' | 'failed',
+    model: record.model,
+    created_at: record.created_at || new Date().toISOString(),
+    updated_at: record.updated_at || new Date().toISOString(),
+    status_message: record.status_message || '',
+    error: record.error,
+    result: record.result,
+    file_path: record.file_path,
+    user_id: record.user_id,
+    session_id: record.session_id,
+    vtt_file_url: record.vtt_file_url
+  };
+}
 
 // Check the status of a transcription job
 export async function checkTranscriptionJobStatus(jobId: string) {
@@ -35,7 +53,8 @@ export async function getUserTranscriptionJobs(): Promise<TranscriptionJob[]> {
       throw new Error(`Failed to fetch user jobs: ${error.message}`);
     }
     
-    return data || [];
+    // Map database records to TranscriptionJob type
+    return (data || []).map(mapToTranscriptionJob);
   } catch (error) {
     console.error('Error fetching user transcription jobs:', error);
     throw error;
@@ -77,7 +96,7 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
           
         if (!directError && directJobs && directJobs.length > 0) {
           console.log(`Found ${directJobs.length} jobs directly from database`);
-          return directJobs;
+          return directJobs.map(mapToTranscriptionJob);
         }
           
         // Fallback to view if direct query fails or returns no results
@@ -107,10 +126,10 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
           }
           
           console.log(`Returning ${recentJobs?.length || 0} recent jobs as fallback`);
-          return recentJobs || [];
+          return (recentJobs || []).map(mapToTranscriptionJob);
         }
         
-        return data || [];
+        return (data || []).map(mapToTranscriptionJob);
       } catch (parseError) {
         console.error(`Error processing timestamp ${sessionId}:`, parseError);
         throw new Error(`Invalid timestamp format: ${parseError.message}`);
@@ -127,7 +146,7 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
         
       if (!directError && directJobs && directJobs.length > 0) {
         console.log(`Found ${directJobs.length} jobs directly from database for session ${sessionId}`);
-        return directJobs;
+        return directJobs.map(mapToTranscriptionJob);
       }
       
       // Fallback to view
@@ -143,7 +162,7 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
       }
       
       console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
-      return data || [];
+      return (data || []).map(mapToTranscriptionJob);
     }
   } catch (error) {
     console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);

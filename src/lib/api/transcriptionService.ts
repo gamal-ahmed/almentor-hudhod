@@ -1,5 +1,4 @@
 
-import { getLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 
