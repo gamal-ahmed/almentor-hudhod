@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken } from "@/lib/api";
+import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, saveSelectedTranscription } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ interface TranscriptionJobFromAPI {
     text: string; 
     prompt: string;
   } | any;
+  vtt_file_url?: string;
 }
 
 interface TranscriptionJob {
@@ -66,6 +67,7 @@ interface TranscriptionJob {
     text: string; 
     prompt: string;
   } | any;
+  vtt_file_url?: string;
 }
 
 const convertToTranscriptionJob = (job: TranscriptionJobFromAPI): TranscriptionJob => {

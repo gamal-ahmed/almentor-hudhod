@@ -318,6 +318,7 @@ export async function saveSelectedTranscription(transcriptionId: string, vttCont
 // Update the session with the selected transcription URL
 export async function updateSessionTranscriptionUrl(sessionId: string, url: string) {
   try {
+    // Using an explicit SQL update query through Supabase
     const { error } = await supabase
       .from('transcription_sessions')
       .update({

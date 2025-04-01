@@ -5,7 +5,7 @@ import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name: string, url: string, size: number, lastModified: string}[]> {
   try {
     console.log(`Fetching SharePoint files from: ${sharePointUrl}`);
-    const response = await fetch(`${API_ENDPOINTS.SHAREPOINT_PROXY_URL}/list-files`, {
+    const response = await fetch(`${API_ENDPOINTS.SHAREPOINT_PROXY}/list-files`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,7 +38,7 @@ export async function fetchSharePointFiles(sharePointUrl: string): Promise<{name
 export async function downloadSharePointFile(fileUrl: string): Promise<File> {
   try {
     console.log(`Downloading file from: ${fileUrl}`);
-    const response = await fetch(`${API_ENDPOINTS.SHAREPOINT_PROXY_URL}/download-file`, {
+    const response = await fetch(`${API_ENDPOINTS.SHAREPOINT_PROXY}/download-file`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
