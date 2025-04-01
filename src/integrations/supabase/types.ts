@@ -583,6 +583,7 @@ export type Database = {
           id: string | null
           model: string | null
           result: Json | null
+          session_id: string | null
           status: string | null
           status_message: string | null
           updated_at: string | null
@@ -595,8 +596,9 @@ export type Database = {
           id?: string | null
           model?: string | null
           result?: Json | null
+          session_id?: string | null
           status?: string | null
-          status_message?: never
+          status_message?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -607,12 +609,21 @@ export type Database = {
           id?: string | null
           model?: string | null
           result?: Json | null
+          session_id?: string | null
           status?: string | null
-          status_message?: never
+          status_message?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "transcription_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

@@ -47,7 +47,7 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
     console.log(`Searching for jobs between ${startTime.toISOString()} and ${endTime.toISOString()}`);
     
     // Try direct database query first
-    const result = await baseService.supabase
+    const result: SupabaseQueryResult = await baseService.supabase
       .from('transcriptions')
       .select('*')
       .gte('created_at', startTime.toISOString())
@@ -63,7 +63,7 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
     }
       
     // Fallback to view if direct query fails or returns no results
-    const viewResult = await baseService.supabase
+    const viewResult: SupabaseQueryResult = await baseService.supabase
       .from('transcription_jobs')
       .select('*')
       .gte('created_at', startTime.toISOString())
@@ -93,7 +93,7 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
 // Handle session ID-based job retrieval logic
 async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]> {
   // Try direct query first
-  const directResult = await baseService.supabase
+  const directResult: SupabaseQueryResult = await baseService.supabase
     .from('transcriptions')
     .select('*')
     .eq('session_id', sessionId)
@@ -108,7 +108,7 @@ async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]
   }
   
   // Fallback to view
-  const viewResult = await baseService.supabase
+  const viewResult: SupabaseQueryResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')
     .eq('session_id', sessionId)
@@ -128,7 +128,7 @@ async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]
 
 // Get recent jobs as a fallback
 async function getFallbackRecentJobs(): Promise<TranscriptionJob[]> {
-  const recentResult = await baseService.supabase
+  const recentResult: SupabaseQueryResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')
     .order('created_at', { ascending: false })

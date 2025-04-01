@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Header from "@/components/Header";
@@ -38,6 +37,7 @@ import { useLogsStore } from "@/lib/useLogsStore";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
+import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "@/lib/api/brightcoveService";
 
 interface TranscriptionJobFromAPI {
   id: string;
