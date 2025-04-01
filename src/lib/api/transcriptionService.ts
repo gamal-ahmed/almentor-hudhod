@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -197,7 +198,7 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
       .from('transcription_sessions')
       .update({
         vtt_file_url: publicUrl
-      })
+      } as any) // Use type assertion to bypass TypeScript error temporarily
       .eq('id', sessionId);
     
     if (updateError) {

@@ -38,11 +38,13 @@ interface JobGroup {
 interface TranscriptionJobsProps {
   onSelectTranscription?: (vtt: string, model: string) => void;
   refreshTrigger?: number;
+  sessionId?: string | null;
 }
 
 const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({ 
   onSelectTranscription,
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  sessionId = null
 }) => {
   const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
   const [jobGroups, setJobGroups] = useState<JobGroup[]>([]);
@@ -578,4 +580,3 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
 };
 
 export default TranscriptionJobs;
-
