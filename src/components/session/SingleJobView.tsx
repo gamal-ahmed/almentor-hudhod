@@ -123,17 +123,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Session-level actions */}
-      <div className="flex justify-end">
-        <Button 
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={handlePublishToBrightcove}
-        >
-          <FileSymlink className="h-4 w-4" />
-          Publish to Brightcove
-        </Button>
-      </div>
+     
       
       {/* Audio player section */}
       {audioUrl && (
