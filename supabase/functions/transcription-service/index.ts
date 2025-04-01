@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
@@ -151,6 +152,7 @@ async function handleStartJob(req: Request) {
     const audioFile = formData.get("audio");
     const prompt = formData.get("prompt") || "Please preserve all English words exactly as spoken";
     const jobId = formData.get("jobId");
+    const sessionId = formData.get("sessionId");
 
     // Check if required data is provided
     if (!audioFile || !(audioFile instanceof File)) {
@@ -162,17 +164,23 @@ async function handleStartJob(req: Request) {
     }
 
     console.log(`Processing job ${jobId}: file: ${audioFile.name}, size: ${audioFile.size} bytes`);
+    
+    // Add logging for sessionId
+    if (sessionId) {
+      console.log(`Job ${jobId} is associated with session ${sessionId}`);
+    }
 
     // Update job status - use the base table instead of the view
     await updateJobStatus(jobId.toString(), 'processing', 'Transcription in progress');
 
     // Process transcription in the background
-    EdgeRuntime.waitUntil(processTranscription(jobId.toString(), audioFile, prompt.toString()));
+    EdgeRuntime.waitUntil(processTranscription(jobId.toString(), audioFile, prompt.toString(), sessionId?.toString()));
 
     return new Response(
       JSON.stringify({ 
         message: "Transcription job started",
-        jobId
+        jobId,
+        sessionId: sessionId || null
       }),
       {
         headers: {
@@ -337,9 +345,13 @@ async function updateJobStatus(
 }
 
 // Process transcription in the background
-async function processTranscription(jobId: string, audioFile: File, prompt: string) {
+async function processTranscription(jobId: string, audioFile: File, prompt: string, sessionId?: string) {
   try {
     console.log(`Starting background transcription for job ${jobId}`);
+    
+    if (sessionId) {
+      console.log(`This job is associated with session ${sessionId}`);
+    }
     
     // Get job information from database - use the view for reading
     const { data: job, error: jobError } = await supabase
@@ -359,11 +371,9 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
         break;
       case 'gemini-2.0-flash':
-        // Use internal endpoint for now
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
         break;
       case 'phi4':
-        // Use internal endpoint for now
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
         break;
       default:
@@ -380,6 +390,11 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     // Common parameters for all models
     formData.append('audio', blob, audioFile.name);
     formData.append('prompt', prompt);
+    
+    // Include sessionId if it exists
+    if (sessionId) {
+      formData.append('sessionId', sessionId);
+    }
     
     // Update job status
     await updateJobStatus(jobId, 'processing', `Sending request to ${job.model} API`);
@@ -413,6 +428,17 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     }
     
     console.log(`Received response from ${job.model} API for job ${jobId}`);
+    
+    // If we have a sessionId, make sure it's stored with the job
+    if (sessionId) {
+      // Ensure the session_id is properly set in the database
+      await supabase
+        .from('transcriptions')
+        .update({ session_id: sessionId })
+        .eq('id', jobId);
+      
+      console.log(`Updated job ${jobId} with session_id ${sessionId}`);
+    }
     
     // Update job with success
     await updateJobStatus(

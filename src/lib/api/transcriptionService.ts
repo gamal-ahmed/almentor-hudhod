@@ -39,7 +39,7 @@ export async function createTranscriptionJob(
     
     // Create job record in the database first - using the actual table, not the view
     const insertData: any = {
-      model: model as string, // Cast model to string
+      model: model as string,
       file_path: fileName,
       status: 'pending'
     };
@@ -198,7 +198,7 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
       .from('transcription_sessions')
       .update({
         vtt_file_url: publicUrl
-      } as any) // Use type assertion to bypass TypeScript error temporarily
+      } as any)
       .eq('id', sessionId);
     
     if (updateError) {
@@ -228,15 +228,15 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
 }
 
 // Legacy function that now creates a job and then periodically polls for results
-export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
+export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken", sessionId?: string) {
   const addLog = getLogsStore().addLog;
   const startTimedLog = getLogsStore().startTimedLog;
   
   const logOperation = startTimedLog(`Transcribing with ${model}`, "info", model);
   
   try {
-    // Create a new transcription job
-    const { jobId } = await createTranscriptionJob(file, model, prompt);
+    // Create a new transcription job with the optional sessionId
+    const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
     
     addLog(`Waiting for ${model} transcription job to complete`, "info", {
       source: model,
