@@ -2,19 +2,19 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { FileText, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { 
   getBrightcoveAuthToken, 
   addCaptionToBrightcove, 
   fetchBrightcoveKeys 
 } from "@/lib/api";
 
-// Import our new components
+// Import our components
 import SessionHeader from "@/components/session/SessionHeader";
 import TranscriptionJobList from "@/components/session/TranscriptionJobList";
 import ComparisonModeHeader from "@/components/session/ComparisonModeHeader";
@@ -23,6 +23,7 @@ import ComparisonView from "@/components/session/ComparisonView";
 import SingleJobView from "@/components/session/SingleJobView";
 import PublishDialog from "@/components/session/PublishDialog";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
+import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
 
 interface TranscriptionJobFromAPI {
   id: string;
@@ -86,6 +87,8 @@ const SessionDetails = () => {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   const [fetchError, setFetchError] = useState<string | null>(null);
   
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
+  
   useEffect(() => {
     const fetchSessionJobs = async () => {
       try {
@@ -95,12 +98,16 @@ const SessionDetails = () => {
         const identifier = sessionId;
         
         if (!identifier || identifier === 'null' || identifier === 'undefined') {
+          const errorMessage = "Could not load session details: No valid session ID provided";
+          console.error(errorMessage);
+          
           toast({
             title: "Missing session identifier",
-            description: "Could not load session details: No valid session ID provided",
+            description: errorMessage,
             variant: "destructive",
           });
-          setFetchError("No valid session identifier provided");
+          
+          setFetchError(errorMessage);
           setLoading(false);
           
           setTimeout(() => {
@@ -112,35 +119,35 @@ const SessionDetails = () => {
         
         console.log(`Using session identifier: ${identifier}`);
         
-        let matchingJobs: TranscriptionJob[] = [];
+        // Set the loaded session ID to ensure consistency
+        setLoadedSessionId(identifier);
         
         try {
-          const { data: directJobs, error: directError } = await supabase
-            .from('transcriptions')
-            .select('*')
-            .eq('session_id', identifier)
-            .order('created_at', { ascending: false });
+          // Use our service function to get session jobs
+          const jobs = await getSessionTranscriptionJobs(identifier);
+          
+          if (jobs && jobs.length > 0) {
+            console.log(`Found ${jobs.length} jobs for session ${identifier}`);
+            setSessionJobs(jobs);
             
-          if (!directError && directJobs && directJobs.length > 0) {
-            matchingJobs = directJobs.map(convertToTranscriptionJob);
-            console.log(`Found ${matchingJobs.length} jobs with direct query`);
+            // Select the first completed job, or the first job if none is completed
+            const completedJobs = jobs.filter(job => job.status === 'completed');
+            if (completedJobs.length > 0) {
+              setSelectedJob(completedJobs[0]);
+            } else if (jobs.length > 0) {
+              setSelectedJob(jobs[0]);
+            }
+          } else {
+            console.log(`No jobs found for session ${identifier}`);
+            setSessionJobs([]);
+            setSelectedJob(null);
           }
         } catch (error) {
           console.error(`Error fetching jobs for session ${identifier}:`, error);
           setFetchError(`Error fetching session jobs: ${error instanceof Error ? error.message : String(error)}`);
         }
         
-        console.log("Final jobs to display:", matchingJobs.length);
-        
-        setSessionJobs(matchingJobs);
-        
-        const completedJobs = matchingJobs.filter(job => job.status === 'completed');
-        if (completedJobs.length > 0) {
-          setSelectedJob(completedJobs[0]);
-        } else if (matchingJobs.length > 0) {
-          setSelectedJob(matchingJobs[0]);
-        }
-        
+        // Try to fetch audio URL if we have a session ID
         if (identifier) {
           try {
             const { data: sessionData, error: sessionError } = await supabase
@@ -482,7 +489,8 @@ const SessionDetails = () => {
 
       if (!publicUrlData) throw new Error("Failed to get public URL");
 
-      const sessionIdentifier = sessionId;
+      // Use loadedSessionId which should be stable even if sessionId param changes
+      const sessionIdentifier = loadedSessionId || sessionId;
       
       if (!sessionIdentifier) {
         throw new Error("No session identifier available");
@@ -542,31 +550,50 @@ const SessionDetails = () => {
   const handleRefreshJobs = async () => {
     setLoading(true);
     try {
-      const identifier = sessionId;
-      if (!identifier) return;
+      // Use loadedSessionId for consistency, fall back to sessionId param
+      const identifier = loadedSessionId || sessionId;
       
-      const { data: refreshedJobs, error } = await supabase
-        .from('transcriptions')
-        .select('*')
-        .eq('session_id', identifier)
-        .order('created_at', { ascending: false });
+      if (!identifier) {
+        setFetchError("Missing session identifier. Cannot refresh jobs.");
+        throw new Error("Missing session identifier");
+      }
       
-      if (error) throw error;
+      console.log(`Refreshing jobs for session ${identifier}`);
       
-      if (refreshedJobs.length > 0) {
-        setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
+      const jobs = await getSessionTranscriptionJobs(identifier);
+      
+      if (jobs.length > 0) {
+        setSessionJobs(jobs);
+        
+        // If no job is currently selected, select the first completed one
+        if (!selectedJob) {
+          const completedJobs = jobs.filter(job => job.status === 'completed');
+          if (completedJobs.length > 0) {
+            setSelectedJob(completedJobs[0]);
+          } else if (jobs.length > 0) {
+            setSelectedJob(jobs[0]);
+          }
+        } else {
+          // If a job is selected, update it with fresh data if it exists
+          const updatedSelectedJob = jobs.find(job => job.id === selectedJob.id);
+          if (updatedSelectedJob) {
+            setSelectedJob(updatedSelectedJob);
+          }
+        }
+        
         toast({
           title: "Jobs Refreshed",
-          description: `Found ${refreshedJobs.length} jobs for this session`,
+          description: `Found ${jobs.length} jobs for this session`,
         });
       } else {
         toast({
-          title: "No New Jobs Found",
-          description: "Couldn't find any additional jobs for this session",
+          title: "No Jobs Found",
+          description: "Couldn't find any jobs for this session",
         });
       }
     } catch (error) {
       console.error("Error refreshing jobs:", error);
+      setFetchError(`Failed to refresh jobs: ${error instanceof Error ? error.message : String(error)}`);
       toast({
         title: "Refresh Failed",
         description: error instanceof Error ? error.message : "Unknown error occurred",
@@ -577,6 +604,8 @@ const SessionDetails = () => {
     }
   };
 
+  const displaySessionId = loadedSessionId || sessionId;
+
   return (
     <>
       <Header />
@@ -584,7 +613,7 @@ const SessionDetails = () => {
         <div className="max-w-7xl mx-auto p-4 md:p-6">
           <div className="flex flex-col gap-4 mb-6">
             <SessionHeader 
-              sessionId={sessionId}
+              sessionId={displaySessionId}
               loading={loading}
               comparisonMode={comparisonMode}
               publishDialogOpen={publishDialogOpen}
@@ -596,10 +625,10 @@ const SessionDetails = () => {
             
             <div className="space-y-2">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Transcription Session Details</h1>
-              {sessionId && sessionId !== 'null' && sessionId !== 'undefined' && (
+              {displaySessionId && displaySessionId !== 'null' && displaySessionId !== 'undefined' && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Info className="h-4 w-4" />
-                  <p className="font-mono text-sm">Session ID: {sessionId}</p>
+                  <p className="font-mono text-sm">Session ID: {displaySessionId}</p>
                 </div>
               )}
             </div>
@@ -607,23 +636,14 @@ const SessionDetails = () => {
             {loading ? (
               <LoadingState />
             ) : fetchError ? (
-              <ErrorState error={fetchError} onRetry={handleRefreshJobs} />
+              <ErrorState error={fetchError} onRetry={handleRefreshJobs} sessionId={displaySessionId} />
             ) : sessionJobs.length === 0 ? (
               <EmptyState onRefresh={handleRefreshJobs} />
             ) : (
               <div className="grid md:grid-cols-3 gap-6 mt-4">
                 <div className="md:col-span-1">
                   <Card className="shadow-soft border-2">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-xl">
-                        <FileText className="h-5 w-5 text-primary" />
-                        Transcription Jobs
-                      </CardTitle>
-                      <CardDescription>
-                        {sessionJobs.length} job{sessionJobs.length !== 1 ? 's' : ''} found
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-3">
+                    <CardContent className="p-4">
                       {comparisonMode && (
                         <ComparisonModeHeader 
                           jobsToCompare={jobsToCompare}
@@ -640,8 +660,7 @@ const SessionDetails = () => {
                         onSelectJob={handleSelectJob}
                         isJobSelectedForComparison={isJobSelectedForComparison}
                       />
-                    </CardContent>
-                    <CardFooter className="pt-0">
+                      
                       <ExportControls 
                         selectedJob={selectedJob}
                         exportFormat={exportFormat}
@@ -649,7 +668,7 @@ const SessionDetails = () => {
                         onExport={() => selectedJob && exportTranscription(selectedJob)}
                         onSave={handleSaveSelectedTranscription}
                       />
-                    </CardFooter>
+                    </CardContent>
                   </Card>
                 </div>
                 

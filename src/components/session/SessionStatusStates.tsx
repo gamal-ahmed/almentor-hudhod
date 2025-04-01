@@ -2,6 +2,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface LoadingStateProps {
   message?: string;
@@ -17,28 +18,50 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ message = "Loading s
 interface ErrorStateProps {
   error: string;
   onRetry: () => void;
+  sessionId?: string;
 }
 
-export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => (
-  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 my-4">
-    <div className="flex items-start gap-3">
-      <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
-      <div>
-        <h3 className="text-lg font-medium text-destructive mb-2">Error Loading Session</h3>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onRetry}
-          className="flex items-center gap-1.5"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Try Again
-        </Button>
+export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry, sessionId }) => {
+  const navigate = useNavigate();
+  
+  const handleBackToDashboard = () => {
+    navigate('/app');
+  };
+  
+  return (
+    <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 my-4">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
+        <div>
+          <h3 className="text-lg font-medium text-destructive mb-2">Error Loading Session</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRetry}
+              className="flex items-center gap-1.5"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Try Again
+            </Button>
+            
+            {!sessionId && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleBackToDashboard}
+                className="flex items-center gap-1.5"
+              >
+                Back to Dashboard
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface EmptyStateProps {
   onRefresh: () => void;

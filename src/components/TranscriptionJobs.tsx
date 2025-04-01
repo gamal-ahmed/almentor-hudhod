@@ -23,6 +23,7 @@ interface TranscriptionJob {
   updated_at: string;
   status_message: string;
   error?: string;
+  session_id?: string;
   result?: { 
     vttContent: string; 
     text: string; 
@@ -33,6 +34,7 @@ interface TranscriptionJob {
 interface JobGroup {
   timestamp: Date;
   jobs: TranscriptionJob[];
+  session_id?: string; // Add session_id to JobGroup
 }
 
 interface TranscriptionJobsProps {
@@ -67,10 +69,12 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       const jobTime = new Date(job.created_at);
       
       if (!currentGroup || 
-          Math.abs(jobTime.getTime() - currentGroup.timestamp.getTime()) > 30000) {
+          Math.abs(jobTime.getTime() - currentGroup.timestamp.getTime()) > 30000 ||
+          job.session_id !== currentGroup.session_id) { // Consider session_id in grouping
         currentGroup = {
           timestamp: jobTime,
-          jobs: [job]
+          jobs: [job],
+          session_id: job.session_id
         };
         groups.push(currentGroup);
       } else {
@@ -395,7 +399,8 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       <Accordion type="single" collapsible className="space-y-4">
         {jobGroups.map((group, index) => {
           const groupStatus = getGroupStatus(group);
-          const encodedTimestamp = encodeURIComponent(group.timestamp.toISOString());
+          // Ensure we have a valid session_id for the link
+          const sessionIdForLink = group.session_id || group.jobs[0]?.session_id;
           
           return (
             <AccordionItem 
@@ -451,13 +456,16 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                     </div>
                   </div>
                 </AccordionTrigger>
-                <Link 
-                  to={`/session/${sessionId}`}
-                  className="flex items-center text-sm font-medium text-blue-500 hover:text-blue-600 px-2.5 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <span className="mr-1.5">Details</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Link>
+                {/* Only render the link if we have a valid session ID */}
+                {sessionIdForLink && (
+                  <Link 
+                    to={`/session/${sessionIdForLink}`}
+                    className="flex items-center text-sm font-medium text-blue-500 hover:text-blue-600 px-2.5 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <span className="mr-1.5">Details</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                )}
               </div>
               <AccordionContent className="px-4 pb-4">
                 <div className="grid grid-cols-1 gap-3">

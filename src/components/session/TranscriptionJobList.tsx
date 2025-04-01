@@ -91,6 +91,14 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
     }
   };
 
+  if (!jobs || jobs.length === 0) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        No transcription jobs found.
+      </div>
+    );
+  }
+
   return (
     <ScrollArea className="h-[340px] pr-4 -mr-4">
       <div className="space-y-3">

@@ -14,6 +14,12 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
   try {
     console.log(`Fetching jobs for session ${sessionId}`);
     
+    // Validate sessionId - early exit if invalid
+    if (!sessionId || sessionId === 'null' || sessionId === 'undefined') {
+      console.warn('Invalid or null session ID provided, returning recent jobs instead');
+      return await getFallbackRecentJobs();
+    }
+    
     // Check if sessionId looks like a timestamp (contains T and Z)
     const isTimestamp = sessionId.includes('T') && sessionId.includes('Z');
     
@@ -92,10 +98,13 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
 
 // Handle session ID-based job retrieval logic
 async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]> {
+  // Double-check sessionId is valid - this is important to prevent issues
   if (!sessionId || sessionId === 'null' || sessionId === 'undefined') {
-    console.log('Invalid session ID provided, returning recent jobs instead');
+    console.log('Invalid session ID provided in getJobsBySessionId, returning recent jobs instead');
     return await getFallbackRecentJobs();
   }
+
+  console.log(`Fetching jobs for session ID: ${sessionId}`);
 
   // Try direct query first
   const directResult = await baseService.supabase
@@ -128,11 +137,19 @@ async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]
   }
   
   console.log(`Found ${data.length} jobs for session ${sessionId}`);
+  
+  if (data.length === 0) {
+    console.log(`No jobs found for session ${sessionId}, returning recent jobs instead`);
+    return await getFallbackRecentJobs();
+  }
+  
   return data.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
 }
 
 // Get recent jobs as a fallback
 async function getFallbackRecentJobs(): Promise<TranscriptionJob[]> {
+  console.log("Using fallback to get recent transcription jobs");
+  
   const recentResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')

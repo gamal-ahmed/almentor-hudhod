@@ -20,6 +20,19 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   extractVttContent,
   getModelDisplayName
 }) => {
+  // Safely handle null job
+  if (!selectedJob) {
+    return (
+      <Card className="shadow-soft border-2 h-full flex items-center justify-center">
+        <CardContent className="p-8 text-center">
+          <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">No Transcription Selected</h3>
+          <p className="text-muted-foreground">Please select a transcription job from the list.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="shadow-soft border-2 h-full">
       <CardHeader className="pb-3">
