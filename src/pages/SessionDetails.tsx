@@ -23,8 +23,7 @@ import {
   Calendar,
   Info
 } from "lucide-react";
-import { formatDistanceToNow, format, parseISO } from "date-fns";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDistanceToNow, format } from "date-fns";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -127,41 +126,34 @@ const SessionDetails = () => {
         let matchingJobs: TranscriptionJob[] = [];
         let isTimestamp = false;
         
-        // Check if the identifier looks like a timestamp
         if (identifier.includes('T') && identifier.includes('Z')) {
           isTimestamp = true;
           console.log("Identifier appears to be a timestamp");
           
-          // Make sure to decode URL-encoded timestamp
           const decodedTimestamp = decodeURIComponent(identifier);
           console.log(`Decoded timestamp: ${decodedTimestamp}`);
           
           try {
-            // We'll use a wider time window (10 minutes) to find jobs
-            const TIME_WINDOW = 10 * 60 * 1000; // 10 minutes in milliseconds
+            const TIME_WINDOW = 10 * 60 * 1000;
             const timestampDate = new Date(decodedTimestamp);
             
-            // Fetch jobs via API with throttling protection
             const fetchJobsWithRetry = async (retries = 3) => {
               try {
-                // Try direct database query first if possible
-                const { data: directJobs, error: directError } = await supabase
+                const directJobs = await supabase
                   .from('transcriptions')
                   .select('*')
                   .gte('created_at', new Date(timestampDate.getTime() - TIME_WINDOW).toISOString())
                   .lte('created_at', new Date(timestampDate.getTime() + TIME_WINDOW).toISOString())
                   .order('created_at', { ascending: false });
                 
-                if (!directError && directJobs && directJobs.length > 0) {
+                if (directJobs && directJobs.length > 0) {
                   console.log(`Found ${directJobs.length} jobs directly from database`);
                   return directJobs.map(convertToTranscriptionJob);
                 }
                 
-                // Fallback to API
                 const allJobs = await getUserTranscriptionJobs();
                 console.log(`Retrieved ${allJobs.length} total jobs`);
                 
-                // Filter jobs by created_at timestamp within the window
                 const timeFilteredJobs = allJobs
                   .filter((apiJob: TranscriptionJobFromAPI) => {
                     try {
@@ -190,7 +182,6 @@ const SessionDetails = () => {
             matchingJobs = await fetchJobsWithRetry();
             
             if (matchingJobs.length === 0) {
-              // Last resort: get most recent jobs
               const { data: recentJobs } = await supabase
                 .from('transcriptions')
                 .select('*')
@@ -207,7 +198,6 @@ const SessionDetails = () => {
             console.error(`Error parsing timestamp ${decodedTimestamp}:`, err);
             setFetchError(`Error processing timestamp: ${err.message}`);
             
-            // Fallback: get some recent jobs as a last resort
             try {
               const allJobs = await getUserTranscriptionJobs();
               matchingJobs = allJobs.slice(0, 10).map(convertToTranscriptionJob);
@@ -228,7 +218,6 @@ const SessionDetails = () => {
             console.error(`Error fetching jobs for session ${identifier}:`, error);
             setFetchError(`Error fetching session jobs: ${error.message}`);
             
-            // Fallback: try direct query
             try {
               const { data: directJobs, error: directError } = await supabase
                 .from('transcriptions')
@@ -240,7 +229,6 @@ const SessionDetails = () => {
                 matchingJobs = directJobs.map(convertToTranscriptionJob);
                 console.log(`Found ${matchingJobs.length} jobs with direct query`);
               } else {
-                // Second fallback: try regular API
                 const allJobs = await getUserTranscriptionJobs();
                 matchingJobs = allJobs
                   .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === identifier)
@@ -249,7 +237,6 @@ const SessionDetails = () => {
               }
             } catch (fallbackErr) {
               console.error("Fallback fetch also failed:", fallbackErr);
-              // Keep the original error message
             }
           }
         }
@@ -265,7 +252,6 @@ const SessionDetails = () => {
           setSelectedJob(matchingJobs[0]);
         }
         
-        // Load audio URL if it's a UUID session
         if (identifier && !isTimestamp) {
           try {
             const { data: sessionData } = await supabase
@@ -285,7 +271,6 @@ const SessionDetails = () => {
             }
           } catch (error) {
             console.error("Error fetching audio URL:", error);
-            // Don't set fetch error - audio is optional
           }
         }
       } catch (error) {
@@ -654,7 +639,6 @@ const SessionDetails = () => {
         throw new Error("No session identifier available");
       }
 
-      // For timestamp sessions, we'll just store in storage without DB update
       if (sessionIdentifier.includes('T') && sessionIdentifier.includes('Z')) {
         addLog(`Saved transcription to storage (without session update): ${fileName}`, "success", {
           source: "SessionDetails",
@@ -669,7 +653,6 @@ const SessionDetails = () => {
         return;
       }
 
-      // For UUID sessions, update the session record
       const { error: sessionUpdateError } = await supabase
         .from('transcription_sessions')
         .update({ 
@@ -721,7 +704,6 @@ const SessionDetails = () => {
     }
   };
   
-  // Refresh jobs manually
   const handleRefreshJobs = async () => {
     setLoading(true);
     try {
@@ -732,7 +714,6 @@ const SessionDetails = () => {
         const decodedTimestamp = decodeURIComponent(identifier);
         const timestampDate = new Date(decodedTimestamp);
         
-        // Use a wider time window (15 minutes)
         const TIME_WINDOW = 15 * 60 * 1000; 
         
         const { data: directJobs, error: directError } = await supabase
@@ -765,7 +746,6 @@ const SessionDetails = () => {
           });
         }
       } else {
-        // UUID-based session
         const refreshedJobs = await getSessionTranscriptionJobs(identifier);
         if (refreshedJobs.length > 0) {
           setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
@@ -934,7 +914,6 @@ const SessionDetails = () => {
               )}
             </div>
             
-            {/* This is where the content of the page begins */}
             {loading ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
@@ -1142,8 +1121,11 @@ const SessionDetails = () => {
                             <TabsContent value="preview" className="m-0">
                               {selectedJob.status === 'completed' ? (
                                 <TranscriptionCard 
+                                  modelName={getModelDisplayName(selectedJob.model)}
                                   vttContent={extractVttContent(selectedJob)}
                                   className="border shadow-none"
+                                  isSelected={true}
+                                  onSelect={() => {}}
                                 />
                               ) : selectedJob.status === 'failed' ? (
                                 <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
@@ -1203,9 +1185,12 @@ const SessionDetails = () => {
                               </div>
                               <Separator className="my-2" />
                               <TranscriptionCard 
+                                modelName={getModelDisplayName(job.model)}
                                 vttContent={extractVttContent(job)}
                                 className="border shadow-none h-[400px]"
                                 showPagination={false}
+                                isSelected={true}
+                                onSelect={() => {}}
                               />
                             </div>
                           ))}

@@ -10,13 +10,15 @@ import { useLogsStore } from "@/lib/useLogsStore";
 import { Slider } from "@/components/ui/slider";
 
 interface TranscriptionCardProps {
-  modelName: string;
-  vttContent: string;
+  modelName?: string;
+  vttContent?: string;
   prompt?: string;
-  onSelect: () => void;
-  isSelected: boolean;
+  onSelect?: () => void;
+  isSelected?: boolean;
   audioSrc?: string;
   isLoading?: boolean;
+  className?: string; // Add missing className prop
+  showPagination?: boolean; // Add missing showPagination prop
 }
 
 interface VTTSegment {
