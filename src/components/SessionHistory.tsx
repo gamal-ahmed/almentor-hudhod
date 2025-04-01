@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserTranscriptionJobs } from '@/lib/api';
@@ -28,21 +27,21 @@ import {
   Loader2 
 } from 'lucide-react';
 
-// Define a type for transcription jobs
 interface TranscriptionJob {
   id: string;
   status: string;
   model: string;
   created_at: string;
   updated_at: string;
+  session_id?: string;
 }
 
-// Define the type for grouped sessions
 interface SessionGroup {
   timestamp: Date;
   jobCount: number;
   models: string[];
   hasCompleted: boolean;
+  sessionId?: string;
 }
 
 const SessionHistory = () => {
@@ -50,7 +49,6 @@ const SessionHistory = () => {
   const [sessionGroups, setSessionGroups] = useState<SessionGroup[]>([]);
   const { toast } = useToast();
 
-  // Helper function to get a display name for models
   const getModelDisplayName = (model: string) => {
     switch (model) {
       case "openai":
@@ -64,11 +62,9 @@ const SessionHistory = () => {
     }
   };
 
-  // Group jobs by session based on creation time proximity
   const groupJobsBySession = (jobs: TranscriptionJob[]) => {
     if (!jobs.length) return [];
     
-    // Sort jobs by creation time, newest first
     const sortedJobs = [...jobs].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
@@ -79,6 +75,7 @@ const SessionHistory = () => {
       jobs: TranscriptionJob[]; 
       models: Set<string>;
       hasCompleted: boolean;
+      sessionId?: string;
     } | null = null;
     
     sortedJobs.forEach(job => {
@@ -86,36 +83,39 @@ const SessionHistory = () => {
       
       if (!currentGroup || 
           Math.abs(jobTime.getTime() - currentGroup.timestamp.getTime()) > 30000) {
-        // Start a new group if no current group or time gap is over 30 seconds
         currentGroup = {
           timestamp: jobTime,
           jobs: [job],
           models: new Set([job.model]),
-          hasCompleted: job.status === 'completed'
+          hasCompleted: job.status === 'completed',
+          sessionId: job.session_id
         };
         groups.push({
           timestamp: currentGroup.timestamp,
           jobCount: 1,
           models: Array.from(currentGroup.models).map(getModelDisplayName),
-          hasCompleted: currentGroup.hasCompleted
+          hasCompleted: currentGroup.hasCompleted,
+          sessionId: currentGroup.sessionId
         });
       } else {
-        // Add to existing group
         currentGroup.jobs.push(job);
         currentGroup.models.add(job.model);
         if (job.status === 'completed') {
           currentGroup.hasCompleted = true;
         }
         
-        // Update the last pushed group
+        if (job.session_id && !currentGroup.sessionId) {
+          currentGroup.sessionId = job.session_id;
+        }
+        
         const lastGroup = groups[groups.length - 1];
         lastGroup.jobCount = currentGroup.jobs.length;
         lastGroup.models = Array.from(currentGroup.models).map(getModelDisplayName);
         lastGroup.hasCompleted = currentGroup.hasCompleted;
+        lastGroup.sessionId = currentGroup.sessionId;
       }
     });
     
-    // Limit to the most recent 5 sessions
     return groups.slice(0, 5);
   };
 
@@ -225,7 +225,9 @@ const SessionHistory = () => {
                     asChild
                     className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
                   >
-                    <Link to={`/session/${encodeURIComponent(session.timestamp.toISOString())}`}>
+                    <Link to={session.sessionId 
+                      ? `/session/${session.sessionId}` 
+                      : `/session/${encodeURIComponent(session.timestamp.toISOString())}`}>
                       <span>Details</span>
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>

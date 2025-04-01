@@ -48,6 +48,7 @@ interface TranscriptionJobFromAPI {
   updated_at: string;
   status_message: string;
   error?: string;
+  session_id?: string; // Add session_id as it may be present
   result?: { 
     vttContent: string; 
     text: string; 
@@ -63,6 +64,7 @@ interface TranscriptionJob {
   updated_at: string;
   status_message: string;
   error?: string;
+  session_id?: string; // Add session_id as it may be present
   result?: { 
     vttContent: string; 
     text: string; 
@@ -83,7 +85,7 @@ const convertToTranscriptionJob = (job: TranscriptionJobFromAPI): TranscriptionJ
 type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 const SessionDetails = () => {
-  const { sessionTimestamp } = useParams<{ sessionTimestamp: string }>();
+  const { sessionId, sessionTimestamp } = useParams<{ sessionId?: string; sessionTimestamp?: string }>();
   const [loading, setLoading] = useState(true);
   const [sessionJobs, setSessionJobs] = useState<TranscriptionJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
@@ -106,21 +108,33 @@ const SessionDetails = () => {
         setLoading(true);
         const allJobs = await getUserTranscriptionJobs();
         
-        if (!sessionTimestamp) {
+        if (!sessionId && !sessionTimestamp) {
           toast({
-            title: "Missing session timestamp",
-            description: "Could not load session details",
+            title: "Missing session identifier",
+            description: "Could not load session details: No session ID or timestamp provided",
             variant: "destructive",
           });
           return;
         }
         
-        const targetTimestamp = new Date(decodeURIComponent(sessionTimestamp));
+        let matchingJobs: TranscriptionJob[] = [];
         
-        const matchingJobs = allJobs.filter((apiJob: TranscriptionJobFromAPI) => {
-          const jobTime = new Date(apiJob.created_at);
-          return Math.abs(jobTime.getTime() - targetTimestamp.getTime()) <= 30000;
-        }).map(convertToTranscriptionJob);
+        if (sessionId) {
+          // If sessionId is provided, filter by session_id
+          matchingJobs = allJobs
+            .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === sessionId)
+            .map(convertToTranscriptionJob);
+        } else if (sessionTimestamp) {
+          // If sessionTimestamp is provided, use time-based matching
+          const targetTimestamp = new Date(decodeURIComponent(sessionTimestamp));
+          
+          matchingJobs = allJobs
+            .filter((apiJob: TranscriptionJobFromAPI) => {
+              const jobTime = new Date(apiJob.created_at);
+              return Math.abs(jobTime.getTime() - targetTimestamp.getTime()) <= 30000;
+            })
+            .map(convertToTranscriptionJob);
+        }
         
         const completedJobs = matchingJobs.filter(job => job.status === 'completed');
         setSessionJobs(completedJobs);
@@ -141,7 +155,7 @@ const SessionDetails = () => {
     };
     
     fetchSessionJobs();
-  }, [sessionTimestamp, toast]);
+  }, [sessionId, sessionTimestamp, toast]);
   
   const getModelDisplayName = (model: string) => {
     switch (model) {
@@ -486,14 +500,21 @@ const SessionDetails = () => {
 
       if (!publicUrlData) throw new Error("Failed to get public URL");
 
+      // Use the provided sessionId or sessionTimestamp parameter
+      const sessionIdentifier = sessionId || sessionTimestamp;
+      
+      if (!sessionIdentifier) {
+        throw new Error("No session identifier available");
+      }
+
       const { error: sessionUpdateError } = await supabase
         .from('transcription_sessions')
         .update({ 
           selected_transcription_url: publicUrlData.publicUrl,
           selected_transcription: vttContent,
           selected_model: selectedJob.model
-        })
-        .eq('id', sessionTimestamp);
+        } as any)
+        .eq('id', sessionIdentifier);
 
       if (sessionUpdateError) throw sessionUpdateError;
 
@@ -653,6 +674,14 @@ const SessionDetails = () => {
                     <span className="text-muted-foreground/70 text-sm ml-2">
                       ({formatDistanceToNow(new Date(decodeURIComponent(sessionTimestamp)), { addSuffix: true })})
                     </span>
+                  </p>
+                </div>
+              )}
+              {sessionId && !sessionTimestamp && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <p>
+                    Session ID: {sessionId}
                   </p>
                 </div>
               )}
@@ -873,80 +902,3 @@ const SessionDetails = () => {
                         <div className="p-12 text-center border rounded-md border-dashed animate-pulse-opacity">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
-                          <p className="text-muted-foreground text-sm">
-                            Select a completed job from the list to view its transcription result
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                    <CardFooter className="flex justify-between flex-wrap gap-2 border-t p-4 bg-muted/30">
-                      <Button 
-                        variant="outline"
-                        asChild
-                        className="shadow-soft hover-lift"
-                      >
-                        <Link to="/app">
-                          <ArrowLeft className="mr-2 h-4 w-4" />
-                          Back to Dashboard
-                        </Link>
-                      </Button>
-                      
-                      {selectedJob && (
-                        <div className="flex gap-2">
-                          <Select 
-                            value={exportFormat} 
-                            onValueChange={(value) => setExportFormat(value as ExportFormat)}
-                          >
-                            <SelectTrigger className="w-[130px] shadow-soft">
-                              <SelectValue placeholder="Format" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="vtt">VTT Format</SelectItem>
-                              <SelectItem value="srt">SRT Format</SelectItem>
-                              <SelectItem value="text">Plain Text</SelectItem>
-                              <SelectItem value="json">JSON</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          <Button 
-                            variant="outline"
-                            onClick={() => exportTranscription(selectedJob)}
-                            className="flex items-center gap-1.5 shadow-soft hover-lift"
-                          >
-                            <Download className="h-4 w-4" />
-                            Export
-                          </Button>
-                          
-                          <Button 
-                            variant="default"
-                            onClick={() => setPublishDialogOpen(true)}
-                            className="flex items-center gap-1.5 shadow-soft hover-lift"
-                          >
-                            <Send className="h-4 w-4" />
-                            Publish to Brightcove
-                          </Button>
-                        </div>
-                      )}
-                      
-                      <Button 
-                        variant="default"
-                        onClick={handleSaveSelectedTranscription}
-                        disabled={!selectedJob}
-                        className="flex items-center gap-1.5"
-                      >
-                        <FileSymlink className="h-4 w-4" />
-                        Save Transcription
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </>
-  );
-};
-
-export default SessionDetails;
