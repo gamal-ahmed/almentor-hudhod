@@ -48,7 +48,7 @@ interface TranscriptionJobFromAPI {
   updated_at: string;
   status_message: string;
   error?: string;
-  session_id?: string; // Add session_id as it may be present
+  session_id?: string;
   result?: { 
     vttContent: string; 
     text: string; 
@@ -64,7 +64,7 @@ interface TranscriptionJob {
   updated_at: string;
   status_message: string;
   error?: string;
-  session_id?: string; // Add session_id as it may be present
+  session_id?: string;
   result?: { 
     vttContent: string; 
     text: string; 
@@ -120,12 +120,10 @@ const SessionDetails = () => {
         let matchingJobs: TranscriptionJob[] = [];
         
         if (sessionId) {
-          // If sessionId is provided, filter by session_id
           matchingJobs = allJobs
             .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === sessionId)
             .map(convertToTranscriptionJob);
         } else if (sessionTimestamp) {
-          // If sessionTimestamp is provided, use time-based matching
           const targetTimestamp = new Date(decodeURIComponent(sessionTimestamp));
           
           matchingJobs = allJobs
@@ -500,7 +498,6 @@ const SessionDetails = () => {
 
       if (!publicUrlData) throw new Error("Failed to get public URL");
 
-      // Use the provided sessionId or sessionTimestamp parameter
       const sessionIdentifier = sessionId || sessionTimestamp;
       
       if (!sessionIdentifier) {
@@ -901,4 +898,55 @@ const SessionDetails = () => {
                       ) : (
                         <div className="p-12 text-center border rounded-md border-dashed animate-pulse-opacity">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No transcription selected
+                          <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
+                          <p className="text-muted-foreground">
+                            Select a completed transcription job from the list to view its details.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                    {selectedJob && (
+                      <CardFooter className="border-t p-4 flex justify-between gap-4 bg-muted/20">
+                        <div className="flex gap-2">
+                          <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as ExportFormat)}>
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue placeholder="Format" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="vtt">VTT</SelectItem>
+                              <SelectItem value="srt">SRT</SelectItem>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="json">JSON</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            variant="outline" 
+                            className="gap-1.5"
+                            onClick={() => exportTranscription(selectedJob)}
+                          >
+                            <Download className="h-4 w-4" />
+                            Export
+                          </Button>
+                        </div>
+                        <Button 
+                          variant="default" 
+                          className="gap-1.5 bg-primary"
+                          onClick={handleSaveSelectedTranscription}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Save as Selected Transcription
+                        </Button>
+                      </CardFooter>
+                    )}
+                  </Card>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default SessionDetails;
