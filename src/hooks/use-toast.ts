@@ -1,15 +1,15 @@
 
-import { toast as sonnerToast, type Toast } from "sonner";
+import { toast as sonnerToast, type ToastOptions as SonnerToastOptions } from "sonner";
 import * as React from "react";
 
-// Define Toast types
-export type ToastProps = Toast & {
+// Define Toast types with proper interfaces to avoid circular references
+export interface ToastProps {
   id: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
   variant?: "default" | "destructive";
-};
+}
 
 const TOAST_LIMIT = 5;
 const TOAST_REMOVE_DELAY = 1000;
@@ -130,15 +130,24 @@ function dispatch(action: Action) {
   });
 }
 
-type Toast = Omit<ToasterToast, "id">;
+// Define the type that will be used for the toast function
+export interface ToastInput {
+  id?: string;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  variant?: "default" | "destructive";
+}
 
-function toast({ ...props }: Toast) {
+function toast(props: ToastInput) {
   const id = props.id || String(Date.now());
 
   // Use sonner toast
   sonnerToast(props.title as string, {
     description: props.description,
-    type: props.variant === "destructive" ? "error" : "default",
+    // Map our variant to sonner's variant
+    // Note: sonner uses 'error' instead of 'destructive'
+    ...(props.variant === "destructive" ? { tone: "error" } : {}),
     id,
   });
 
