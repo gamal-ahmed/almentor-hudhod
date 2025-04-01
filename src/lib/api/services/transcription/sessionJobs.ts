@@ -92,6 +92,11 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
 
 // Handle session ID-based job retrieval logic
 async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]> {
+  if (!sessionId || sessionId === 'null' || sessionId === 'undefined') {
+    console.log('Invalid session ID provided, returning recent jobs instead');
+    return await getFallbackRecentJobs();
+  }
+
   // Try direct query first
   const directResult: SupabaseQueryResult = await baseService.supabase
     .from('transcriptions')

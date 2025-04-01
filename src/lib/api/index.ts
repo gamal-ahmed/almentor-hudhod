@@ -10,7 +10,11 @@ import {
   saveSelectedTranscription,
   getSessionTranscriptionJobs
 } from "./transcriptionService";
-import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
+import { 
+  getBrightcoveAuthToken, 
+  addCaptionToBrightcove, 
+  fetchBrightcoveKeys 
+} from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
 

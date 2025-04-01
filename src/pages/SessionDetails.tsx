@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,11 @@ import { useLogsStore } from "@/lib/useLogsStore";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "@/lib/api/brightcoveService";
+import { 
+  getBrightcoveAuthToken, 
+  addCaptionToBrightcove, 
+  fetchBrightcoveKeys 
+} from "@/lib/api";
 
 interface TranscriptionJobFromAPI {
   id: string;
@@ -85,6 +89,7 @@ type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 const SessionDetails = () => {
   const { sessionId } = useParams<{ sessionId?: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [sessionJobs, setSessionJobs] = useState<TranscriptionJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
@@ -110,14 +115,19 @@ const SessionDetails = () => {
         
         const identifier = sessionId;
         
-        if (!identifier) {
+        if (!identifier || identifier === 'null' || identifier === 'undefined') {
           toast({
             title: "Missing session identifier",
-            description: "Could not load session details: No session ID provided",
+            description: "Could not load session details: No valid session ID provided",
             variant: "destructive",
           });
-          setFetchError("No session identifier provided");
+          setFetchError("No valid session identifier provided");
           setLoading(false);
+          
+          setTimeout(() => {
+            navigate('/app');
+          }, 3000);
+          
           return;
         }
         
@@ -138,7 +148,7 @@ const SessionDetails = () => {
           }
         } catch (error) {
           console.error(`Error fetching jobs for session ${identifier}:`, error);
-          setFetchError(`Error fetching session jobs: ${error.message}`);
+          setFetchError(`Error fetching session jobs: ${error instanceof Error ? error.message : String(error)}`);
         }
         
         console.log("Final jobs to display:", matchingJobs.length);
@@ -175,7 +185,7 @@ const SessionDetails = () => {
         }
       } catch (error) {
         console.error("Error fetching session jobs:", error);
-        setFetchError(`Failed to load session data: ${error.message}`);
+        setFetchError(`Failed to load session data: ${error instanceof Error ? error.message : String(error)}`);
         toast({
           title: "Error loading session",
           description: error instanceof Error ? error.message : "Unknown error occurred",
@@ -187,8 +197,7 @@ const SessionDetails = () => {
     };
     
     fetchSessionJobs();
-  }, [sessionId, toast]);
-  
+  }, [sessionId, toast, navigate]);
   
   const getModelDisplayName = (model: string) => {
     switch (model) {
@@ -751,7 +760,7 @@ const SessionDetails = () => {
             
             <div className="space-y-2">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Transcription Session Details</h1>
-              {sessionId && (
+              {sessionId && sessionId !== 'null' && sessionId !== 'undefined' && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Info className="h-4 w-4" />
                   <p>Session ID: {sessionId}</p>

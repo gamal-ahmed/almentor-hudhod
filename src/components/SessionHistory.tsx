@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserTranscriptionJobs } from '@/lib/api';
@@ -225,10 +226,17 @@ const SessionHistory = () => {
                     asChild
                     className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
                   >
-                    <Link to={session.sessionId ? `/session/${session.sessionId}` : '#'}>
-                      <span>Details</span>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
+                    {session.sessionId ? (
+                      <Link to={`/session/${session.sessionId}`}>
+                        <span>Details</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : (
+                      <Link to={`/app`}>
+                        <span>Dashboard</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
                   </Button>
                 </TableCell>
               </TableRow>
