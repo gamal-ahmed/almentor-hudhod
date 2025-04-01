@@ -32,8 +32,6 @@ serve(async (req) => {
       return await handleResetStuckJobs(req);
     } else if (endpoint === 'download-audio') {
       return await handleDownloadAudio(req);
-    } else if (endpoint === 'save-transcription') {
-      return await handleSaveTranscription(req);
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid endpoint" }),
@@ -285,78 +283,6 @@ async function handleResetStuckJobs(req: Request) {
     );
   } catch (error) {
     console.error("Error resetting stuck jobs:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  }
-}
-
-// Handle saving a transcription as a VTT file
-async function handleSaveTranscription(req: Request) {
-  try {
-    const { transcriptionId, vttContent, fileName } = await req.json();
-    
-    if (!transcriptionId || !vttContent || !fileName) {
-      throw new Error("Missing required parameters");
-    }
-    
-    console.log(`Saving transcription ${transcriptionId} as ${fileName}`);
-    
-    // Create a temporary file on the server
-    const filePath = `transcriptions/${fileName}`;
-    
-    // Generate a signed URL that will expire after a set period (e.g., 7 days)
-    const expirySeconds = 7 * 24 * 60 * 60; // 7 days
-    
-    // Store the file in Supabase Storage
-    const { error: uploadError, data: uploadData } = await supabase
-      .storage
-      .from('transcription-files')
-      .upload(filePath, new Blob([vttContent], { type: 'text/vtt' }), {
-        contentType: 'text/vtt',
-        upsert: true,
-      });
-    
-    if (uploadError) {
-      throw new Error(`Failed to upload file: ${uploadError.message}`);
-    }
-    
-    // Get a public URL for the file
-    const { data: publicUrlData } = await supabase
-      .storage
-      .from('transcription-files')
-      .getPublicUrl(filePath);
-    
-    if (!publicUrlData || !publicUrlData.publicUrl) {
-      throw new Error("Failed to get public URL for file");
-    }
-    
-    const fileUrl = publicUrlData.publicUrl;
-    
-    console.log(`Successfully saved transcription file at: ${fileUrl}`);
-    
-    return new Response(
-      JSON.stringify({ 
-        message: "Transcription saved successfully",
-        fileUrl,
-        filePath
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Error saving transcription:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

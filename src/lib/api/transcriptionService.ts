@@ -1,3 +1,4 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -247,92 +248,6 @@ export async function resetStuckJobs() {
     });
     console.error('Error resetting stuck jobs:', error);
     logOperation.error(`${error.message}`, error.stack);
-    throw error;
-  }
-}
-
-// Save the selected transcription and update the database with the URL
-export async function saveSelectedTranscription(transcriptionId: string, vttContent: string) {
-  const addLog = getLogsStore().addLog;
-  const startTimedLog = getLogsStore().startTimedLog;
-  
-  const logOperation = startTimedLog(`Saving selected transcription`, "info", "Storage");
-  
-  try {
-    // Create a file name using the transcription ID
-    const fileName = `${transcriptionId}.vtt`;
-    
-    // Call the Supabase Function to save the VTT content
-    const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/save-transcription`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({
-        transcriptionId,
-        vttContent,
-        fileName
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to save transcription: ${response.status} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    
-    // Update the transcription record with the file URL
-    const { error } = await supabase
-      .from('transcriptions')
-      .update({
-        vtt_file_url: data.fileUrl
-      })
-      .eq('id', transcriptionId);
-    
-    if (error) {
-      throw new Error(`Failed to update transcription record: ${error.message}`);
-    }
-    
-    addLog(`Successfully saved transcription as VTT file`, "success", {
-      source: "Storage",
-      details: `File URL: ${data.fileUrl}`
-    });
-    
-    logOperation.complete(`Saved transcription`, `File URL: ${data.fileUrl}`);
-    
-    return data.fileUrl;
-  } catch (error) {
-    addLog(`Error saving transcription: ${error.message}`, "error", {
-      source: "Storage",
-      details: error.stack
-    });
-    console.error('Error saving transcription:', error);
-    logOperation.error(`${error.message}`, error.stack);
-    throw error;
-  }
-}
-
-// Update the session with the selected transcription URL
-export async function updateSessionTranscriptionUrl(sessionId: string, url: string) {
-  try {
-    // Using an explicit SQL update query through Supabase
-    const { error } = await supabase
-      .from('transcription_sessions')
-      .update({
-        selected_transcription_url: url
-      })
-      .eq('id', sessionId);
-    
-    if (error) {
-      throw new Error(`Failed to update session: ${error.message}`);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error updating session:', error);
     throw error;
   }
 }

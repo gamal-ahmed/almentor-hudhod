@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
@@ -11,6 +12,7 @@ import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
+// Define a union type for all possible job statuses
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 interface TranscriptionJob {
@@ -26,7 +28,6 @@ interface TranscriptionJob {
     text: string; 
     prompt: string;
   } | Json;
-  vtt_file_url?: string;
 }
 
 interface JobGroup {
@@ -328,31 +329,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     return `Session ${formattedDate} (${models.join(', ')})`;
   };
   
-  const getJobDetails = (job: TranscriptionJob) => {
-    const vttUrl = job.vtt_file_url;
-    
-    return (
-      <div className="mb-2 text-xs">
-        {vttUrl && (
-          <div className="mt-2 p-2 bg-primary/5 rounded-md">
-            <div className="flex items-center gap-1.5 text-primary font-medium">
-              <FileText className="h-3.5 w-3.5" />
-              <span>Saved VTT File</span>
-            </div>
-            <a 
-              href={vttUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-xs text-blue-500 hover:underline break-all"
-            >
-              {vttUrl}
-            </a>
-          </div>
-        )}
-      </div>
-    );
-  };
-  
   if (loading && jobs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 space-y-4 min-h-[200px]">
@@ -549,7 +525,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                             <p className="text-xs p-2 bg-background/50 rounded-md my-2">
                               {job.status_message || "No detailed status available"}
                             </p>
-                            {expandedJob === job.id && getJobDetails(job)}
                           </div>
                         </div>
                       </CardContent>
@@ -603,3 +578,4 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
 };
 
 export default TranscriptionJobs;
+

@@ -5,7 +5,7 @@ interface VTTSegment {
   text: string;
 }
 
-export const parseVTT = (vttContent: string): VTTSegment[] => {
+export function parseVTT(vttContent: string): VTTSegment[] {
   if (!vttContent || typeof vttContent !== 'string') return [];
   
   try {
@@ -101,7 +101,7 @@ export const parseVTT = (vttContent: string): VTTSegment[] => {
     
     return [];
   }
-};
+}
 
 function formatTimestamp(timestamp: string): string {
   try {
@@ -123,8 +123,3 @@ function formatTimestamp(timestamp: string): string {
     return "00:00:00.000";
   }
 }
-
-// Add an object to maintain backwards compatibility with code using VttParser.parseVTT
-export const VttParser = {
-  parseVTT
-};
