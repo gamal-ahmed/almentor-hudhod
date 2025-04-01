@@ -11,7 +11,7 @@ export function mapToTranscriptionJob(record: TranscriptionRecord): Transcriptio
     updated_at: record.updated_at || new Date().toISOString(),
     status_message: record.status_message || '',
     error: record.error,
-    result: record.result,
+    result: record.result || {},
     file_path: record.file_path,
     user_id: record.user_id,
     session_id: record.session_id,

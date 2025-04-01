@@ -22,7 +22,7 @@ interface ComparisonViewProps {
   getModelDisplayName: (model: string) => string;
   setViewMode: (mode: 'single' | 'compare') => void;
   onExport: (job: TranscriptionJob) => void;
-  onSave: (job: TranscriptionJob) => void;
+  onAccept: (job: TranscriptionJob) => void;
   audioUrl: string | null;
 }
 
@@ -32,7 +32,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
   getModelDisplayName,
   setViewMode,
   onExport,
-  onSave,
+  onAccept,
   audioUrl
 }) => {
   return (
@@ -58,7 +58,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
                 showPagination={false}
                 audioSrc={audioUrl}
                 onExport={() => onExport(job)}
-                onSave={() => onSave(job)}
+                onAccept={() => onAccept(job)}
                 showExportOptions={true}
                 className="h-full"
               />

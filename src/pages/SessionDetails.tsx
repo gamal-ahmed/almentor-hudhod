@@ -910,7 +910,7 @@ const SessionDetails = () => {
                         extractVttContent={extractVttContent}
                         getModelDisplayName={getModelDisplayName}
                         onExport={exportTranscription}
-                        onSave={saveSelectedTranscriptionToStorage}
+                        onAccept={handleMarkAsAccepted}
                       />
                     ) : (
                       <Card className="shadow-soft border-2 h-full flex items-center justify-center">
@@ -926,7 +926,7 @@ const SessionDetails = () => {
                       getModelDisplayName={getModelDisplayName}
                       setViewMode={setViewMode}
                       onExport={exportTranscription}
-                      onSave={saveSelectedTranscriptionToStorage}
+                      onAccept={handleMarkAsAccepted}
                       audioUrl={audioUrl}
                     />
                   )}
