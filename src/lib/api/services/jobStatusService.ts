@@ -150,7 +150,9 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
       }
       
       // Fallback to view
-      const { data, error } = await baseService.supabase
+      // Use explicit type annotation to help TypeScript resolve the type
+      type TranscriptionData = any[];
+      const { data, error }: { data: TranscriptionData | null, error: any } = await baseService.supabase
         .from('transcription_jobs')
         .select('*')
         .eq('session_id', sessionId)
