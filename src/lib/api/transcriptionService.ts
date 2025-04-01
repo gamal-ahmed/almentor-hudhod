@@ -72,8 +72,15 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to start transcription job: ${response.status} - ${errorText}`);
+      let errorMessage = `Failed to start transcription job: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || JSON.stringify(errorData)}`;
+      } catch (e) {
+        const errorText = await response.text();
+        errorMessage += ` - ${errorText || 'Unknown error'}`;
+      }
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();

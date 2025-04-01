@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
@@ -21,17 +22,30 @@ serve(async (req) => {
   const url = new URL(req.url);
   const endpoint = url.pathname.split('/').pop();
 
-  if (endpoint === 'start-job') {
-    return await handleStartJob(req);
-  } else if (endpoint === 'job-status') {
-    return await handleJobStatus(req);
-  } else if (endpoint === 'reset-stuck-jobs') {
-    return await handleResetStuckJobs(req);
-  } else {
+  try {
+    console.log(`Received request for endpoint: ${endpoint}`);
+    
+    if (endpoint === 'start-job') {
+      return await handleStartJob(req);
+    } else if (endpoint === 'job-status') {
+      return await handleJobStatus(req);
+    } else if (endpoint === 'reset-stuck-jobs') {
+      return await handleResetStuckJobs(req);
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Invalid endpoint" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  } catch (error) {
+    console.error(`Error handling request to ${endpoint}:`, error);
     return new Response(
-      JSON.stringify({ error: "Invalid endpoint" }),
+      JSON.stringify({ error: error.message }),
       {
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
@@ -211,18 +225,23 @@ async function updateJobStatus(
     updateData.result = result;
   }
 
-  // Update the transcriptions table directly - avoid using the view
-  const { error: updateError } = await supabase
-    .from('transcriptions')
-    .update(updateData)
-    .eq('id', jobId);
+  try {
+    // Update the transcriptions table directly - avoid using the view
+    const { error: updateError } = await supabase
+      .from('transcriptions')
+      .update(updateData)
+      .eq('id', jobId);
 
-  if (updateError) {
-    console.error(`Error updating job ${jobId} status:`, updateError);
-    throw new Error(`Failed to update job status: ${updateError.message}`);
+    if (updateError) {
+      console.error(`Error updating job ${jobId} status:`, updateError);
+      throw new Error(`Failed to update job status: ${updateError.message}`);
+    }
+
+    console.log(`Updated job ${jobId} status to ${status}: ${statusMessage}`);
+  } catch (error) {
+    console.error(`Error in updateJobStatus for job ${jobId}:`, error);
+    throw error;
   }
-
-  console.log(`Updated job ${jobId} status to ${status}: ${statusMessage}`);
 }
 
 // Process transcription in the background
@@ -245,18 +264,18 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     let apiUrl = '';
     switch (job.model) {
       case 'openai':
-        apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
+        apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
         break;
       case 'gemini-2.0-flash':
-        // Use internal endpoint for now (would need to implement proper Gemini API call)
+        // Use internal endpoint for now
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
         break;
       case 'phi4':
-        // Use internal endpoint for now (would need to implement proper Phi4 API call)
+        // Use internal endpoint for now
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
         break;
       default:
-        apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
+        apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe';
     }
     
     // Convert audio to buffer for processing
@@ -266,67 +285,42 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     const formData = new FormData();
     const blob = new Blob([audioBuffer], { type: audioFile.type });
     
-    if (job.model === 'openai') {
-      // OpenAI-specific parameters
-      formData.append('file', blob, audioFile.name);
-      formData.append('model', 'whisper-1');
-      formData.append('response_format', 'verbose_json');
-      if (prompt) {
-        formData.append('prompt', prompt);
-      }
-    } else {
-      // For other models we use our existing Edge Functions
-      formData.append('audio', blob, audioFile.name);
-      formData.append('prompt', prompt);
-    }
+    // Common parameters for all models
+    formData.append('audio', blob, audioFile.name);
+    formData.append('prompt', prompt);
     
     // Update job status
     await updateJobStatus(jobId, 'processing', `Sending request to ${job.model} API`);
     
-    // Additional headers for OpenAI
-    const headers: Record<string, string> = {};
-    if (job.model === 'openai') {
-      headers['Authorization'] = `Bearer ${Deno.env.get("OPENAI_API_KEY")}`;
-    } else {
-      // For our Edge Functions
-      headers['apikey'] = Deno.env.get("SUPABASE_ANON_KEY") || '';
-      headers['Authorization'] = `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`;
-    }
-    
     // Call the API
+    console.log(`Calling ${apiUrl} for job ${jobId}`);
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers,
+      headers: {
+        'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
+        'Authorization': `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+      },
       body: formData,
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Transcription API error: ${response.status} - ${errorText}`);
+      let errorMessage = `Transcription API error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || JSON.stringify(errorData)}`;
+      } catch (e) {
+        const errorText = await response.text();
+        errorMessage += ` - ${errorText || 'Unknown error'}`;
+      }
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
-    
-    // Process the response based on model
-    let vttContent = '';
-    
-    if (job.model === 'openai') {
-      // Handle OpenAI response
-      if (data.segments && data.segments.length > 0) {
-        vttContent = "WEBVTT\n\n";
-        data.segments.forEach((segment: any) => {
-          const startTime = formatVTTTime(segment.start);
-          const endTime = formatVTTTime(segment.end);
-          vttContent += `${startTime} --> ${endTime}\n${segment.text.trim()}\n\n`;
-        });
-      } else {
-        // Fallback to plain text if no segments
-        vttContent = convertTextToVTT(data.text);
-      }
-    } else {
-      // Our Edge Functions return vttContent directly
-      vttContent = data.vttContent;
+    if (!data || !data.vttContent) {
+      throw new Error(`Invalid response from transcription API: ${JSON.stringify(data)}`);
     }
+    
+    console.log(`Received response from ${job.model} API for job ${jobId}`);
     
     // Update job with success
     await updateJobStatus(
@@ -335,7 +329,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
       `Successfully transcribed with ${job.model}`,
       undefined,
       { 
-        vttContent, 
+        vttContent: data.vttContent, 
         text: data.text || "",
         prompt
       }
@@ -346,12 +340,16 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     console.error(`Error processing transcription job ${jobId}:`, error);
     
     // Update job with error
-    await updateJobStatus(
-      jobId,
-      'failed',
-      `Transcription failed: ${error.message}`,
-      error.stack || error.message
-    );
+    try {
+      await updateJobStatus(
+        jobId,
+        'failed',
+        `Transcription failed: ${error.message}`,
+        error.stack || error.message
+      );
+    } catch (updateError) {
+      console.error(`Failed to update job ${jobId} with error status:`, updateError);
+    }
   }
 }
 

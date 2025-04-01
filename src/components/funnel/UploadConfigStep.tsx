@@ -32,16 +32,19 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { addLog, startTimedLog } = useLogsStore();
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     console.log("File uploaded in UploadConfigStep:", file.name);
     setUploadedFile(file);
     addLog(`File uploaded: ${file.name}`, "info", {
       source: "FileUpload",
       details: `Type: ${file.type}`
     });
+    
+    // Automatically start transcription after file upload
+    await startTranscription(file);
   };
   
-  const handleSharePointFileSelect = (files: File[]) => {
+  const handleSharePointFileSelect = async (files: File[]) => {
     if (files.length > 0) {
       console.log("SharePoint file selected:", files[0].name);
       setUploadedFile(files[0]);
@@ -49,6 +52,9 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         source: "SharePoint",
         details: `Type: ${files[0].type}`
       });
+      
+      // Automatically start transcription after file selection
+      await startTranscription(files[0]);
     }
   };
   
@@ -90,16 +96,16 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     setPrompt(newPrompt.trim());
   }, [preserveEnglish, outputFormat]);
   
-  const startTranscription = async () => {
-    if (!uploadedFile) {
-      toast("No file selected", {
+  const startTranscription = async (fileToProcess = uploadedFile) => {
+    if (!fileToProcess) {
+      toast.error("No file selected", {
         description: "Please upload an audio file before starting transcription"
       });
       return;
     }
     
     if (selectedModels.length === 0) {
-      toast("No transcription models selected", {
+      toast.error("No transcription models selected", {
         description: "Please select at least one transcription model"
       });
       return;
@@ -108,39 +114,61 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     try {
       setIsProcessing(true);
       
-      const logOperation = startTimedLog(`Starting transcription for ${uploadedFile.name}`, "info");
+      const logOperation = startTimedLog(`Starting transcription for ${fileToProcess.name}`, "info");
       
       console.log("Starting transcription with file:", {
-        name: uploadedFile.name,
-        size: uploadedFile.size,
-        type: uploadedFile.type,
-        lastModified: uploadedFile.lastModified
+        name: fileToProcess.name,
+        size: fileToProcess.size,
+        type: fileToProcess.type,
+        lastModified: fileToProcess.lastModified
       });
       
+      // Create transcription jobs for each selected model
       const jobPromises = selectedModels.map(model => 
-        createTranscriptionJob(uploadedFile, model, prompt)
+        createTranscriptionJob(fileToProcess, model, prompt)
+          .catch(error => {
+            console.error(`Error creating job for model ${model}:`, error);
+            addLog(`Failed to create ${model} transcription job: ${error.message}`, "error", {
+              source: model,
+              details: error.stack
+            });
+            return { jobId: null, error: error.message };
+          })
       );
       
       const results = await Promise.all(jobPromises);
-      const jobIds = results.map(result => result.jobId);
       
-      console.log("Transcription jobs created:", jobIds);
+      // Filter out failed jobs
+      const successfulJobs = results.filter(result => result && result.jobId);
+      const jobIds = successfulJobs.map(result => result.jobId);
       
-      toast("Transcription jobs created", {
-        description: `Started ${jobIds.length} transcription jobs`
-      });
-      
-      logOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
-      
-      onTranscriptionsCreated(jobIds);
-      onStepComplete();
+      if (jobIds.length > 0) {
+        console.log("Transcription jobs created:", jobIds);
+        
+        toast.success("Transcription jobs created", {
+          description: `Started ${jobIds.length} transcription jobs`
+        });
+        
+        logOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
+        
+        onTranscriptionsCreated(jobIds);
+        onStepComplete();
+      } else {
+        toast.error("Transcription failed", {
+          description: "Failed to create any transcription jobs"
+        });
+        
+        logOperation.error("Failed to create any transcription jobs", "All job creation attempts failed");
+      }
       
     } catch (error) {
       console.error("Error starting transcription:", error);
       
-      toast("Transcription failed", {
+      toast.error("Transcription failed", {
         description: error instanceof Error ? error.message : "An unknown error occurred"
       });
+      
+      logOperation.error(`${error.message}`, error.stack);
       
     } finally {
       setIsProcessing(false);
@@ -261,7 +289,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         <Button
           variant="default"
           className="w-full"
-          onClick={startTranscription}
+          onClick={() => startTranscription()}
           disabled={!uploadedFile || selectedModels.length === 0 || isProcessing}
         >
           {isProcessing ? (
