@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector from "@/components/ModelSelector";
