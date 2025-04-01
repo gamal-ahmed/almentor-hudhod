@@ -4,7 +4,9 @@ import { formatDistanceToNow, format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle, AlertCircle, Clock, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, AlertCircle, Clock, Loader2, Star, StarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TranscriptionJob {
   id: string;
@@ -29,6 +31,8 @@ interface TranscriptionJobListProps {
   jobsToCompare: TranscriptionJob[];
   onSelectJob: (job: TranscriptionJob) => void;
   isJobSelectedForComparison: (jobId: string) => boolean;
+  selectedModelId?: string;
+  onMarkAsSelected?: (job: TranscriptionJob) => void;
 }
 
 const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
@@ -37,7 +41,9 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
   comparisonMode,
   jobsToCompare,
   onSelectJob,
-  isJobSelectedForComparison
+  isJobSelectedForComparison,
+  selectedModelId,
+  onMarkAsSelected
 }) => {
   const getModelDisplayName = (model: string) => {
     switch (model) {
@@ -102,44 +108,89 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
   return (
     <ScrollArea className="h-[340px] pr-4 -mr-4">
       <div className="space-y-3">
-        {jobs.map((job) => (
-          <div
-            key={job.id}
-            className={`
-              border rounded-md p-3 cursor-pointer transition-all
-              ${job.status === 'completed' ? 'hover:border-primary/50 hover:bg-muted/50' : ''}
-              ${selectedJob?.id === job.id && !comparisonMode ? 'border-primary bg-primary/5' : ''}
-              ${isJobSelectedForComparison(job.id) ? 'border-primary bg-primary/5' : ''}
-            `}
-            onClick={() => onSelectJob(job)}
-          >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center gap-1.5">
-                <Badge variant={job.status === 'completed' ? 'default' : job.status === 'failed' ? 'destructive' : 'outline'}>
-                  {getStatusIcon(job.status)}
-                  <span className="ml-1 capitalize">{job.status}</span>
-                </Badge>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-              </span>
-            </div>
-            <div className="mb-2">
-              <h4 className="font-medium">{getModelDisplayName(job.model)}</h4>
-            </div>
-            <div className="mt-2">
-              <Progress value={getProgressValue(job.status)} className="h-1 mb-1" />
-              <div className="flex justify-between text-xs">
-                <span className={getStatusColor(job.status)}>
-                  {job.status === 'failed' ? 'Failed' : job.status === 'completed' ? 'Complete' : 'Processing...'}
-                </span>
-                <span className="text-muted-foreground">
-                  {format(new Date(job.created_at), 'MMM d, h:mm a')}
+        {jobs.map((job) => {
+          const isSelected = selectedModelId === job.id;
+          
+          return (
+            <div
+              key={job.id}
+              className={cn(
+                "border rounded-md p-3 cursor-pointer transition-all",
+                job.status === 'completed' ? 'hover:border-primary/50 hover:bg-muted/50' : '',
+                selectedJob?.id === job.id && !comparisonMode ? 'border-primary bg-primary/5' : '',
+                isJobSelectedForComparison(job.id) ? 'border-primary bg-primary/5' : '',
+                isSelected ? 'border-primary border-2 bg-primary/10 shadow-md' : ''
+              )}
+              onClick={() => onSelectJob(job)}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={job.status === 'completed' ? 'default' : job.status === 'failed' ? 'destructive' : 'outline'}>
+                    {getStatusIcon(job.status)}
+                    <span className="ml-1 capitalize">{job.status}</span>
+                  </Badge>
+                  
+                  {isSelected && (
+                    <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                      <Star className="h-3 w-3 mr-1 fill-amber-500 text-amber-500" />
+                      Selected
+                    </Badge>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
                 </span>
               </div>
+              
+              <div className="mb-2">
+                <h4 className="font-medium">{getModelDisplayName(job.model)}</h4>
+              </div>
+              
+              <div className="mt-2">
+                <Progress value={getProgressValue(job.status)} className="h-1 mb-1" />
+                <div className="flex justify-between text-xs">
+                  <span className={getStatusColor(job.status)}>
+                    {job.status === 'failed' ? 'Failed' : job.status === 'completed' ? 'Complete' : 'Processing...'}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {format(new Date(job.created_at), 'MMM d, h:mm a')}
+                  </span>
+                </div>
+              </div>
+              
+              {job.status === 'completed' && onMarkAsSelected && (
+                <div className="mt-3 flex justify-end">
+                  <Button 
+                    size="sm" 
+                    variant={isSelected ? "default" : "outline"}
+                    className={cn(
+                      "text-xs",
+                      isSelected 
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                        : "border-primary/30 text-primary hover:bg-primary/10"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkAsSelected(job);
+                    }}
+                  >
+                    {isSelected ? (
+                      <>
+                        <StarIcon className="h-3.5 w-3.5 mr-1 fill-current" />
+                        Selected
+                      </>
+                    ) : (
+                      <>
+                        <Star className="h-3.5 w-3.5 mr-1" />
+                        Select as Winner
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </ScrollArea>
   );

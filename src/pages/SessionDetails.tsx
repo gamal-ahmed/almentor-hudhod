@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -8,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { Info, FileSymlink } from "lucide-react";
+import { Info, FileSymlink, Star } from "lucide-react";
 import { 
   getBrightcoveAuthToken, 
   addCaptionToBrightcove, 
@@ -89,6 +88,7 @@ const SessionDetails = () => {
   const [videoId, setVideoId] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSessionJobs = async () => {
@@ -129,11 +129,33 @@ const SessionDetails = () => {
             console.log(`Found ${jobs.length} jobs for session ${identifier}`);
             setSessionJobs(jobs);
             
-            const completedJobs = jobs.filter(job => job.status === 'completed');
-            if (completedJobs.length > 0) {
-              setSelectedJob(completedJobs[0]);
-            } else if (jobs.length > 0) {
-              setSelectedJob(jobs[0]);
+            const { data: sessionData, error: sessionDataError } = await supabase
+              .from('transcription_sessions')
+              .select('selected_model_id')
+              .eq('id', identifier)
+              .single();
+              
+            if (!sessionDataError && sessionData?.selected_model_id) {
+              setSelectedModelId(sessionData.selected_model_id);
+              
+              const selectedJob = jobs.find(job => job.id === sessionData.selected_model_id);
+              if (selectedJob) {
+                setSelectedJob(selectedJob);
+              } else {
+                const completedJobs = jobs.filter(job => job.status === 'completed');
+                if (completedJobs.length > 0) {
+                  setSelectedJob(completedJobs[0]);
+                } else if (jobs.length > 0) {
+                  setSelectedJob(jobs[0]);
+                }
+              }
+            } else {
+              const completedJobs = jobs.filter(job => job.status === 'completed');
+              if (completedJobs.length > 0) {
+                setSelectedJob(completedJobs[0]);
+              } else if (jobs.length > 0) {
+                setSelectedJob(jobs[0]);
+              }
             }
           } else {
             console.log(`No jobs found for session ${identifier}`);
@@ -389,7 +411,11 @@ const SessionDetails = () => {
   };
 
   const publishToBrightcove = async (videoId: string) => {
-    if (!selectedJob) {
+    const jobToPublish = selectedModelId
+      ? sessionJobs.find(job => job.id === selectedModelId) || selectedJob
+      : selectedJob;
+      
+    if (!jobToPublish) {
       toast({
         title: "Missing Information",
         description: "Please select a transcription to publish.",
@@ -398,7 +424,7 @@ const SessionDetails = () => {
       return;
     }
     
-    const vttContent = extractVttContent(selectedJob);
+    const vttContent = extractVttContent(jobToPublish);
     if (!vttContent) {
       toast({
         title: "Publishing Failed",
@@ -409,6 +435,8 @@ const SessionDetails = () => {
     }
     
     try {
+      setIsPublishing(true);
+      
       const brightcoveKeys = await fetchBrightcoveKeys();
       
       const authToken = await getBrightcoveAuthToken(
@@ -427,13 +455,16 @@ const SessionDetails = () => {
       
       addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
         source: "SessionDetails",
-        details: `Model: ${getModelDisplayName(selectedJob.model)}`
+        details: `Model: ${getModelDisplayName(jobToPublish.model)}`
       });
       
       toast({
         title: "Publishing Successful",
         description: "Caption has been published to Brightcove",
       });
+      
+      setPublishDialogOpen(false);
+      setVideoId('');
     } catch (error) {
       console.error("Error publishing to Brightcove:", error);
       
@@ -442,6 +473,8 @@ const SessionDetails = () => {
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -581,7 +614,11 @@ const SessionDetails = () => {
   };
 
   const handlePublishToBrightcove = () => {
-    if (!selectedJob) {
+    const jobToPublish = selectedModelId
+      ? sessionJobs.find(job => job.id === selectedModelId)
+      : selectedJob;
+      
+    if (!jobToPublish) {
       toast({
         title: "Missing Information",
         description: "Please select a transcription to publish",
@@ -589,6 +626,8 @@ const SessionDetails = () => {
       });
       return;
     }
+    
+    setSelectedJob(jobToPublish);
     setPublishDialogOpen(true);
   };
 
@@ -619,6 +658,19 @@ const SessionDetails = () => {
               )}
             </div>
             
+            <div className="flex justify-end mb-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handlePublishToBrightcove}
+                disabled={!selectedModelId && !selectedJob}
+              >
+                <FileSymlink className="h-4 w-4" />
+                {selectedModelId ? 'Publish Selected to Brightcove' : 'Publish to Brightcove'}
+              </Button>
+            </div>
+            
             {loading ? (
               <LoadingState />
             ) : fetchError ? (
@@ -645,6 +697,8 @@ const SessionDetails = () => {
                         jobsToCompare={jobsToCompare}
                         onSelectJob={handleSelectJob}
                         isJobSelectedForComparison={isJobSelectedForComparison}
+                        selectedModelId={selectedModelId}
+                        onMarkAsSelected={handleMarkAsSelected}
                       />
                     </CardContent>
                   </Card>
@@ -685,6 +739,17 @@ const SessionDetails = () => {
           </div>
         </div>
       </div>
+      
+      <PublishDialog 
+        videoId={videoId}
+        setVideoId={setVideoId}
+        isPublishing={isPublishing}
+        publishToBrightcove={publishToBrightcove}
+        selectedJob={selectedJob}
+        getModelDisplayName={getModelDisplayName}
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+      />
     </>
   );
 };
