@@ -452,7 +452,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                   </div>
                 </AccordionTrigger>
                 <Link 
-                  to={`/session/${encodedTimestamp}`}
+                  to={`/session/${sessionId}`}
                   className="flex items-center text-sm font-medium text-blue-500 hover:text-blue-600 px-2.5 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                 >
                   <span className="mr-1.5">Details</span>
