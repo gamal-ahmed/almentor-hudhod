@@ -86,13 +86,16 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
         
         console.log(`Searching for jobs between ${startTime.toISOString()} and ${endTime.toISOString()}`);
         
-        // Try direct database query first
-        const { data: directJobs, error: directError } = await baseService.supabase
+        // Try direct database query first - Using any for data to avoid typing issues
+        const directQueryResult = await baseService.supabase
           .from('transcriptions')
           .select('*')
           .gte('created_at', startTime.toISOString())
           .lte('created_at', endTime.toISOString())
           .order('created_at', { ascending: false });
+          
+        const directJobs = directQueryResult.data;
+        const directError = directQueryResult.error;
           
         if (!directError && directJobs && directJobs.length > 0) {
           console.log(`Found ${directJobs.length} jobs directly from database`);
@@ -100,12 +103,15 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
         }
           
         // Fallback to view if direct query fails or returns no results
-        const { data, error } = await baseService.supabase
+        const viewQueryResult = await baseService.supabase
           .from('transcription_jobs')
           .select('*')
           .gte('created_at', startTime.toISOString())
           .lte('created_at', endTime.toISOString())
           .order('created_at', { ascending: false });
+        
+        const data = viewQueryResult.data;
+        const error = viewQueryResult.error;
         
         if (error) {
           throw new Error(`Failed to fetch jobs by timestamp: ${error.message}`);
@@ -115,11 +121,14 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
         
         if (!data || data.length === 0) {
           // If no jobs found within the window, get recent jobs as a fallback
-          const { data: recentJobs, error: recentError } = await baseService.supabase
+          const recentQueryResult = await baseService.supabase
             .from('transcription_jobs')
             .select('*')
             .order('created_at', { ascending: false })
             .limit(10);
+            
+          const recentJobs = recentQueryResult.data;
+          const recentError = recentQueryResult.error;
             
           if (recentError) {
             throw new Error(`Failed to fetch recent jobs: ${recentError.message}`);
@@ -137,12 +146,15 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
     } else {
       // For UUID-based sessions, use the normal query
       
-      // Try direct query first
-      const { data: directJobs, error: directError } = await baseService.supabase
+      // Try direct query first - Using any for data to avoid typing issues
+      const directQueryResult = await baseService.supabase
         .from('transcriptions')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false });
+        
+      const directJobs = directQueryResult.data;
+      const directError = directQueryResult.error;
         
       if (!directError && directJobs && directJobs.length > 0) {
         console.log(`Found ${directJobs.length} jobs directly from database for session ${sessionId}`);
@@ -150,25 +162,22 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
       }
       
       // Fallback to view
-      // Simplify the type structure to avoid deep instantiation issues
-      interface SupabaseQueryResponse {
-        data: any[] | null;
-        error: any;
-      }
-      
-      const result: SupabaseQueryResponse = await baseService.supabase
+      const viewQueryResult = await baseService.supabase
         .from('transcription_jobs')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false });
       
-      if (result.error) {
-        console.error(`Error fetching transcription jobs for session ${sessionId}:`, result.error);
-        throw new Error(`Failed to fetch session jobs: ${result.error.message}`);
+      const data = viewQueryResult.data;
+      const error = viewQueryResult.error;
+      
+      if (error) {
+        console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
+        throw new Error(`Failed to fetch session jobs: ${error.message}`);
       }
       
-      console.log(`Found ${result.data?.length || 0} jobs for session ${sessionId}`);
-      return (result.data || []).map(mapToTranscriptionJob);
+      console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
+      return (data || []).map(mapToTranscriptionJob);
     }
   } catch (error) {
     console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
