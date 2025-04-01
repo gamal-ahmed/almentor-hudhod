@@ -230,6 +230,30 @@ const Index = () => {
                             isUploading={processing}
                           />
                         </div>
+                        
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            MP3, M4A, or WAV files (max 100MB)
+                          </span>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex items-center gap-1 h-7"
+                            onClick={toggleUrlInput}
+                          >
+                            <Link2 className="h-3.5 w-3.5" />
+                            {showUrlInput ? "Hide URL Option" : "Or Use URL"}
+                          </Button>
+                        </div>
+                        
+                        {showUrlInput && (
+                          <div className="mt-2">
+                            <UrlAudioProcessor 
+                              onAudioProcessed={handleFileUpload}
+                              isProcessing={processing}
+                            />
+                          </div>
+                        )}
                       </div>
                       
                       <div className="space-y-3">
