@@ -4,6 +4,23 @@ import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } fro
 import { useLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { parseISO } from "date-fns";
+import { Json } from "@/integrations/supabase/types";
+
+// Define a type for the transcription record
+interface TranscriptionRecord {
+  model: string;
+  file_path: string;
+  status: string;
+  session_id?: string;
+  error?: string;
+  result?: Json;
+  status_message?: string;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  id?: string;
+  vtt_file_url?: string;
+}
 
 const getLogsStore = () => useLogsStore.getState();
 
@@ -39,7 +56,7 @@ export async function createTranscriptionJob(
     });
     
     // Create job record in the database first - using the actual table, not the view
-    const insertData: Record<string, any> = {
+    const insertData: TranscriptionRecord = {
       model: model as string,
       file_path: fileName,
       status: 'pending'
