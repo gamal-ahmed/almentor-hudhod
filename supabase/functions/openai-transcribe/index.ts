@@ -42,10 +42,15 @@ serve(async (req) => {
 
     // Call OpenAI API
     console.log("Sending request to OpenAI API");
+    const openAiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openAiKey) {
+      throw new Error("OPENAI_API_KEY environment variable is not set");
+    }
+    
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+        "Authorization": `Bearer ${openAiKey}`,
       },
       body: openAIFormData,
     });

@@ -72,7 +72,9 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     });
     
     if (!response.ok) {
+      // Get the error text from the response
       const errorText = await response.text();
+      console.error("Failed transcription response:", errorText);
       throw new Error(`Failed to start transcription job: ${response.status} - ${errorText}`);
     }
     
