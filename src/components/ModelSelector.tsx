@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, CheckCircle, FastForward, Zap } from "lucide-react";
 
 export type TranscriptionModel = "openai" | "gemini-2.0-flash" | "phi4";
 
@@ -20,13 +20,8 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
 
   const handleModelToggle = (model: TranscriptionModel) => {
     try {
-      // Log the action
       addLog(`Toggling model: ${model}`, "info", { source: "ModelSelector" });
-      
-      // Ensure selectedModels is always an array
       const currentModels = Array.isArray(selectedModels) ? selectedModels : [];
-      
-      // Log current selection state
       addLog(`Current selected models: ${currentModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
       
       if (currentModels.includes(model)) {
@@ -52,26 +47,27 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
       id: "openai" as TranscriptionModel, 
       label: "OpenAI Whisper",
       description: "Highly accurate with excellent multilingual support",
-      speed: "Balanced"
+      speed: "Balanced",
+      icon: <CheckCircle className="h-5 w-5 text-green-500" />
     },
     { 
       id: "gemini-2.0-flash" as TranscriptionModel, 
       label: "Gemini 2.0 Flash",
       description: "Fast processing with good accuracy",
-      speed: "Fast" 
+      speed: "Fast",
+      icon: <FastForward className="h-5 w-5 text-blue-500" />
     },
     { 
       id: "phi4" as TranscriptionModel, 
       label: "Microsoft Phi-4",
       description: "Excellent for technical content and specialized terminology",
-      speed: "Standard"
+      speed: "Standard",
+      icon: <Zap className="h-5 w-5 text-yellow-500" />
     }
   ];
 
-  // Ensure selectedModels is always treated as an array
   const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
 
-  // Add additional logging for debugging
   console.log("ModelSelector render:", { 
     selectedModels: safeSelectedModels,
     disabled
@@ -83,10 +79,10 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
         {models.map(model => (
           <div 
             key={model.id} 
-            className={`flex items-start space-x-2 p-2.5 rounded-md border border-border/50 transition-colors ${
+            className={`flex items-start space-x-3 p-3 rounded-lg border border-border/50 transition-colors ${
               safeSelectedModels.includes(model.id) 
-                ? "bg-primary/5 border-primary/20" 
-                : "bg-background hover:bg-muted/30"
+                ? "bg-primary/10 border-primary/30" 
+                : "bg-background hover:bg-muted/40"
             } ${disabled ? "opacity-60" : ""}`}
           >
             <Checkbox 
@@ -96,27 +92,30 @@ const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelecto
               disabled={disabled}
               className="mt-0.5"
             />
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Label 
-                  htmlFor={model.id} 
-                  className={`text-sm font-medium ${disabled ? "text-muted-foreground" : ""}`}
-                >
-                  {model.label}
-                </Label>
-                <Badge variant="outline" className="text-xs font-normal h-5">
-                  {model.speed}
-                </Badge>
-                <HoverCard>
-                  <HoverCardTrigger>
-                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-64">
-                    <p className="text-xs">{model.description}</p>
-                  </HoverCardContent>
-                </HoverCard>
+            <div className="flex items-center space-x-2">
+              {model.icon}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Label 
+                    htmlFor={model.id} 
+                    className={`text-sm font-medium ${disabled ? "text-muted-foreground" : ""}`}
+                  >
+                    {model.label}
+                  </Label>
+                  <Badge variant="outline" className="text-xs font-normal h-5">
+                    {model.speed}
+                  </Badge>
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-64">
+                      <p className="text-xs">{model.description}</p>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
+                <p className="text-xs text-muted-foreground">{model.description}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{model.description}</p>
             </div>
           </div>
         ))}
