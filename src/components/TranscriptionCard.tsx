@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ interface TranscriptionCardProps {
   prompt?: string;
   onSelect?: () => void;
   isSelected?: boolean;
-  audioSrc?: string;
+  audioSrc?: string | null;
   isLoading?: boolean;
   className?: string;
   showPagination?: boolean;
@@ -27,13 +28,15 @@ interface VTTSegment {
 }
 
 const TranscriptionCard = ({ 
-  modelName, 
+  modelName = "", 
   vttContent = "",
   prompt = "",
-  onSelect, 
-  isSelected,
-  audioSrc,
-  isLoading = false
+  onSelect = () => {},
+  isSelected = false,
+  audioSrc = null,
+  isLoading = false,
+  className = "",
+  showPagination = false
 }: TranscriptionCardProps) => {
   const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,7 +60,7 @@ const TranscriptionCard = ({
       hasAudio: !!audioSrc
     });
     
-    if (modelName.includes("Gemini")) {
+    if (modelName && modelName.includes("Gemini")) {
       addLog(`Gemini card rendering with content: ${!!vttContent}`, "debug", {
         source: "TranscriptionCard",
         details: `Content length: ${vttContent?.length || 0}, Loading: ${isLoading}, Content sample: ${vttContent?.substring(0, 100) || 'empty'}`
@@ -77,7 +80,7 @@ const TranscriptionCard = ({
       let segments = parseVTT(vttContent);
       
       // Special handling for Gemini which may return malformed VTT
-      if (segments.length === 0 && vttContent.length > 0 && modelName.includes("Gemini")) {
+      if (segments.length === 0 && vttContent.length > 0 && modelName && modelName.includes("Gemini")) {
         addLog(`Gemini VTT parsing issue: attempting fallback parsing`, "warning", {
           source: "TranscriptionCard",
           details: `VTT Content (first 200 chars): ${vttContent.substring(0, 200)}...`
@@ -129,7 +132,7 @@ const TranscriptionCard = ({
       
       console.log(`${modelName}: Successfully parsed ${segments.length} VTT segments`);
       
-      if (modelName.includes("Gemini") && segments.length === 0 && vttContent.length > 0) {
+      if (modelName && modelName.includes("Gemini") && segments.length === 0 && vttContent.length > 0) {
         addLog(`Gemini VTT parsing issue: content exists but no segments parsed`, "warning", {
           source: "TranscriptionCard",
           details: `VTT Content (first 200 chars): ${vttContent.substring(0, 200)}...`
@@ -137,7 +140,7 @@ const TranscriptionCard = ({
       }
       
       return segments;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error parsing VTT for ${modelName}:`, error);
       addLog(`Error parsing VTT for ${modelName}: ${error.message}`, "error", {
         source: "TranscriptionCard",
@@ -325,7 +328,7 @@ const TranscriptionCard = ({
       const startTime = parseTimeToSeconds(vttSegments[index].startTime);
       
       // Log debugging information for Gemini model
-      if (modelName.includes("Gemini")) {
+      if (modelName && modelName.includes("Gemini")) {
         addLog(`Gemini segment click - attempting to jump to timestamp`, "debug", {
           source: "TranscriptionCard",
           details: `Segment index: ${index}, Start time: ${vttSegments[index].startTime}, Seconds: ${startTime}, Audio element exists: ${!!audioRef.current}`
@@ -344,7 +347,7 @@ const TranscriptionCard = ({
           });
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error jumping to segment:', error);
       addLog(`Error jumping to segment: ${error.message}`, "error", {
         source: "TranscriptionCard",
@@ -381,13 +384,14 @@ const TranscriptionCard = ({
         source: "TranscriptionCard",
         details: `Start: ${vttSegments[index].startTime}, End: ${vttSegments[index].endTime}`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error playing segment:', error);
     }
   };
 
   // Determine the model color
   const getModelColor = () => {
+    if (!modelName) return "";
     if (modelName.includes("OpenAI")) return "bg-blue-100 dark:bg-blue-950/30";
     if (modelName.includes("Gemini")) return "bg-green-100 dark:bg-green-950/30";
     if (modelName.includes("Phi-4")) return "bg-violet-100 dark:bg-violet-950/30";
@@ -400,18 +404,8 @@ const TranscriptionCard = ({
     ? vttContent.split(/\s+/).filter(word => word.trim().length > 0).length 
     : 0;
 
-  // Extra debugging for Gemini model
-  useEffect(() => {
-    if (modelName.includes("Gemini") && !isLoading && vttContent) {
-      addLog(`Gemini card content update`, "debug", {
-        source: "TranscriptionCard",
-        details: `Word count: ${wordCount}, Segments: ${vttSegments.length}, Content sample: ${vttContent.substring(0, 100)}...`
-      });
-    }
-  }, [modelName, vttContent, isLoading, wordCount, vttSegments.length, addLog]);
-
   return (
-    <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}`}>
+    <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'} ${className}`}>
       <CardHeader className={`pb-2 ${getModelColor()}`}>
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg flex items-center">
@@ -501,7 +495,7 @@ const TranscriptionCard = ({
           <div className="text-center text-muted-foreground flex flex-col items-center justify-center h-full">
             <span className="text-4xl mb-2">📝</span>
             <span>No transcription available yet</span>
-            {modelName.includes("Gemini") && (
+            {modelName && modelName.includes("Gemini") && (
               <span className="text-xs mt-2 px-2 py-1 bg-red-100 dark:bg-red-900/20 rounded-md">
                 Check logs for Gemini transcription status
               </span>
