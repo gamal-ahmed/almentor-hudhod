@@ -1,5 +1,5 @@
 
-import { toast as sonnerToast, type ToastOptions as SonnerToastOptions } from "sonner";
+import { toast as sonnerToast } from "sonner";
 import * as React from "react";
 
 // Define Toast types with proper interfaces to avoid circular references
@@ -147,7 +147,7 @@ function toast(props: ToastInput) {
     description: props.description,
     // Map our variant to sonner's variant
     // Note: sonner uses 'error' instead of 'destructive'
-    ...(props.variant === "destructive" ? { tone: "error" } : {}),
+    ...(props.variant === "destructive" ? { style: { backgroundColor: 'var(--destructive)' } } : {}),
     id,
   });
 
