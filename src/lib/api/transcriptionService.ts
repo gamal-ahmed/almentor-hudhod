@@ -3,6 +3,7 @@ import { TranscriptionModel } from "@/components/ModelSelector";
 import { API_ENDPOINTS, SUPABASE_KEY, convertChunksToVTT, convertTextToVTT } from "./utils";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
+import { parseISO } from "date-fns";
 
 const getLogsStore = () => useLogsStore.getState();
 
@@ -166,20 +167,53 @@ export async function getSessionTranscriptionJobs(sessionId: string) {
   try {
     console.log(`Fetching jobs for session ${sessionId}`);
     
-    // Query the transcriptions table directly with session_id filter
-    const { data, error } = await supabase
-      .from('transcriptions')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: false });
+    // Check if sessionId looks like a timestamp (contains T and Z)
+    const isTimestamp = sessionId.includes('T') && sessionId.includes('Z');
     
-    if (error) {
-      console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
-      throw new Error(`Failed to fetch session jobs: ${error.message}`);
+    if (isTimestamp) {
+      console.log(`Session ID appears to be a timestamp: ${sessionId}`);
+      // Parse the timestamp and find jobs within a window
+      try {
+        const timestampDate = parseISO(sessionId);
+        const startTime = new Date(timestampDate.getTime() - 120000); // 2 minutes before
+        const endTime = new Date(timestampDate.getTime() + 120000);   // 2 minutes after
+        
+        console.log(`Searching for jobs between ${startTime.toISOString()} and ${endTime.toISOString()}`);
+        
+        // Query transcriptions within the time window
+        const { data, error } = await supabase
+          .from('transcriptions')
+          .select('*')
+          .gte('created_at', startTime.toISOString())
+          .lte('created_at', endTime.toISOString())
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          throw new Error(`Failed to fetch jobs by timestamp: ${error.message}`);
+        }
+        
+        console.log(`Found ${data?.length || 0} jobs within timestamp window`);
+        return data || [];
+      } catch (parseError) {
+        console.error(`Error parsing timestamp ${sessionId}:`, parseError);
+        throw new Error(`Invalid timestamp format: ${parseError.message}`);
+      }
+    } else {
+      // Query the transcriptions table directly with session_id filter
+      const { data, error } = await supabase
+        .from('transcriptions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
+        throw new Error(`Failed to fetch session jobs: ${error.message}`);
+      }
+      
+      console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
+      return data || [];
     }
-    
-    console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
-    return data || [];
   } catch (error) {
     console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
     throw error;
