@@ -22,7 +22,8 @@ import {
   PanelTop,
   Clock,
   Workflow,
-  Zap
+  Zap,
+  Link2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import UrlAudioProcessor from "@/components/UrlAudioProcessor";
 
 const Index = () => {
   const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(["openai"]);
@@ -56,6 +58,7 @@ const Index = () => {
   const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
   
   const logs = useLogsStore(state => state.logs);
   
@@ -145,6 +148,10 @@ const Index = () => {
 
   const handleNotificationsChange = (enabled: boolean) => {
     setNotificationsEnabled(enabled);
+  };
+
+  const toggleUrlInput = () => {
+    setShowUrlInput(!showUrlInput);
   };
 
   return (
