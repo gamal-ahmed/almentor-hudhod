@@ -7,6 +7,8 @@ import {
   getUserTranscriptionJobs,
   resetStuckJobs
 } from "./api/transcriptionService";
+import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./api/index";
+import { fetchAudioFromUrl } from "./api/audioDownloadService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
 // API endpoints (using Supabase Edge Functions)
@@ -27,7 +29,10 @@ export {
   createTranscriptionJob,
   checkTranscriptionJobStatus,
   getUserTranscriptionJobs,
-  resetStuckJobs
+  resetStuckJobs,
+  getBrightcoveAuthToken,
+  addCaptionToBrightcove,
+  fetchAudioFromUrl
 };
 
 // Fetch Brightcove keys from Supabase
