@@ -73,6 +73,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
   
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCompletedJobs = async () => {
@@ -103,6 +104,23 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         
         setLatestResults(latestForSelectedModels);
         
+        if (selectedModels.length === 1 && !selectedTranscription) {
+          const onlyModel = selectedModels[0];
+          const jobForModel = latestForSelectedModels[onlyModel];
+          
+          if (jobForModel && jobForModel.result) {
+            const vttContent = extractVttContent(jobForModel);
+            if (vttContent) {
+              addLog(`Auto-selecting the only transcription model: ${onlyModel}`, "info", {
+                source: "ResultsPublishStep",
+                details: `Model selected automatically as it's the only one used in this session`
+              });
+              
+              handleSelectTranscription(vttContent, onlyModel);
+            }
+          }
+        }
+        
         addLog(`Found latest results for selected models: ${Object.keys(latestForSelectedModels).filter(k => latestForSelectedModels[k]).join(', ')}`, "debug", {
           source: "ResultsPublishStep",
           details: `Selected models: ${selectedModels.join(', ')}, Total completed jobs: ${completed.length}`
@@ -113,7 +131,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     };
 
     fetchCompletedJobs();
-  }, [refreshJobsTrigger, addLog, selectedModels]);
+  }, [refreshJobsTrigger, addLog, selectedModels, selectedTranscription, onSelectTranscription]);
 
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId) {
@@ -328,6 +346,25 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
 
   const handleSelectTranscription = async (vtt: string, model: string) => {
     onSelectTranscription(vtt, model);
+    
+    if (sessionId) {
+      try {
+        const fileUrl = await saveSelectedTranscription(sessionId, vtt);
+        
+        await updateSessionTranscriptionUrl(sessionId, fileUrl);
+        
+        addLog(`Updated session with selected transcription from ${model}`, "info", {
+          source: "ResultsPublishStep",
+          details: `Session ID: ${sessionId}, File URL: ${fileUrl}`
+        });
+      } catch (error) {
+        console.error("Error updating session with selected transcription:", error);
+        addLog(`Failed to update session with selected transcription`, "error", {
+          source: "ResultsPublishStep",
+          details: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
   };
 
   return (
