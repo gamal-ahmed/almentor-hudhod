@@ -1,3 +1,4 @@
+/// Start of Selection
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -468,27 +469,28 @@ const SessionDetails = () => {
       
       const blob = new Blob([vttContent], { type: 'text/vtt' });
       
+      // Store file in the "transcriptions" bucket under a "sessions" folder
+      const sessionIdentifier = loadedSessionId || sessionId;
+      if (!sessionIdentifier) {
+        throw new Error("No session identifier available");
+      }
+      
+      const uploadPath = `sessions/${sessionIdentifier}/${fileName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('transcription_files')
-        .upload(fileName, blob, {
+        .from('transcriptions')
+        .upload(uploadPath, blob, {
           contentType: 'text/vtt',
           upsert: true
         });
 
       if (uploadError) throw uploadError;
 
+      // Retrieve the public URL from the same path
       const { data: publicUrlData } = supabase.storage
-        .from('transcription_files')
-        .getPublicUrl(fileName);
+        .from('transcriptions')
+        .getPublicUrl(uploadPath);
 
       if (!publicUrlData) throw new Error("Failed to get public URL");
-
-      // Use loadedSessionId which should be stable even if sessionId param changes
-      const sessionIdentifier = loadedSessionId || sessionId;
-      
-      if (!sessionIdentifier) {
-        throw new Error("No session identifier available");
-      }
 
       const { error: sessionUpdateError } = await supabase
         .from('transcription_sessions')
@@ -515,9 +517,9 @@ const SessionDetails = () => {
     } catch (error) {
       console.error("Error saving transcription:", error);
       
-      addLog(`Error saving transcription: ${error.message}`, "error", {
+      addLog(`Error saving transcription: ${error instanceof Error ? error.message : "Unknown error"}`, "error", {
         source: "SessionDetails",
-        details: error.stack
+        details: error instanceof Error && error.stack ? error.stack : ''
       });
       
       toast({
@@ -683,3 +685,5 @@ const SessionDetails = () => {
 };
 
 export default SessionDetails;
+/// End of Selection
+```
