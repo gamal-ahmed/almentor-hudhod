@@ -453,7 +453,21 @@ const SessionDetails = () => {
 
   const saveSelectedTranscriptionToStorage = async (vttContent: string) => {
     try {
-      const fileName = `transcription_${selectedJob?.model}_${new Date().toISOString().slice(0, 10)}_${uuidv4()}.vtt`;
+      if (!selectedJob) {
+        toast({
+          title: "No transcription selected",
+          description: "Please select a transcription to save",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "Saving transcription",
+        description: "Please wait while we save your transcription...",
+      });
+      
+      const fileName = `transcription_${selectedJob.model}_${new Date().toISOString().slice(0, 10)}_${uuidv4()}.vtt`;
       
       const blob = new Blob([vttContent], { type: 'text/vtt' });
       
@@ -477,11 +491,16 @@ const SessionDetails = () => {
         .update({ 
           selected_transcription_url: publicUrlData.publicUrl,
           selected_transcription: vttContent,
-          selected_model: selectedJob?.model
+          selected_model: selectedJob.model
         })
         .eq('id', sessionTimestamp);
 
       if (sessionUpdateError) throw sessionUpdateError;
+
+      addLog(`Saved transcription to storage: ${fileName}`, "success", {
+        source: "SessionDetails",
+        details: `Model: ${getModelDisplayName(selectedJob.model)}, URL: ${publicUrlData.publicUrl}`
+      });
 
       toast({
         title: "Transcription Saved",
@@ -491,9 +510,15 @@ const SessionDetails = () => {
 
     } catch (error) {
       console.error("Error saving transcription:", error);
+      
+      addLog(`Error saving transcription: ${error.message}`, "error", {
+        source: "SessionDetails",
+        details: error.stack
+      });
+      
       toast({
         title: "Save Failed",
-        description: "Could not save the transcription.",
+        description: "Could not save the transcription: " + (error instanceof Error ? error.message : "Unknown error"),
         variant: "destructive"
       });
     }
@@ -503,6 +528,12 @@ const SessionDetails = () => {
     if (selectedJob) {
       const vttContent = extractVttContent(selectedJob);
       saveSelectedTranscriptionToStorage(vttContent);
+    } else {
+      toast({
+        title: "No transcription selected",
+        description: "Please select a transcription to save",
+        variant: "destructive"
+      });
     }
   };
 

@@ -38,10 +38,14 @@ const Index = () => {
   const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   
-  // Add this to handle direct file upload
-  const handleTranscriptionsCreated = (jobIdsArray: string[]) => {
+  // Handle direct file upload and store the session ID
+  const handleTranscriptionsCreated = (jobIdsArray: string[], sessionId?: string) => {
     setActiveJobIds(jobIdsArray);
+    if (sessionId) {
+      setCurrentSessionId(sessionId);
+    }
     setRefreshTrigger(prev => prev + 1);
     toast.success("Transcription started", {
       description: `Processing ${jobIdsArray.length} transcription jobs`
@@ -99,6 +103,7 @@ const Index = () => {
                   <TranscriptionJobs
                     onSelectTranscription={handleTranscriptionSelect}
                     refreshTrigger={refreshTrigger}
+                    sessionId={currentSessionId}
                   />
                 </div>
               </div>

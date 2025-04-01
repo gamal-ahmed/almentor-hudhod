@@ -7,7 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 const getLogsStore = () => useLogsStore.getState();
 
 // Creates a transcription job and returns the job ID
-export async function createTranscriptionJob(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
+export async function createTranscriptionJob(
+  file: File, 
+  model: TranscriptionModel, 
+  prompt = "Please preserve all English words exactly as spoken", 
+  sessionId?: string
+) {
   const addLog = getLogsStore().addLog;
   const startTimedLog = getLogsStore().startTimedLog;
   
@@ -33,13 +38,20 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     });
     
     // Create job record in the database first - using the actual table, not the view
+    const insertData: any = {
+      model: model as string, // Cast model to string
+      file_path: fileName,
+      status: 'pending'
+    };
+    
+    // Add session_id if provided
+    if (sessionId) {
+      insertData.session_id = sessionId;
+    }
+    
     const { data: jobData, error: jobError } = await supabase
       .from('transcriptions')
-      .insert({
-        model: model as string, // Cast model to string
-        file_path: fileName,
-        status: 'pending'
-      })
+      .insert(insertData)
       .select()
       .single();
     
@@ -60,6 +72,9 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     formData.append('audio', file);
     formData.append('prompt', prompt);
     formData.append('jobId', jobData.id);
+    if (sessionId) {
+      formData.append('sessionId', sessionId);
+    }
     
     // Start the transcription process on the server (doesn't wait for completion)
     const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/start-job`, {

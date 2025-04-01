@@ -13,6 +13,7 @@ import UrlTranscription from '@/components/UrlTranscription';
 import { createTranscriptionJob } from '@/lib/api';
 import { toast } from 'sonner';
 import { useLogsStore } from '@/lib/useLogsStore';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UploadConfigStepProps {
   onTranscriptionsCreated: (jobIdsArray: string[]) => void;
@@ -82,6 +83,36 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     setPrompt(newPrompt.trim());
   }, [preserveEnglish, outputFormat]);
   
+  // Create a session in Supabase and return the session ID
+  const createTranscriptionSession = async (fileName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('transcription_sessions')
+        .insert({
+          audio_file_name: fileName,
+          selected_models: selectedModels,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      addLog(`Created transcription session: ${data.id}`, "success", {
+        source: "UploadConfigStep",
+        details: `File: ${fileName}, Models: ${selectedModels.join(', ')}`
+      });
+      
+      return data.id;
+    } catch (error) {
+      console.error("Error creating transcription session:", error);
+      addLog(`Failed to create transcription session: ${error.message}`, "error", {
+        source: "UploadConfigStep",
+        details: error.stack
+      });
+      throw error;
+    }
+  };
+  
   const startTranscription = async (fileToProcess = uploadedFile) => {
     if (!fileToProcess) {
       toast.error("No file selected", {
@@ -109,9 +140,12 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         lastModified: fileToProcess.lastModified
       });
       
+      // Create a session for this transcription batch
+      const sessionId = await createTranscriptionSession(fileToProcess.name);
+      
       // Create transcription jobs for each selected model
       const jobPromises = selectedModels.map(model => 
-        createTranscriptionJob(fileToProcess, model, prompt)
+        createTranscriptionJob(fileToProcess, model, prompt, sessionId)
           .catch(error => {
             console.error(`Error creating job for model ${model}:`, error);
             addLog(`Failed to create ${model} transcription job: ${error.message}`, "error", {
