@@ -61,8 +61,12 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     formData.append('prompt', prompt);
     formData.append('jobId', jobData.id);
     
+    // Log the full URL being called for debugging
+    const endpoint = `${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/start-job`;
+    console.log("Calling transcription endpoint:", endpoint);
+    
     // Start the transcription process on the server (doesn't wait for completion)
-    const response = await fetch(`${API_ENDPOINTS.TRANSCRIPTION_SERVICE}/start-job`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -73,7 +77,16 @@ export async function createTranscriptionJob(file: File, model: TranscriptionMod
     
     if (!response.ok) {
       // Get the error text from the response
-      const errorText = await response.text();
+      let errorText;
+      try {
+        // Try to parse as JSON first
+        errorText = await response.json();
+        errorText = JSON.stringify(errorText);
+      } catch (e) {
+        // If not JSON, get as text
+        errorText = await response.text();
+      }
+      
       console.error("Failed transcription response:", errorText);
       throw new Error(`Failed to start transcription job: ${response.status} - ${errorText}`);
     }

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
@@ -20,6 +21,8 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const endpoint = url.pathname.split('/').pop();
+  
+  console.log("Received request to endpoint:", endpoint);
 
   if (endpoint === 'start-job') {
     return await handleStartJob(req);
@@ -28,8 +31,9 @@ serve(async (req) => {
   } else if (endpoint === 'reset-stuck-jobs') {
     return await handleResetStuckJobs(req);
   } else {
+    console.log("Invalid endpoint requested:", endpoint);
     return new Response(
-      JSON.stringify({ error: "Invalid endpoint" }),
+      JSON.stringify({ error: "Invalid endpoint", requestedEndpoint: endpoint }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -141,6 +145,7 @@ async function handleResetStuckJobs(req: Request) {
 // Handle starting a new transcription job
 async function handleStartJob(req: Request) {
   try {
+    console.log("Handling start-job request");
     const formData = await req.formData();
     const audioFile = formData.get("audio");
     const prompt = formData.get("prompt") || "Please preserve all English words exactly as spoken";

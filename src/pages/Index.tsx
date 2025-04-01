@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
@@ -118,6 +119,9 @@ const Index = () => {
         id: "processing-toast",
         duration: 100000
       });
+      
+      console.log("Creating transcription job with model:", selectedModels[0]);
+      console.log("File details:", file.name, file.type, file.size);
       
       const { jobId } = await createTranscriptionJob(
         file,

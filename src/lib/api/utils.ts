@@ -1,4 +1,3 @@
-
 // API base URL (Proxy for external services or Edge Functions)
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -8,31 +7,31 @@ export const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 // API endpoints
 export const API_ENDPOINTS = {
   // Transcription services
-  TRANSCRIBE: `${API_BASE_URL}/transcribe`,
-  TRANSCRIPTION_JOB: `${API_BASE_URL}/transcription-job`,
-  TRANSCRIPTION_JOB_STATUS: `${API_BASE_URL}/transcription-job-status`,
-  TRANSCRIPTION_JOBS: `${API_BASE_URL}/transcription-jobs`,
-  RESET_STUCK_JOBS: `${API_BASE_URL}/reset-stuck-jobs`,
+  TRANSCRIBE: `${API_BASE_URL}/functions/v1/openai-transcribe`,
+  TRANSCRIPTION_JOB: `${API_BASE_URL}/functions/v1/transcription-job`,
+  TRANSCRIPTION_JOB_STATUS: `${API_BASE_URL}/functions/v1/transcription-job-status`,
+  TRANSCRIPTION_JOBS: `${API_BASE_URL}/functions/v1/transcription-jobs`,
+  RESET_STUCK_JOBS: `${API_BASE_URL}/functions/v1/reset-stuck-jobs`,
   
   // SharePoint integration
-  SHAREPOINT_FILES: `${API_BASE_URL}/sharepoint-files`,
-  SHAREPOINT_DOWNLOAD: `${API_BASE_URL}/sharepoint-download`,
-  SHAREPOINT_PROXY: `${API_BASE_URL}/sharepoint-proxy`,
+  SHAREPOINT_FILES: `${API_BASE_URL}/functions/v1/sharepoint-files`,
+  SHAREPOINT_DOWNLOAD: `${API_BASE_URL}/functions/v1/sharepoint-download`,
+  SHAREPOINT_PROXY: `${API_BASE_URL}/functions/v1/sharepoint-proxy`,
   
   // Brightcove integration
-  BRIGHTCOVE_AUTH: `${API_BASE_URL}/brightcove-auth`,
-  BRIGHTCOVE_CAPTION: `${API_BASE_URL}/brightcove-caption`,
-  BRIGHTCOVE_KEYS: `${API_BASE_URL}/brightcove-keys`,
-  BRIGHTCOVE_PROXY: `${API_BASE_URL}/brightcove-proxy`,
+  BRIGHTCOVE_AUTH: `${API_BASE_URL}/functions/v1/brightcove-auth`,
+  BRIGHTCOVE_CAPTION: `${API_BASE_URL}/functions/v1/brightcove-caption`,
+  BRIGHTCOVE_KEYS: `${API_BASE_URL}/functions/v1/brightcove-keys`,
+  BRIGHTCOVE_PROXY: `${API_BASE_URL}/functions/v1/brightcove-proxy`,
   
   // Cloud storage integration
-  CLOUD_STORAGE_AUTH: `${API_BASE_URL}/cloud-storage-auth`,
-  CLOUD_STORAGE_TOKEN: `${API_BASE_URL}/cloud-storage-token`,
-  CLOUD_STORAGE_FILES: `${API_BASE_URL}/cloud-storage-files`,
-  CLOUD_STORAGE_DOWNLOAD: `${API_BASE_URL}/cloud-storage-download`,
+  CLOUD_STORAGE_AUTH: `${API_BASE_URL}/functions/v1/cloud-storage-auth`,
+  CLOUD_STORAGE_TOKEN: `${API_BASE_URL}/functions/v1/cloud-storage-token`,
+  CLOUD_STORAGE_FILES: `${API_BASE_URL}/functions/v1/cloud-storage-files`,
+  CLOUD_STORAGE_DOWNLOAD: `${API_BASE_URL}/functions/v1/cloud-storage-download`,
   
-  // Transcription service
-  TRANSCRIPTION_SERVICE: `${API_BASE_URL}/transcription-service`,
+  // Transcription service - fix the URL path to use the correct format
+  TRANSCRIPTION_SERVICE: `${API_BASE_URL}/functions/v1/transcription-service`,
 };
 
 // Error handling helper

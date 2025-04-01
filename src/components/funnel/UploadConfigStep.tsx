@@ -117,6 +117,9 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         duration: 100000
       });
       
+      console.log("Creating transcription job with model:", selectedModel);
+      console.log("File details:", file.name, file.type, file.size);
+      
       const { jobId } = await createTranscriptionJob(
         file,
         selectedModel,
