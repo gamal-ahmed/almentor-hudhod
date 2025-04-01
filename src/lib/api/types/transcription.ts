@@ -39,3 +39,20 @@ export interface TranscriptionJob {
   session_id?: string;
   vtt_file_url?: string;
 }
+
+// Define type for transcription session
+export interface TranscriptionSession {
+  id: string;
+  user_id: string;
+  created_at: string;
+  last_updated: string;
+  audio_file_name?: string;
+  selected_models: string[];
+  selected_model?: string;
+  selected_model_id?: string;
+  selected_transcription?: string;
+  selected_transcription_url?: string;
+  video_id?: string;
+  vtt_file_url?: string;
+  transcriptions: Json;
+}

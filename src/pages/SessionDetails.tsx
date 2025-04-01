@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -130,19 +131,47 @@ const SessionDetails = () => {
             console.log(`Found ${jobs.length} jobs for session ${identifier}`);
             setSessionJobs(jobs);
             
-            const { data: sessionData, error: sessionDataError } = await supabase
-              .from('transcription_sessions')
-              .select('selected_model, selected_model_id')
-              .eq('id', identifier)
-              .single();
-              
-            if (!sessionDataError && sessionData?.selected_model_id) {
-              setSelectedModelId(sessionData.selected_model_id);
-              
-              const selectedJob = jobs.find(job => job.id === sessionData.selected_model_id);
-              if (selectedJob) {
-                setSelectedJob(selectedJob);
+            // Check for selected_model_id in the session
+            try {
+              const { data: sessionData, error: sessionDataError } = await supabase
+                .from('transcription_sessions')
+                .select('selected_model, selected_model_id')
+                .eq('id', identifier)
+                .single();
+                
+              if (!sessionDataError) {
+                // Check if selected_model_id property exists and has a value
+                const modelId = sessionData && 'selected_model_id' in sessionData ? sessionData.selected_model_id : null;
+                
+                if (modelId) {
+                  setSelectedModelId(modelId);
+                  
+                  const selectedJob = jobs.find(job => job.id === modelId);
+                  if (selectedJob) {
+                    setSelectedJob(selectedJob);
+                  } else {
+                    // Fall back to completed jobs if selected job not found
+                    const completedJobs = jobs.filter(job => job.status === 'completed');
+                    if (completedJobs.length > 0) {
+                      setSelectedJob(completedJobs[0]);
+                    } else if (jobs.length > 0) {
+                      setSelectedJob(jobs[0]);
+                    }
+                  }
+                } else {
+                  // No selected model ID, fall back to completed jobs
+                  const completedJobs = jobs.filter(job => job.status === 'completed');
+                  if (completedJobs.length > 0) {
+                    setSelectedJob(completedJobs[0]);
+                  } else if (jobs.length > 0) {
+                    setSelectedJob(jobs[0]);
+                  }
+                }
               } else {
+                // Handle error in fetching session data
+                console.error("Error fetching session data:", sessionDataError);
+                
+                // Fall back to completed jobs
                 const completedJobs = jobs.filter(job => job.status === 'completed');
                 if (completedJobs.length > 0) {
                   setSelectedJob(completedJobs[0]);
@@ -150,7 +179,10 @@ const SessionDetails = () => {
                   setSelectedJob(jobs[0]);
                 }
               }
-            } else {
+            } catch (error) {
+              console.error("Error handling session data:", error);
+              
+              // Fall back to completed jobs
               const completedJobs = jobs.filter(job => job.status === 'completed');
               if (completedJobs.length > 0) {
                 setSelectedJob(completedJobs[0]);
@@ -476,74 +508,6 @@ const SessionDetails = () => {
     }
   };
 
-  const publishToBrightcove = async () => {
-    const jobToPublish = selectedModelId
-      ? sessionJobs.find(job => job.id === selectedModelId) || selectedJob
-      : selectedJob;
-      
-    if (!jobToPublish) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a transcription to publish.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const vttContent = extractVttContent(jobToPublish);
-    if (!vttContent) {
-      toast({
-        title: "Publishing Failed",
-        description: "No transcription content to publish",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      setIsPublishing(true);
-      
-      const brightcoveKeys = await fetchBrightcoveKeys();
-      
-      const authToken = await getBrightcoveAuthToken(
-        brightcoveKeys.brightcove_client_id,
-        brightcoveKeys.brightcove_client_secret
-      );
-      
-      await addCaptionToBrightcove(
-        videoId,
-        vttContent,
-        'ar',
-        'Arabic',
-        brightcoveKeys.brightcove_account_id,
-        authToken
-      );
-      
-      addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
-        source: "SessionDetails",
-        details: `Model: ${getModelDisplayName(jobToPublish.model)}`
-      });
-      
-      toast({
-        title: "Publishing Successful",
-        description: "Caption has been published to Brightcove",
-      });
-      
-      setPublishDialogOpen(false);
-      setVideoId('');
-    } catch (error) {
-      console.error("Error publishing to Brightcove:", error);
-      
-      toast({
-        title: "Publishing Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPublishing(false);
-    }
-  };
-
   const saveSelectedTranscriptionToStorage = async (job: TranscriptionJob) => {
     try {
       const vttContent = extractVttContent(job);
@@ -695,6 +659,74 @@ const SessionDetails = () => {
     
     setSelectedJob(jobToPublish);
     setPublishDialogOpen(true);
+  };
+
+  const publishToBrightcove = async () => {
+    const jobToPublish = selectedModelId
+      ? sessionJobs.find(job => job.id === selectedModelId) || selectedJob
+      : selectedJob;
+      
+    if (!jobToPublish) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a transcription to publish.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const vttContent = extractVttContent(jobToPublish);
+    if (!vttContent) {
+      toast({
+        title: "Publishing Failed",
+        description: "No transcription content to publish",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsPublishing(true);
+      
+      const brightcoveKeys = await fetchBrightcoveKeys();
+      
+      const authToken = await getBrightcoveAuthToken(
+        brightcoveKeys.brightcove_client_id,
+        brightcoveKeys.brightcove_client_secret
+      );
+      
+      await addCaptionToBrightcove(
+        videoId,
+        vttContent,
+        'ar',
+        'Arabic',
+        brightcoveKeys.brightcove_account_id,
+        authToken
+      );
+      
+      addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
+        source: "SessionDetails",
+        details: `Model: ${getModelDisplayName(jobToPublish.model)}`
+      });
+      
+      toast({
+        title: "Publishing Successful",
+        description: "Caption has been published to Brightcove",
+      });
+      
+      setPublishDialogOpen(false);
+      setVideoId('');
+    } catch (error) {
+      console.error("Error publishing to Brightcove:", error);
+      
+      toast({
+        title: "Publishing Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const displaySessionId = loadedSessionId || sessionId;
