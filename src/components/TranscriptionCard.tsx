@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, Play, Pause, Info, Volume2, VolumeX, FastForward, Rewind, Download, Save } from "lucide-react";
+import { Check, Copy, Play, Pause, Info, Volume2, VolumeX, FastForward, Rewind, Download, Save, FileSymlink } from "lucide-react";
 import { parseVTT } from "@/lib/vttParser";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -24,6 +24,7 @@ interface TranscriptionCardProps {
   showExportOptions?: boolean;
   onExport?: () => void;
   onSave?: () => void;
+  onPublish?: () => void;
 }
 
 interface VTTSegment {
@@ -44,7 +45,8 @@ const TranscriptionCard = ({
   showPagination = false,
   showExportOptions = false,
   onExport = () => {},
-  onSave = () => {}
+  onSave = () => {},
+  onPublish = () => {}
 }: TranscriptionCardProps) => {
   const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -632,6 +634,16 @@ const TranscriptionCard = ({
                 Save
               </Button>
             </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={onPublish}
+            >
+              <FileSymlink className="h-4 w-4 mr-2" />
+              Publish to Brightcove
+            </Button>
           </div>
         )}
       </CardFooter>

@@ -1,12 +1,13 @@
 
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { CopyIcon, Download, FileSymlink } from "lucide-react";
 import TranscriptionCard from "@/components/TranscriptionCard";
-import PublishDialog from "./PublishDialog";
+import AudioPlayer from "@/components/AudioPlayer";
+import PublishDialog from "@/components/session/PublishDialog";
 
 interface SingleJobViewProps {
   selectedJob: any;
@@ -26,111 +27,67 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   onSave
 }) => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [videoId, setVideoId] = useState("");
+  const [videoId, setVideoId] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // Safely handle null job
-  if (!selectedJob) {
-    return (
-      <Card className="shadow-soft border-2 h-full flex items-center justify-center">
-        <CardContent className="p-8 text-center">
-          <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Transcription Selected</h3>
-          <p className="text-muted-foreground">Please select a transcription job from the list.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const handlePublishToBrightcove = () => {
+    setPublishDialogOpen(true);
+  };
+
+  const publishToBrightcove = async () => {
     setIsPublishing(true);
-    // This would be connected to your actual publish function in a real implementation
-    setTimeout(() => {
-      setIsPublishing(false);
+    try {
+      // The actual implementation will call the parent component's publishToBrightcove method
+      // This is just a placeholder for now
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       setPublishDialogOpen(false);
-    }, 2000);
+      setVideoId('');
+    } catch (error) {
+      console.error("Error publishing to Brightcove:", error);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
-    <Card className="shadow-soft border-2 h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex justify-between items-center">
-          <span className="text-xl flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            {getModelDisplayName(selectedJob.model)}
-          </span>
-          <Badge variant={selectedJob.status === 'completed' ? 'default' : 'outline'}>
-            {selectedJob.status}
-          </Badge>
-        </CardTitle>
-        <CardDescription>
-          Created {format(new Date(selectedJob.created_at), 'PPp')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {audioUrl && (
-          <div className="mb-4 p-3 rounded-md bg-muted border">
-            <p className="text-sm font-medium mb-2">Original Audio</p>
-            <audio controls className="w-full">
-              <source src={audioUrl} type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
-          </div>
-        )}
-        
-        <Tabs defaultValue="preview">
-          <TabsList className="mb-3">
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="raw" disabled={selectedJob.status !== 'completed'}>Raw VTT</TabsTrigger>
-          </TabsList>
-          <TabsContent value="preview" className="m-0">
-            {selectedJob.status === 'completed' ? (
-              <TranscriptionCard 
-                modelName={getModelDisplayName(selectedJob.model)}
-                vttContent={extractVttContent(selectedJob)}
-                isSelected={true}
-                onSelect={() => {}}
-                audioSrc={audioUrl}
-                onExport={() => onExport(selectedJob)}
-                onSave={() => onSave(selectedJob)}
-                showExportOptions={true}
-              />
-            ) : selectedJob.status === 'failed' ? (
-              <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
-                <h3 className="font-medium mb-1">Transcription Failed</h3>
-                <p className="text-sm">{selectedJob.error || "Unknown error occurred"}</p>
-              </div>
-            ) : (
-              <div className="p-4 border rounded-md bg-muted flex items-center justify-center h-[300px]">
-                <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-primary" />
-                  <p className="text-muted-foreground">Processing transcription...</p>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="raw" className="m-0">
-            <div className="border rounded-md p-4 bg-muted/50">
-              <pre className="text-xs overflow-x-auto h-[300px]">
-                {extractVttContent(selectedJob)}
-              </pre>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
+    <div className="space-y-4">
+      {/* Audio player section */}
+      {audioUrl && (
+        <Card className="shadow-soft border-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Audio Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AudioPlayer src={audioUrl} />
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Transcription card */}
+      <TranscriptionCard
+        modelName={getModelDisplayName(selectedJob.model)}
+        vttContent={extractVttContent(selectedJob)}
+        prompt={selectedJob.result?.prompt || ""}
+        isSelected={true}
+        audioSrc={audioUrl}
+        showExportOptions={true}
+        onExport={() => onExport(selectedJob)}
+        onSave={() => onSave(selectedJob)}
+        onPublish={handlePublishToBrightcove} // Add the handler for publishing
+      />
 
-      {/* Dialog for publishing to Brightcove */}
+      {/* Publish dialog */}
       <PublishDialog 
         videoId={videoId}
         setVideoId={setVideoId}
         isPublishing={isPublishing}
-        publishToBrightcove={handlePublishToBrightcove}
+        publishToBrightcove={publishToBrightcove}
         selectedJob={selectedJob}
         getModelDisplayName={getModelDisplayName}
         open={publishDialogOpen}
         onOpenChange={setPublishDialogOpen}
       />
-    </Card>
+    </div>
   );
 };
 

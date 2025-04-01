@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -14,7 +13,6 @@ import {
   fetchBrightcoveKeys 
 } from "@/lib/api";
 
-// Import our components
 import SessionHeader from "@/components/session/SessionHeader";
 import TranscriptionJobList from "@/components/session/TranscriptionJobList";
 import ComparisonModeHeader from "@/components/session/ComparisonModeHeader";
@@ -24,7 +22,6 @@ import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/comp
 import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
 import { saveSelectedTranscription } from "@/lib/api/transcriptionService";
 
-// Define type for export format
 export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 interface TranscriptionJobFromAPI {
@@ -87,7 +84,10 @@ const SessionDetails = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
-  
+  const [videoId, setVideoId] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+
   useEffect(() => {
     const fetchSessionJobs = async () => {
       try {
@@ -118,18 +118,15 @@ const SessionDetails = () => {
         
         console.log(`Using session identifier: ${identifier}`);
         
-        // Set the loaded session ID to ensure consistency
         setLoadedSessionId(identifier);
         
         try {
-          // Use our service function to get session jobs
           const jobs = await getSessionTranscriptionJobs(identifier);
           
           if (jobs && jobs.length > 0) {
             console.log(`Found ${jobs.length} jobs for session ${identifier}`);
             setSessionJobs(jobs);
             
-            // Select the first completed job, or the first job if none is completed
             const completedJobs = jobs.filter(job => job.status === 'completed');
             if (completedJobs.length > 0) {
               setSelectedJob(completedJobs[0]);
@@ -146,7 +143,6 @@ const SessionDetails = () => {
           setFetchError(`Error fetching session jobs: ${error instanceof Error ? error.message : String(error)}`);
         }
         
-        // Try to fetch audio URL if we have a session ID
         if (identifier) {
           try {
             const { data: sessionData, error: sessionError } = await supabase
@@ -469,7 +465,6 @@ const SessionDetails = () => {
       
       const blob = new Blob([vttContent], { type: 'text/vtt' });
       
-      // Store file in the "transcriptions" bucket under a "sessions" folder
       const sessionIdentifier = loadedSessionId || sessionId;
       if (!sessionIdentifier) {
         throw new Error("No session identifier available");
@@ -485,7 +480,6 @@ const SessionDetails = () => {
 
       if (uploadError) throw uploadError;
 
-      // Retrieve the public URL from the same path
       const { data: publicUrlData } = supabase.storage
         .from('transcriptions')
         .getPublicUrl(uploadPath);
@@ -533,7 +527,6 @@ const SessionDetails = () => {
   const handleRefreshJobs = async () => {
     setLoading(true);
     try {
-      // Use loadedSessionId for consistency, fall back to sessionId param
       const identifier = loadedSessionId || sessionId;
       
       if (!identifier) {
@@ -548,7 +541,6 @@ const SessionDetails = () => {
       if (jobs.length > 0) {
         setSessionJobs(jobs);
         
-        // If no job is currently selected, select the first completed one
         if (!selectedJob) {
           const completedJobs = jobs.filter(job => job.status === 'completed');
           if (completedJobs.length > 0) {
@@ -557,7 +549,6 @@ const SessionDetails = () => {
             setSelectedJob(jobs[0]);
           }
         } else {
-          // If a job is selected, update it with fresh data if it exists
           const updatedSelectedJob = jobs.find(job => job.id === selectedJob.id);
           if (updatedSelectedJob) {
             setSelectedJob(updatedSelectedJob);
@@ -585,6 +576,10 @@ const SessionDetails = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePublishToBrightcove = () => {
+    setPublishDialogOpen(true);
   };
 
   const displaySessionId = loadedSessionId || sessionId;
