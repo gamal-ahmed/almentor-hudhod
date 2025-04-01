@@ -457,7 +457,7 @@ const SessionDetails = () => {
       
       const blob = new Blob([vttContent], { type: 'text/vtt' });
       
-      const { data, error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('transcription_files')
         .upload(fileName, blob, {
           contentType: 'text/vtt',
@@ -466,16 +466,16 @@ const SessionDetails = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl }, error: urlError } = supabase.storage
+      const { data: publicUrlData } = supabase.storage
         .from('transcription_files')
         .getPublicUrl(fileName);
 
-      if (urlError) throw urlError;
+      if (!publicUrlData) throw new Error("Failed to get public URL");
 
       const { error: sessionUpdateError } = await supabase
         .from('transcription_sessions')
         .update({ 
-          selected_transcription_url: publicUrl,
+          selected_transcription_url: publicUrlData.publicUrl,
           selected_transcription: vttContent,
           selected_model: selectedJob?.model
         })
