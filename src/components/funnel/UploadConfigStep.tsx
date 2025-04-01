@@ -114,7 +114,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     try {
       setIsProcessing(true);
       
-      const logOperation = startTimedLog(`Starting transcription for ${fileToProcess.name}`, "info");
+      const timedLogOperation = startTimedLog(`Starting transcription for ${fileToProcess.name}`, "info");
       
       console.log("Starting transcription with file:", {
         name: fileToProcess.name,
@@ -149,7 +149,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           description: `Started ${jobIds.length} transcription jobs`
         });
         
-        logOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
+        timedLogOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
         
         onTranscriptionsCreated(jobIds);
         onStepComplete();
@@ -158,7 +158,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           description: "Failed to create any transcription jobs"
         });
         
-        logOperation.error("Failed to create any transcription jobs", "All job creation attempts failed");
+        timedLogOperation.error("Failed to create any transcription jobs", "All job creation attempts failed");
       }
       
     } catch (error) {
@@ -168,7 +168,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         description: error instanceof Error ? error.message : "An unknown error occurred"
       });
       
-      logOperation.error(`${error.message}`, error.stack);
+      const timedLogOperation = startTimedLog(`Error in transcription`, "error");
+      timedLogOperation.error(`${error.message}`, error.stack);
       
     } finally {
       setIsProcessing(false);

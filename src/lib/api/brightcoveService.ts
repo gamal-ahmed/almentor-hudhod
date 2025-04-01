@@ -34,7 +34,7 @@ export async function fetchBrightcoveKeys() {
 // Get Brightcove Auth Token using our proxy
 export async function getBrightcoveAuthToken(clientId: string, clientSecret: string) {
   try {
-    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY}/auth`, {
+    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/auth`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ export async function addCaptionToBrightcove(
   accessToken: string
 ) {
   try {
-    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY}/captions`, {
+    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/captions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
