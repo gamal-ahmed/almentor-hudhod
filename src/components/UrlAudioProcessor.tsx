@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Link2, AlertCircle, Youtube, Dropbox, FileAudio } from 'lucide-react';
+import { Loader2, Link2, AlertCircle, Youtube, FileAudio } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -45,7 +45,15 @@ const UrlAudioProcessor: React.FC<UrlAudioProcessorProps> = ({
       case 'youtube':
         return <Youtube className="h-4 w-4 text-red-500" />;
       case 'dropbox':
-        return <Dropbox className="h-4 w-4 text-blue-500" />;
+        // Custom Dropbox SVG icon since it's not available in lucide-react
+        return (
+          <svg className="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 6.296L12 10.59L18 6.296L12 2L6 6.296Z" fill="currentColor"/>
+            <path d="M6 17.704L12 22L18 17.704L12 13.41L6 17.704Z" fill="currentColor"/>
+            <path d="M12 10.59L6 14.885L0 10.59L6 6.296L12 10.59Z" fill="currentColor"/>
+            <path d="M24 10.59L18 14.885L12 10.59L18 6.296L24 10.59Z" fill="currentColor"/>
+          </svg>
+        );
       case 'google-drive':
         return <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M4.5 24l4.5-8h11L15 24H4.5z"/><path fill="#0F9D58" d="M11 8l-4.5 8L2 8h9z"/><path fill="#FFCD32" d="M20 8h-9l4.5 8H24L20 8z"/><path fill="#3986F7" d="M15 16l-4.5-8L15 0l4.5 8L15 16z"/><path fill="#EA4435" d="M2 8l4.5 8 4.5-8L6.5 0 2 8z"/></svg>;
       case 'facebook':
