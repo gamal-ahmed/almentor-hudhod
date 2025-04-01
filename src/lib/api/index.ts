@@ -6,7 +6,8 @@ import {
   checkTranscriptionJobStatus, 
   getUserTranscriptionJobs, 
   resetStuckJobs,
-  saveTranscriptionToVTT
+  saveTranscriptionToVTT,
+  getSessionTranscriptionJobs
 } from "./transcriptionService";
 import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
@@ -25,5 +26,6 @@ export {
   fetchBrightcoveKeys,
   fetchSharePointFiles,
   downloadSharePointFile,
-  saveTranscriptionToVTT
+  saveTranscriptionToVTT,
+  getSessionTranscriptionJobs
 };
