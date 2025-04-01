@@ -225,9 +225,7 @@ const SessionHistory = () => {
                     asChild
                     className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
                   >
-                    <Link to={session.sessionId 
-                      ? `/session/${session.sessionId}` 
-                      : `/session/${encodeURIComponent(session.timestamp.toISOString())}`}>
+                    <Link to={session.sessionId ? `/session/${session.sessionId}` : '#'}>
                       <span>Details</span>
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
