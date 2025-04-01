@@ -13,7 +13,6 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
     const blob = new Blob([vttContent], { type: 'text/vtt' });
     const file = new File([blob], fileName, { type: 'text/vtt' });
     
-    // Upload the file to Supabase Storage
     // First check if the transcriptions bucket exists
     const { data: buckets, error: bucketsError } = await baseService.supabase.storage
       .listBuckets();
@@ -34,7 +33,8 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
       
       const { error: createBucketError } = await baseService.supabase.storage
         .createBucket('transcriptions', {
-          public: true
+          public: true,
+          fileSizeLimit: 52428800 // 50MB limit
         });
       
       if (createBucketError) {
@@ -47,7 +47,7 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
     }
     
     // Ensure the path exists for this session
-    const filePath = `transcriptions/${sessionId}/${fileName}`;
+    const filePath = `${sessionId}/${fileName}`;
     
     const { data: uploadData, error: uploadError } = await baseService.supabase.storage
       .from('transcriptions')
@@ -61,7 +61,7 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
     }
     
     // Get the public URL for the uploaded file
-    const { data: urlData } = await baseService.supabase.storage
+    const { data: urlData } = baseService.supabase.storage
       .from('transcriptions')
       .getPublicUrl(filePath);
     
@@ -129,7 +129,8 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
       
       const { error: createBucketError } = await baseService.supabase.storage
         .createBucket('transcription_files', {
-          public: true
+          public: true,
+          fileSizeLimit: 52428800 // 50MB limit
         });
       
       if (createBucketError) {
@@ -148,7 +149,7 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
         upsert: true
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) throw new Error(`Failed to upload VTT file: ${uploadError.message}`);
 
     const { data: publicUrlData } = baseService.supabase.storage
       .from('transcription_files')
@@ -167,13 +168,18 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
         })
         .eq('id', sessionId);
 
-      if (sessionUpdateError) throw sessionUpdateError;
+      if (sessionUpdateError) throw new Error(`Failed to update session: ${sessionUpdateError.message}`);
       
       addLog(`Updated session with selected transcription`, "success", {
         source: "Storage Service",
         details: `Session: ${sessionId}, Model: ${modelName}`
       });
     }
+
+    addLog(`Saved selected transcription`, "success", {
+      source: "Storage Service",
+      details: `File: ${fileName}, URL: ${publicUrlData.publicUrl}`
+    });
 
     return {
       success: true,
