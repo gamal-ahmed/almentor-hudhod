@@ -1,6 +1,14 @@
 
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { transcribeAudio, createTranscriptionJob, checkTranscriptionJobStatus, getUserTranscriptionJobs, resetStuckJobs } from "./transcriptionService";
+import { 
+  transcribeAudio, 
+  createTranscriptionJob, 
+  checkTranscriptionJobStatus, 
+  getUserTranscriptionJobs, 
+  resetStuckJobs,
+  saveSelectedTranscription,
+  updateSessionTranscriptionUrl
+} from "./transcriptionService";
 import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
@@ -17,5 +25,7 @@ export {
   fetchAudioFromUrl,
   fetchBrightcoveKeys,
   fetchSharePointFiles,
-  downloadSharePointFile
+  downloadSharePointFile,
+  saveSelectedTranscription,
+  updateSessionTranscriptionUrl
 };

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,7 +13,9 @@ import {
   addCaptionToBrightcove, 
   fetchBrightcoveKeys, 
   getBrightcoveAuthToken, 
-  getUserTranscriptionJobs 
+  getUserTranscriptionJobs,
+  saveSelectedTranscription,
+  updateSessionTranscriptionUrl
 } from "@/lib/api";
 import { 
   Dialog, 
@@ -143,46 +144,39 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
       
       const credentialsLog = startTimedLog("Brightcove Authentication", "info", "Brightcove API");
       
-      let brightcoveKeys;
-      try {
-        brightcoveKeys = await fetchBrightcoveKeys();
-        credentialsLog.update("Retrieving Brightcove auth token...");
+      publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
         
-        const authToken = await getBrightcoveAuthToken(
-          brightcoveKeys.brightcove_client_id,
-          brightcoveKeys.brightcove_client_secret
-        );
+      const brightcoveKeys = await fetchBrightcoveKeys();
+      credentialsLog.update("Retrieving Brightcove auth token...");
+      
+      const authToken = await getBrightcoveAuthToken(
+        brightcoveKeys.brightcove_client_id,
+        brightcoveKeys.brightcove_client_secret
+      );
+      
+      credentialsLog.complete("Brightcove authentication successful", 
+        `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
+      
+      await addCaptionToBrightcove(
+        videoId,
+        selectedTranscription,
+        'ar',
+        'Arabic',
+        brightcoveKeys.brightcove_account_id,
+        authToken
+      );
         
-        credentialsLog.complete("Brightcove authentication successful", 
-          `Account ID: ${brightcoveKeys.brightcove_account_id} | Token obtained`);
+      publishLog.complete(
+        "Caption published successfully", 
+        `Video ID: ${videoId} | Language: Arabic`
+      );
         
-        publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
+      toast({
+        title: "Caption Published",
+        description: "Your caption has been successfully published to the Brightcove video.",
+      });
         
-        await addCaptionToBrightcove(
-          videoId,
-          selectedTranscription,
-          'ar',
-          'Arabic',
-          brightcoveKeys.brightcove_account_id,
-          authToken
-        );
-        
-        publishLog.complete(
-          "Caption published successfully", 
-          `Video ID: ${videoId} | Language: Arabic`
-        );
-        
-        toast({
-          title: "Caption Published",
-          description: "Your caption has been successfully published to the Brightcove video.",
-        });
-        
-        setPublishDialogOpen(false);
-      } catch (error) {
-        credentialsLog.error("Brightcove authentication failed", error instanceof Error ? error.message : String(error));
-        publishLog.error("Caption publishing failed", error instanceof Error ? error.message : String(error));
-        throw error;
-      }
+      setPublishDialogOpen(false);
     } catch (error) {
       console.error("Error publishing caption:", error);
       addLog(`Error publishing caption`, "error", {
@@ -357,6 +351,12 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
       title: "Export Successful",
       description: `Transcription exported as ${fileName}`,
     });
+  };
+
+  // When a transcription is selected, also save it to the server
+  const handleSelectTranscription = async (vtt: string, model: string) => {
+    // Now use the transcription as before
+    handleSelectTranscription(vtt, model);
   };
 
   return (

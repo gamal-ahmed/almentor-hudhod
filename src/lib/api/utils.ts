@@ -1,11 +1,13 @@
 
+// Common API constants and utility functions
+
 // API endpoints (using Supabase Edge Functions)
 export const API_ENDPOINTS = {
-  OPENAI_TRANSCRIBE_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe',
-  GEMINI_TRANSCRIBE_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe',
-  PHI4_TRANSCRIBE_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe',
-  BRIGHTCOVE_PROXY_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy',
-  SHAREPOINT_PROXY_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
+  OPENAI_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe',
+  GEMINI_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe',
+  PHI4_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe',
+  BRIGHTCOVE_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy',
+  SHAREPOINT_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
   TRANSCRIPTION_SERVICE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/transcription-service'
 };
 

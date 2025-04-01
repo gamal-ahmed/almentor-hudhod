@@ -463,6 +463,7 @@ export type Database = {
           selected_model: string | null
           selected_models: string[]
           selected_transcription: string | null
+          selected_transcription_url: string | null
           transcriptions: Json
           user_id: string
           video_id: string | null
@@ -475,6 +476,7 @@ export type Database = {
           selected_model?: string | null
           selected_models?: string[]
           selected_transcription?: string | null
+          selected_transcription_url?: string | null
           transcriptions?: Json
           user_id: string
           video_id?: string | null
@@ -487,6 +489,7 @@ export type Database = {
           selected_model?: string | null
           selected_models?: string[]
           selected_transcription?: string | null
+          selected_transcription_url?: string | null
           transcriptions?: Json
           user_id?: string
           video_id?: string | null
@@ -505,6 +508,7 @@ export type Database = {
           status_message: string | null
           updated_at: string
           user_id: string | null
+          vtt_file_url: string | null
         }
         Insert: {
           created_at?: string
@@ -517,6 +521,7 @@ export type Database = {
           status_message?: string | null
           updated_at?: string
           user_id?: string | null
+          vtt_file_url?: string | null
         }
         Update: {
           created_at?: string
@@ -529,6 +534,7 @@ export type Database = {
           status_message?: string | null
           updated_at?: string
           user_id?: string | null
+          vtt_file_url?: string | null
         }
         Relationships: []
       }

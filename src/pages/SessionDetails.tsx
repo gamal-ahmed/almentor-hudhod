@@ -38,10 +38,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { Badge } from "@/components/ui/badge";
 
-// Update the interface to match the actual data structure
 interface TranscriptionJobFromAPI {
   id: string;
-  status: string; // Changed from union type to string to match API response
+  status: string;
   model: string;
   created_at: string;
   updated_at: string;
@@ -54,7 +53,6 @@ interface TranscriptionJobFromAPI {
   } | any;
 }
 
-// Define the type we'll use internally
 interface TranscriptionJob {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -70,19 +68,16 @@ interface TranscriptionJob {
   } | any;
 }
 
-// Helper function to convert API response to our internal type
 const convertToTranscriptionJob = (job: TranscriptionJobFromAPI): TranscriptionJob => {
   return {
     ...job,
-    // Ensure status is one of our union types
     status: (job.status === 'pending' || job.status === 'processing' || 
              job.status === 'completed' || job.status === 'failed') 
              ? job.status as 'pending' | 'processing' | 'completed' | 'failed'
-             : 'pending' // Default to pending if unknown status
+             : 'pending'
   };
 };
 
-// Define export format options
 type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 const SessionDetails = () => {
@@ -94,12 +89,10 @@ const SessionDetails = () => {
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   
-  // New state for comparison view
   const [comparisonMode, setComparisonMode] = useState(false);
   const [jobsToCompare, setJobsToCompare] = useState<TranscriptionJob[]>([]);
   const [viewMode, setViewMode] = useState<'single' | 'compare'>('single');
   
-  // New state for Brightcove publishing
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [videoId, setVideoId] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -120,20 +113,16 @@ const SessionDetails = () => {
           return;
         }
         
-        // Convert the URL parameter back to a timestamp
         const targetTimestamp = new Date(decodeURIComponent(sessionTimestamp));
         
-        // Find jobs that belong to this session (within 30 seconds of each other)
         const matchingJobs = allJobs.filter((apiJob: TranscriptionJobFromAPI) => {
           const jobTime = new Date(apiJob.created_at);
           return Math.abs(jobTime.getTime() - targetTimestamp.getTime()) <= 30000;
-        }).map(convertToTranscriptionJob); // Convert API jobs to our internal type
+        }).map(convertToTranscriptionJob);
         
-        // Filter for completed jobs
         const completedJobs = matchingJobs.filter(job => job.status === 'completed');
         setSessionJobs(completedJobs);
         
-        // If we have a completed job, select it by default
         if (completedJobs.length > 0) {
           setSelectedJob(completedJobs[0]);
         }
@@ -237,7 +226,6 @@ const SessionDetails = () => {
     }
   };
   
-  // Add/remove job from comparison list
   const toggleJobForComparison = (job: TranscriptionJob) => {
     setJobsToCompare(prev => {
       const isAlreadySelected = prev.some(j => j.id === job.id);
@@ -245,21 +233,17 @@ const SessionDetails = () => {
       if (isAlreadySelected) {
         return prev.filter(j => j.id !== job.id);
       } else {
-        // Allow multiple jobs for comparison now
         return [...prev, job];
       }
     });
   };
   
-  // Toggle comparison mode
   const toggleComparisonMode = () => {
     if (comparisonMode) {
-      // Exiting comparison mode
       setComparisonMode(false);
       setJobsToCompare([]);
       setViewMode('single');
     } else {
-      // Entering comparison mode
       setComparisonMode(true);
       setJobsToCompare([]);
       toast({
@@ -269,7 +253,6 @@ const SessionDetails = () => {
     }
   };
   
-  // Start the comparison once jobs are selected
   const startComparison = () => {
     if (jobsToCompare.length < 2) {
       toast({
@@ -283,58 +266,45 @@ const SessionDetails = () => {
     setViewMode('compare');
   };
   
-  // Check if a job is selected for comparison
   const isJobSelectedForComparison = (jobId: string) => {
     return jobsToCompare.some(job => job.id === jobId);
   };
 
-  // Convert VTT to SRT format
   const convertVttToSrt = (vtt: string): string => {
     if (!vtt) return "";
     
-    // Remove WEBVTT header
     let content = vtt.replace(/^WEBVTT\s*/, '');
     
-    // Split into cues
     const cues = content.trim().split(/\n\s*\n/);
     
-    // Process each cue
     return cues.map((cue, index) => {
       const lines = cue.split('\n').filter(line => line.trim());
       
-      if (lines.length < 2) return ''; // Skip malformed cues
+      if (lines.length < 2) return '';
       
-      // Extract timestamp line
       const timestampLine = lines.find(line => line.includes('-->'));
       if (!timestampLine) return '';
       
-      // Convert timestamp format from HH:MM:SS.mmm to HH:MM:SS,mmm
       const timestamps = timestampLine.split('-->').map(ts => ts.trim().replace('.', ','));
       
-      // Extract text (all lines after the timestamp)
       const textIndex = lines.indexOf(timestampLine) + 1;
       const text = lines.slice(textIndex).join('\n');
       
-      // Format as SRT
       return `${index + 1}\n${timestamps[0]} --> ${timestamps[1]}\n${text}`;
     }).filter(cue => cue).join('\n\n');
   };
 
-  // Convert VTT to plain text
   const convertVttToText = (vtt: string): string => {
     if (!vtt) return "";
     
-    // Remove WEBVTT header
     let content = vtt.replace(/^WEBVTT\s*/, '');
     
-    // Split into cues and extract only the text
     const cues = content.trim().split(/\n\s*\n/);
     const textLines: string[] = [];
     
     cues.forEach(cue => {
       const lines = cue.split('\n').filter(line => line.trim());
       
-      // Skip timestamps and cue IDs
       const textLines = lines.filter(line => !line.includes('-->') && !/^\d+$/.test(line));
       
       if (textLines.length) {
@@ -345,7 +315,6 @@ const SessionDetails = () => {
     return textLines.join('\n');
   };
 
-  // Export transcription in selected format
   const exportTranscription = (job: TranscriptionJob) => {
     if (!job) return;
     
@@ -417,7 +386,6 @@ const SessionDetails = () => {
     });
   };
 
-  // Publish to Brightcove
   const publishToBrightcove = async () => {
     if (!selectedJob || !videoId) {
       toast({
@@ -428,41 +396,80 @@ const SessionDetails = () => {
       return;
     }
     
-    const vttContent = extractVttContent(selectedJob);
-    if (!vttContent) {
-      toast({
-        title: "Publishing Failed",
-        description: "No transcription content to publish",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
       setIsPublishing(true);
       
-      // Get Brightcove keys
       const brightcoveKeys = await fetchBrightcoveKeys();
       
-      // Get auth token
       const authToken = await getBrightcoveAuthToken(
         brightcoveKeys.brightcove_client_id,
         brightcoveKeys.brightcove_client_secret
       );
       
-      // Add caption
+      let vttUrl = "";
+      if (selectedJob.vtt_file_url) {
+        vttUrl = selectedJob.vtt_file_url;
+        addLog(`Using stored VTT file URL: ${vttUrl}`, "info", {
+          source: "SessionDetails",
+          details: `Model: ${getModelDisplayName(selectedJob.model)}`
+        });
+      } else {
+        const vttContent = extractVttContent(selectedJob);
+        if (!vttContent) {
+          throw new Error("No transcription content available to publish");
+        }
+        
+        try {
+          vttUrl = await saveSelectedTranscription(selectedJob.id, vttContent);
+          addLog(`Saved transcription to URL: ${vttUrl}`, "info", {
+            source: "SessionDetails",
+            details: `Model: ${getModelDisplayName(selectedJob.model)}`
+          });
+        } catch (saveError) {
+          addLog(`Failed to save transcription to URL, will use direct content instead`, "warning", {
+            source: "SessionDetails",
+            details: saveError instanceof Error ? saveError.message : String(saveError)
+          });
+          
+          await addCaptionToBrightcove(
+            videoId,
+            vttContent,
+            'ar',
+            'Arabic',
+            brightcoveKeys.brightcove_account_id,
+            authToken,
+            false
+          );
+          
+          addLog(`Published caption to Brightcove video ID: ${videoId} using direct content`, "info", {
+            source: "SessionDetails",
+            details: `Model: ${getModelDisplayName(selectedJob.model)}`
+          });
+          
+          toast({
+            title: "Publishing Successful",
+            description: "Caption has been published to Brightcove",
+          });
+          
+          setPublishDialogOpen(false);
+          setIsPublishing(false);
+          return;
+        }
+      }
+      
       await addCaptionToBrightcove(
         videoId,
-        vttContent,
+        vttUrl,
         'ar',
         'Arabic',
         brightcoveKeys.brightcove_account_id,
-        authToken
+        authToken,
+        true
       );
       
-      addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
+      addLog(`Published caption to Brightcove video ID: ${videoId} using file URL`, "info", {
         source: "SessionDetails",
-        details: `Model: ${getModelDisplayName(selectedJob.model)}`
+        details: `Model: ${getModelDisplayName(selectedJob.model)}, URL: ${vttUrl}`
       });
       
       toast({
@@ -483,7 +490,7 @@ const SessionDetails = () => {
       setIsPublishing(false);
     }
   };
-  
+
   return (
     <>
       <Header />
@@ -659,7 +666,6 @@ const SessionDetails = () => {
               )}
               
               {viewMode === 'compare' ? (
-                /* Comparison View - updated for multiple models */
                 <div className="grid gap-6 auto-cols-fr animate-scale-in">
                   <div className={`grid grid-cols-1 ${
                     jobsToCompare.length === 2 ? 'md:grid-cols-2' : 
@@ -717,9 +723,7 @@ const SessionDetails = () => {
                   </div>
                 </div>
               ) : (
-                /* Standard View */
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-fade-in">
-                  {/* Left column - Jobs list */}
                   <Card className="md:col-span-5 shadow-soft">
                     <CardHeader className="bg-gradient-to-r from-background to-secondary/30">
                       <CardTitle className="flex items-center gap-2">
@@ -794,7 +798,6 @@ const SessionDetails = () => {
                     </CardContent>
                   </Card>
                   
-                  {/* Right column - Selected job details */}
                   <Card className="md:col-span-7 shadow-soft border-2">
                     <CardHeader className="bg-gradient-to-r from-background to-muted/50 border-b">
                       <CardTitle className="flex items-center gap-2">
