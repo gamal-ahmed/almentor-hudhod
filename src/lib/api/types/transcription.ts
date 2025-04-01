@@ -30,10 +30,10 @@ export interface TranscriptionJob {
   status_message: string;
   error?: string;
   result?: { 
-    vttContent: string; 
-    text: string; 
-    prompt: string;
-  } | Json;
+    vttContent?: string; 
+    text?: string; 
+    prompt?: string;
+  } | { [key: string]: Json } | Json[];
   file_path: string;
   user_id?: string;
   session_id?: string;

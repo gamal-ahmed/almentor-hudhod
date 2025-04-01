@@ -24,6 +24,7 @@ import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/comp
 import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
 import { saveSelectedTranscription } from "@/lib/api/transcriptionService";
 import { TranscriptionJob, TranscriptionSession } from "@/lib/api/types/transcription";
+import { Json } from "@/integrations/supabase/types";
 
 export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
@@ -36,6 +37,7 @@ interface TranscriptionJobFromAPI {
   status_message: string;
   error?: string;
   session_id?: string;
+  file_path: string;
   result?: { 
     vttContent: string; 
     text: string; 
@@ -115,7 +117,6 @@ const SessionDetails = () => {
             console.log(`Found ${jobs.length} jobs for session ${identifier}`);
             setSessionJobs(jobs);
             
-            // Check for selected_model_id in the session
             try {
               const { data: sessionData, error: sessionDataError } = await supabase
                 .from('transcription_sessions')
@@ -124,7 +125,6 @@ const SessionDetails = () => {
                 .single();
                 
               if (!sessionDataError && sessionData) {
-                // Safely handle the model ID with proper type checking
                 if (sessionData && 
                     'selected_model_id' in sessionData && 
                     sessionData.selected_model_id !== null && 
@@ -137,7 +137,6 @@ const SessionDetails = () => {
                   if (selectedJob) {
                     setSelectedJob(selectedJob);
                   } else {
-                    // Fall back to completed jobs if selected job not found
                     const completedJobs = jobs.filter(job => job.status === 'completed');
                     if (completedJobs.length > 0) {
                       setSelectedJob(completedJobs[0]);
@@ -146,7 +145,6 @@ const SessionDetails = () => {
                     }
                   }
                 } else {
-                  // No selected model ID, fall back to completed jobs
                   const completedJobs = jobs.filter(job => job.status === 'completed');
                   if (completedJobs.length > 0) {
                     setSelectedJob(completedJobs[0]);
@@ -155,10 +153,8 @@ const SessionDetails = () => {
                   }
                 }
               } else {
-                // Handle error in fetching session data
                 console.error("Error fetching session data:", sessionDataError);
                 
-                // Fall back to completed jobs
                 const completedJobs = jobs.filter(job => job.status === 'completed');
                 if (completedJobs.length > 0) {
                   setSelectedJob(completedJobs[0]);
@@ -169,7 +165,6 @@ const SessionDetails = () => {
             } catch (error) {
               console.error("Error handling session data:", error);
               
-              // Fall back to completed jobs
               const completedJobs = jobs.filter(job => job.status === 'completed');
               if (completedJobs.length > 0) {
                 setSelectedJob(completedJobs[0]);
@@ -249,7 +244,12 @@ const SessionDetails = () => {
           return "";
         }
       } else if (typeof job.result === 'object') {
-        return job.result.vttContent || "";
+        if (Array.isArray(job.result)) {
+          return "";
+        }
+        
+        const resultObj = job.result as { vttContent?: string };
+        return resultObj.vttContent || "";
       }
     } catch (error) {
       console.error("Error extracting VTT content:", error);
