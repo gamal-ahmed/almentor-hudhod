@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Link2, AlertCircle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
@@ -96,60 +95,54 @@ const UrlAudioProcessor: React.FC<UrlAudioProcessorProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-6 pb-4">
-          <div className="flex flex-col space-y-4">
-            <div className="flex items-center space-x-2">
-              <Link2 className="h-5 w-5 text-primary" />
-              <h3 className="text-base font-medium">Extract Audio from URL</h3>
-            </div>
-            
-            <div className="flex gap-2">
-              <Input
-                placeholder="Paste YouTube, Dropbox, Drive, Facebook, or Twitter/X URL"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={fetchingAudio || isProcessing}
-                className="flex-grow"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !fetchingAudio && !isProcessing && url.trim()) {
-                    processUrl();
-                  }
-                }}
-              />
-              <Button 
-                onClick={processUrl} 
-                disabled={fetchingAudio || isProcessing || !url.trim()}
-                className="shrink-0"
-              >
-                {fetchingAudio ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing
-                  </>
-                ) : (
-                  <>
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Extract
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {error && (
-              <Alert variant="destructive" className="mt-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="mt-1 text-xs text-muted-foreground">
-              <p>Supported: YouTube, Dropbox, Google Drive, Facebook, Twitter/X, and direct audio URLs</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      <div className="flex items-center mb-2">
+        <Link2 className="h-4 w-4 text-primary mr-2" />
+        <h3 className="text-sm font-medium">Extract Audio from URL</h3>
+      </div>
+      
+      <div className="flex gap-2">
+        <Input
+          placeholder="Paste YouTube, Dropbox, Drive, Facebook, or Twitter/X URL"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          disabled={fetchingAudio || isProcessing}
+          className="flex-grow"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !fetchingAudio && !isProcessing && url.trim()) {
+              processUrl();
+            }
+          }}
+        />
+        <Button 
+          onClick={processUrl} 
+          disabled={fetchingAudio || isProcessing || !url.trim()}
+          className="shrink-0"
+        >
+          {fetchingAudio ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Processing
+            </>
+          ) : (
+            <>
+              <Link2 className="h-4 w-4 mr-2" />
+              Extract
+            </>
+          )}
+        </Button>
+      </div>
+      
+      {error && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      <div className="mt-1 text-xs text-muted-foreground">
+        <p>Supported: YouTube, Dropbox, Google Drive, Facebook, Twitter/X, and direct audio URLs</p>
+      </div>
     </div>
   );
 };

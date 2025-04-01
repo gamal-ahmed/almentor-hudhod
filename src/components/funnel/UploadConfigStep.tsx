@@ -4,17 +4,23 @@ import { useLogsStore } from '@/lib/useLogsStore';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Upload, FileAudio, Share, Pause, Play, Cloud, Link } from 'lucide-react';
+import { AlertCircle, Upload, FileAudio, Pause, Play, UploadCloud, ListChecks, Sliders, Sparkles, Wand2, Link2 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
-import SharePointDownloader from '@/components/SharePointDownloader';
-import CloudStorageImporter from '@/components/cloud-storage/CloudStorageImporter';
 import UrlAudioProcessor from '@/components/UrlAudioProcessor';
 import ModelSelector, { TranscriptionModel } from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
 import { createTranscriptionJob } from '@/lib/api';
 import { toast } from 'sonner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UploadConfigStepProps {
   onJobCreated: (jobId: string) => void;
@@ -25,8 +31,9 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedModel, setSelectedModel] = useState<TranscriptionModel>('openai');
   const [promptText, setPromptText] = useState<string>('');
-  const [uploadTab, setUploadTab] = useState<string>('direct');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showUrlProcessor, setShowUrlProcessor] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { addLog } = useLogsStore();
   const navigate = useNavigate();
@@ -44,31 +51,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     });
   };
   
-  // Modified to accept an array of Files instead of a single File
-  const handleSharePointFileSelect = (files: File[]) => {
-    if (files.length === 0) return;
-    
-    const file = files[0];
-    console.log("SharePoint file selected:", file.name);
-    setUploadedFile(file);
-    addLog(`SharePoint file selected: ${file.name}`, "info", {
-      source: "SharePoint",
-      details: `Type: ${file.type}`
-    });
-  };
-  
-  // Update this function to use the first file from the array
-  const handleCloudStorageFilesSelect = (files: File[]) => {
-    if (files.length > 0) {
-      console.log("Cloud storage file selected:", files[0].name);
-      setUploadedFile(files[0]);
-      addLog(`Cloud storage file selected: ${files[0].name}`, "info", {
-        source: "CloudStorage",
-        details: `Type: ${files[0].type}`
-      });
-    }
-  };
-  
   // Handler for URL-processed audio
   const handleUrlProcessedAudio = (file: File) => {
     console.log("URL-processed audio:", file.name);
@@ -77,6 +59,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       source: "UrlAudioProcessor",
       details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
     });
+    setShowUrlProcessor(false); // Hide URL processor after successful extraction
   };
   
   const toggleAudioPlayback = () => {
@@ -158,64 +141,75 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     }
   };
 
+  const toggleUrlProcessor = () => {
+    setShowUrlProcessor(!showUrlProcessor);
+  };
+
   return (
     <Card className="border-border/50 shadow-soft">
       <CardHeader>
         <CardTitle>Transcribe Audio</CardTitle>
         <CardDescription>
-          Upload an audio file, use a URL, or select from cloud storage
+          Upload an audio file or use a URL to transcribe
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
-        <Tabs defaultValue={uploadTab} onValueChange={setUploadTab} className="w-full">
-          <TabsList className="grid grid-cols-4 mb-4">
-            <TabsTrigger value="direct" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              <span>Upload</span>
-            </TabsTrigger>
-            <TabsTrigger value="url" className="flex items-center gap-2">
-              <Link className="h-4 w-4" />
-              <span>URL</span>
-            </TabsTrigger>
-            <TabsTrigger value="sharepoint" className="flex items-center gap-2">
-              <Share className="h-4 w-4" />
-              <span>SharePoint</span>
-            </TabsTrigger>
-            <TabsTrigger value="cloud" className="flex items-center gap-2">
-              <Cloud className="h-4 w-4" />
-              <span>Cloud Storage</span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Badge variant="outline" className="rounded-full px-3 bg-blue-500/10 text-blue-500 border-blue-500/20">1</Badge>
+            <h3 className="flex items-center font-medium">
+              Upload Audio File
+              <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                Required
+              </span>
+            </h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                    <span className="sr-only">Info</span>
+                    ?
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Upload audio files to be transcribed. Supported formats: MP3, WAV, M4A, FLAC</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           
-          <TabsContent value="direct" className="space-y-4">
+          <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
             <FileUpload 
               onFileUpload={handleFileUpload}
               isUploading={isProcessing}
             />
-          </TabsContent>
+          </div>
           
-          <TabsContent value="url" className="space-y-4">
-            <UrlAudioProcessor 
-              onAudioProcessed={handleUrlProcessedAudio}
-              isProcessing={isProcessing}
-            />
-          </TabsContent>
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-xs text-muted-foreground">
+              MP3, M4A, or WAV files (max 100MB)
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1 h-7"
+              onClick={toggleUrlProcessor}
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              {showUrlProcessor ? "Hide URL Option" : "Or Use URL"}
+            </Button>
+          </div>
           
-          <TabsContent value="sharepoint" className="space-y-4">
-            <SharePointDownloader 
-              onFilesQueued={handleSharePointFileSelect}
-              isProcessing={isProcessing}
-            />
-          </TabsContent>
-          
-          <TabsContent value="cloud" className="space-y-4">
-            <CloudStorageImporter
-              onFilesSelected={handleCloudStorageFilesSelect}
-              isProcessing={isProcessing}
-            />
-          </TabsContent>
-        </Tabs>
+          {showUrlProcessor && (
+            <div className="mt-2">
+              <UrlAudioProcessor 
+                onAudioProcessed={handleUrlProcessedAudio}
+                isProcessing={isProcessing}
+              />
+            </div>
+          )}
+        </div>
         
         {uploadedFile && (
           <div className="space-y-2">
@@ -254,28 +248,96 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         )}
         
         <div className="space-y-2">
-          <div className="text-sm font-medium">Transcription Model</div>
-          <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={handleModelChange}
-            disabled={isProcessing}
-          />
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Badge variant="outline" className="rounded-full px-3 bg-indigo-500/10 text-indigo-500 border-indigo-500/20">2</Badge>
+            <h3 className="flex items-center font-medium">
+              Select AI Models
+              <span className="inline-flex ml-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
+                Required
+              </span>
+            </h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                    <span className="sr-only">Info</span>
+                    ?
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Choose one or more AI models to compare transcription results</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="bg-muted/40 rounded-lg border border-border/50 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60">
+            <div className="flex items-center mb-3">
+              <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
+              <h3 className="font-medium text-sm">Transcription AI Models</h3>
+            </div>
+            <ModelSelector 
+              selectedModel={selectedModel}
+              selectedModels={[selectedModel]}
+              onModelChange={handleModelChange}
+              disabled={isProcessing}
+            />
+          </div>
         </div>
         
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Prompt (Optional)</div>
-          <PromptOptions
-            prompt={promptText}
-            onPromptChange={handlePromptChange}
-            disabled={isProcessing}
-          />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Badge variant="outline" className="rounded-full px-3 bg-primary/10 text-primary border-primary/20">3</Badge>
+            <h3>Configuration Options</h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full">
+                    <span className="sr-only">Info</span>
+                    ?
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Configure advanced settings for transcription</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <Collapsible 
+            open={showAdvancedOptions}
+            onOpenChange={setShowAdvancedOptions}
+            className="border rounded-lg overflow-hidden bg-muted/40 transition-all duration-300 hover:border-primary/30 hover:bg-muted/60"
+          >
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className="w-full flex items-center justify-between p-3 h-auto rounded-none border-0"
+              >
+                <div className="flex items-center">
+                  <Sliders className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>Advanced Options</span>
+                </div>
+                {showAdvancedOptions ? (
+                  <AlertCircle className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-4 border-t bg-background/80 animate-slide-up">
+              <PromptOptions 
+                prompt={promptText}
+                onPromptChange={handlePromptChange}
+                disabled={isProcessing}
+              />
+            </CollapsibleContent>
+          </Collapsible>
         </div>
         
         {!uploadedFile && (
           <Alert variant="default" className="bg-primary/5 border-primary/20">
             <AlertCircle className="h-4 w-4 text-primary" />
             <AlertDescription>
-              Please upload, provide a URL, or select an audio file to begin transcription.
+              Please upload an audio file or provide a URL to begin transcription.
             </AlertDescription>
           </Alert>
         )}
