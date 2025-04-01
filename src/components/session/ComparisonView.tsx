@@ -21,13 +21,19 @@ interface ComparisonViewProps {
   extractVttContent: (job: TranscriptionJob) => string;
   getModelDisplayName: (model: string) => string;
   setViewMode: (mode: 'single' | 'compare') => void;
+  onExport: (job: TranscriptionJob) => void;
+  onSave: (job: TranscriptionJob) => void;
+  audioUrl: string | null;
 }
 
 const ComparisonView: React.FC<ComparisonViewProps> = ({
   jobsToCompare,
   extractVttContent,
   getModelDisplayName,
-  setViewMode
+  setViewMode,
+  onExport,
+  onSave,
+  audioUrl
 }) => {
   return (
     <Card className="shadow-soft border-2 h-full">
@@ -41,22 +47,20 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 divide-y md:grid-cols-2 md:divide-y-0 md:divide-x gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {jobsToCompare.map((job) => (
-            <div key={job.id} className="p-2">
-              <div className="mb-2">
-                <h3 className="font-medium">{getModelDisplayName(job.model)}</h3>
-                <p className="text-xs text-muted-foreground">
-                  {format(new Date(job.created_at), 'MMM d, h:mm a')}
-                </p>
-              </div>
-              <Separator className="my-2" />
+            <div key={job.id} className="flex flex-col h-full">
               <TranscriptionCard 
                 modelName={getModelDisplayName(job.model)}
                 vttContent={extractVttContent(job)}
                 isSelected={true}
                 onSelect={() => {}}
                 showPagination={false}
+                audioSrc={audioUrl}
+                onExport={() => onExport(job)}
+                onSave={() => onSave(job)}
+                showExportOptions={true}
+                className="h-full"
               />
             </div>
           ))}

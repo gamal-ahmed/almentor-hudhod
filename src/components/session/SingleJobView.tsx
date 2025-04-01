@@ -3,9 +3,8 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Loader2, Upload } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import PublishDialog from "./PublishDialog";
 
@@ -14,13 +13,17 @@ interface SingleJobViewProps {
   audioUrl: string | null;
   extractVttContent: (job: any) => string;
   getModelDisplayName: (model: string) => string;
+  onExport: (job: any) => void;
+  onSave: (job: any) => void;
 }
 
 const SingleJobView: React.FC<SingleJobViewProps> = ({
   selectedJob,
   audioUrl,
   extractVttContent,
-  getModelDisplayName
+  getModelDisplayName,
+  onExport,
+  onSave
 }) => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [videoId, setVideoId] = useState("");
@@ -82,27 +85,16 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
           </TabsList>
           <TabsContent value="preview" className="m-0">
             {selectedJob.status === 'completed' ? (
-              <>
-                <TranscriptionCard 
-                  modelName={getModelDisplayName(selectedJob.model)}
-                  vttContent={extractVttContent(selectedJob)}
-                  isSelected={true}
-                  onSelect={() => {}}
-                  audioSrc={audioUrl}
-                />
-                
-                {/* Add publish button */}
-                <div className="mt-4 flex justify-end">
-                  <Button 
-                    onClick={() => setPublishDialogOpen(true)}
-                    className="gap-1.5"
-                    variant="outline"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Publish to Brightcove
-                  </Button>
-                </div>
-              </>
+              <TranscriptionCard 
+                modelName={getModelDisplayName(selectedJob.model)}
+                vttContent={extractVttContent(selectedJob)}
+                isSelected={true}
+                onSelect={() => {}}
+                audioSrc={audioUrl}
+                onExport={() => onExport(selectedJob)}
+                onSave={() => onSave(selectedJob)}
+                showExportOptions={true}
+              />
             ) : selectedJob.status === 'failed' ? (
               <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
                 <h3 className="font-medium mb-1">Transcription Failed</h3>

@@ -17,11 +17,14 @@ import {
 import SessionHeader from "@/components/session/SessionHeader";
 import TranscriptionJobList from "@/components/session/TranscriptionJobList";
 import ComparisonModeHeader from "@/components/session/ComparisonModeHeader";
-import ExportControls, { ExportFormat } from "@/components/session/ExportControls";
 import ComparisonView from "@/components/session/ComparisonView";
 import SingleJobView from "@/components/session/SingleJobView";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
 import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
+import { saveSelectedTranscription } from "@/lib/api/transcriptionService";
+
+// Define type for export format
+export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 interface TranscriptionJobFromAPI {
   id: string;
@@ -443,12 +446,14 @@ const SessionDetails = () => {
     }
   };
 
-  const saveSelectedTranscriptionToStorage = async (vttContent: string) => {
+  const saveSelectedTranscriptionToStorage = async (job: TranscriptionJob) => {
     try {
-      if (!selectedJob) {
+      const vttContent = extractVttContent(job);
+      
+      if (!vttContent) {
         toast({
-          title: "No transcription selected",
-          description: "Please select a transcription to save",
+          title: "No transcription content",
+          description: "No content to save",
           variant: "destructive"
         });
         return;
@@ -459,7 +464,7 @@ const SessionDetails = () => {
         description: "Please wait while we save your transcription...",
       });
       
-      const fileName = `transcription_${selectedJob.model}_${new Date().toISOString().slice(0, 10)}_${uuidv4()}.vtt`;
+      const fileName = `transcription_${job.model}_${new Date().toISOString().slice(0, 10)}_${uuidv4()}.vtt`;
       
       const blob = new Blob([vttContent], { type: 'text/vtt' });
       
@@ -490,7 +495,7 @@ const SessionDetails = () => {
         .update({ 
           selected_transcription_url: publicUrlData.publicUrl,
           selected_transcription: vttContent,
-          selected_model: selectedJob.model
+          selected_model: job.model
         } as any)
         .eq('id', sessionIdentifier);
 
@@ -498,7 +503,7 @@ const SessionDetails = () => {
 
       addLog(`Saved transcription to storage: ${fileName}`, "success", {
         source: "SessionDetails",
-        details: `Model: ${getModelDisplayName(selectedJob.model)}, URL: ${publicUrlData.publicUrl}`
+        details: `Model: ${getModelDisplayName(job.model)}, URL: ${publicUrlData.publicUrl}`
       });
 
       toast({
@@ -523,19 +528,6 @@ const SessionDetails = () => {
     }
   };
 
-  const handleSaveSelectedTranscription = () => {
-    if (selectedJob) {
-      const vttContent = extractVttContent(selectedJob);
-      saveSelectedTranscriptionToStorage(vttContent);
-    } else {
-      toast({
-        title: "No transcription selected",
-        description: "Please select a transcription to save",
-        variant: "destructive"
-      });
-    }
-  };
-  
   const handleRefreshJobs = async () => {
     setLoading(true);
     try {
@@ -647,14 +639,6 @@ const SessionDetails = () => {
                         onSelectJob={handleSelectJob}
                         isJobSelectedForComparison={isJobSelectedForComparison}
                       />
-                      
-                      <ExportControls 
-                        selectedJob={selectedJob}
-                        exportFormat={exportFormat}
-                        onExportFormatChange={setExportFormat}
-                        onExport={() => selectedJob && exportTranscription(selectedJob)}
-                        onSave={handleSaveSelectedTranscription}
-                      />
                     </CardContent>
                   </Card>
                 </div>
@@ -667,6 +651,8 @@ const SessionDetails = () => {
                         audioUrl={audioUrl}
                         extractVttContent={extractVttContent}
                         getModelDisplayName={getModelDisplayName}
+                        onExport={exportTranscription}
+                        onSave={saveSelectedTranscriptionToStorage}
                       />
                     ) : (
                       <Card className="shadow-soft border-2 h-full flex items-center justify-center">
@@ -681,6 +667,9 @@ const SessionDetails = () => {
                       extractVttContent={extractVttContent}
                       getModelDisplayName={getModelDisplayName}
                       setViewMode={setViewMode}
+                      onExport={exportTranscription}
+                      onSave={saveSelectedTranscriptionToStorage}
+                      audioUrl={audioUrl}
                     />
                   )}
                 </div>
