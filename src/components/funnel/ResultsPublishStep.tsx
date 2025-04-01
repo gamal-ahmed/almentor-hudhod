@@ -326,7 +326,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     });
   };
 
-  const handleLocalSelectTranscription = async (vtt: string, model: string) => {
+  const handleSelectTranscription = async (vtt: string, model: string) => {
     onSelectTranscription(vtt, model);
   };
 
@@ -484,7 +484,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
             
             <TabsContent value="jobs" className="space-y-3">
               <TranscriptionJobs 
-                onSelectTranscription={handleLocalSelectTranscription}
+                onSelectTranscription={handleSelectTranscription}
                 refreshTrigger={refreshJobsTrigger}
               />
             </TabsContent>
@@ -511,7 +511,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
                       }
                       vttContent={vttContent}
                       prompt={promptUsed}
-                      onSelect={() => vttContent && handleLocalSelectTranscription(vttContent, model)}
+                      onSelect={() => vttContent && handleSelectTranscription(vttContent, model)}
                       isSelected={selectedModel === model}
                       audioSrc={audioUrl || undefined}
                       isLoading={isLoading}
