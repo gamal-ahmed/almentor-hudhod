@@ -87,8 +87,7 @@ async function processYouTubeUrl(url: string): Promise<{ audioUrl: string; filen
     throw new Error("Invalid YouTube URL");
   }
   
-  // Temporary solution: Use a YouTube to MP3 API service
-  // Note: In a production app, you'd want to implement proper YouTube API integration
+  // Use a YouTube to MP3 API service
   const apiUrl = `https://youtube-mp3-download1.p.rapidapi.com/dl?id=${videoId}`;
   
   const response = await fetch(apiUrl, {
@@ -118,10 +117,15 @@ async function processYouTubeUrl(url: string): Promise<{ audioUrl: string; filen
 // Process direct audio URL
 async function processDirectAudioUrl(url: string): Promise<{ audioUrl: string; filename: string }> {
   // Check if URL is accessible
-  const response = await fetch(url, { method: "HEAD" });
-  
-  if (!response.ok) {
-    throw new Error("Could not access the audio URL");
+  try {
+    const response = await fetch(url, { method: "HEAD" });
+    
+    if (!response.ok) {
+      throw new Error("Could not access the audio URL");
+    }
+  } catch (error) {
+    console.error("Error accessing direct audio URL:", error);
+    throw new Error("Failed to access the direct audio URL. Please check if the URL is publicly accessible.");
   }
   
   // Extract filename from URL or use default
@@ -148,10 +152,15 @@ async function processDropboxUrl(url: string): Promise<{ audioUrl: string; filen
   }
   
   // Verify the URL works
-  const response = await fetch(directUrl, { method: "HEAD" });
-  
-  if (!response.ok) {
-    throw new Error("Could not access the Dropbox file");
+  try {
+    const response = await fetch(directUrl, { method: "HEAD" });
+    
+    if (!response.ok) {
+      throw new Error("Could not access the Dropbox file");
+    }
+  } catch (error) {
+    console.error("Error accessing Dropbox URL:", error);
+    throw new Error("Failed to access the Dropbox file. Please check if the file is publicly shared.");
   }
   
   // Extract filename from URL
@@ -177,25 +186,44 @@ async function processGoogleDriveUrl(url: string): Promise<{ audioUrl: string; f
   const fileId = fileIdMatch[1];
   const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
   
-  // For files that might trigger the virus scan warning, we'd need a more complex solution
-  // This basic approach works for smaller files
-  
-  return {
-    audioUrl: directUrl,
-    filename: `drive-${fileId}.mp3`,
-  };
+  // Try to get file metadata to extract the real filename
+  try {
+    // For public files, we can try to get some metadata from the file
+    const response = await fetch(`https://drive.google.com/file/d/${fileId}/view`);
+    const text = await response.text();
+    
+    // Try to extract filename from the HTML response
+    const titleMatch = text.match(/<title>(.*?)<\/title>/);
+    let filename = `drive-${fileId}.mp3`;
+    
+    if (titleMatch && titleMatch[1] && !titleMatch[1].includes("Google Drive")) {
+      filename = titleMatch[1].replace(" - Google Drive", "").trim() + ".mp3";
+    }
+    
+    return {
+      audioUrl: directUrl,
+      filename,
+    };
+  } catch (error) {
+    console.error("Error extracting Google Drive metadata:", error);
+    // Fall back to generic filename if metadata extraction fails
+    return {
+      audioUrl: directUrl,
+      filename: `drive-${fileId}.mp3`,
+    };
+  }
 }
 
 // Process Facebook URL
 async function processFacebookUrl(url: string): Promise<{ audioUrl: string; filename: string }> {
-  // Facebook requires authentication to access content
-  // This is a placeholder implementation
-  throw new Error("Facebook URL processing is not fully implemented. Please download the audio manually and upload it directly.");
+  // Facebook requires authentication to access content and doesn't have a simple API for audio extraction
+  // This would require a more complex solution involving browser automation or a specialized service
+  throw new Error("Facebook URL processing is not fully implemented yet. Please download the audio manually and upload it directly.");
 }
 
 // Process Twitter/X URL
 async function processTwitterUrl(url: string): Promise<{ audioUrl: string; filename: string }> {
-  // Twitter/X requires authentication to access content
-  // This is a placeholder implementation
-  throw new Error("Twitter/X URL processing is not fully implemented. Please download the audio manually and upload it directly.");
+  // Twitter/X requires authentication to access content and doesn't have a simple API for audio extraction
+  // This would require a more complex solution involving browser automation or a specialized service
+  throw new Error("Twitter/X URL processing is not fully implemented yet. Please download the audio manually and upload it directly.");
 }

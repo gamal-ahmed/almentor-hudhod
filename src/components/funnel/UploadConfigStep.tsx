@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { useLogsStore } from '@/lib/useLogsStore';
 import { useNavigate } from 'react-router-dom';
@@ -33,13 +32,12 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
   const [promptText, setPromptText] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [showUrlProcessor, setShowUrlProcessor] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { addLog } = useLogsStore();
   const navigate = useNavigate();
 
   const handleFileUpload = (files: File[] | File) => {
-    // Handle both single file and array of files
     const file = Array.isArray(files) ? files[0] : files;
     if (!file) return;
     
@@ -51,7 +49,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     });
   };
   
-  // Handler for URL-processed audio
   const handleUrlProcessedAudio = (file: File) => {
     console.log("URL-processed audio:", file.name);
     setUploadedFile(file);
@@ -59,7 +56,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
       source: "UrlAudioProcessor",
       details: `Type: ${file.type}, Size: ${Math.round(file.size / 1024)} KB`
     });
-    setShowUrlProcessor(false); // Hide URL processor after successful extraction
+    setShowUrlInput(false);
   };
   
   const toggleAudioPlayback = () => {
@@ -78,9 +75,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     setIsPlaying(false);
   };
 
-  // Updated to accept array of models and use the first one
   const handleModelChange = (models: TranscriptionModel[]) => {
-    // Just take the first selected model if multiple are selected
     if (models.length > 0) {
       setSelectedModel(models[0]);
     }
@@ -105,7 +100,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
         details: `Model: ${selectedModel}, File: ${uploadedFile.name}`
       });
       
-      // Create a transcription job
       const { jobId } = await createTranscriptionJob(
         uploadedFile,
         selectedModel,
@@ -141,8 +135,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
     }
   };
 
-  const toggleUrlProcessor = () => {
-    setShowUrlProcessor(!showUrlProcessor);
+  const toggleUrlInput = () => {
+    setShowUrlInput(!showUrlInput);
   };
 
   return (
@@ -194,14 +188,14 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
               variant="outline" 
               size="sm" 
               className="flex items-center gap-1 h-7"
-              onClick={toggleUrlProcessor}
+              onClick={toggleUrlInput}
             >
               <Link2 className="h-3.5 w-3.5" />
-              {showUrlProcessor ? "Hide URL Option" : "Or Use URL"}
+              {showUrlInput ? "Hide URL Option" : "Or Use URL"}
             </Button>
           </div>
           
-          {showUrlProcessor && (
+          {showUrlInput && (
             <div className="mt-2">
               <UrlAudioProcessor 
                 onAudioProcessed={handleUrlProcessedAudio}
@@ -236,7 +230,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onJobCreated }) => 
                   <Play className="h-4 w-4" />
                 )}
               </Button>
-              {/* Hidden audio element for playback */}
               <audio 
                 ref={audioRef} 
                 src={uploadedFile ? URL.createObjectURL(uploadedFile) : ''} 
