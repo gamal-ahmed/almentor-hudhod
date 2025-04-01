@@ -763,7 +763,7 @@ const SessionDetails = () => {
               {sessionId && sessionId !== 'null' && sessionId !== 'undefined' && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Info className="h-4 w-4" />
-                  <p>Session ID: {sessionId}</p>
+                  <p className="font-mono text-sm">Session ID: {sessionId}</p>
                 </div>
               )}
             </div>
