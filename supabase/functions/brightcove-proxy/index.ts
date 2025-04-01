@@ -23,6 +23,12 @@ serve(async (req) => {
       return await handleBrightcoveAuth(req);
     } else if (path === 'captions') {
       return await handleBrightcoveCaptions(req);
+    } else if (path === 'check-video') {
+      return await handleCheckVideo(req);
+    } else if (path === 'list-captions') {
+      return await handleListCaptions(req);
+    } else if (path === 'delete-caption') {
+      return await handleDeleteCaption(req);
     } else {
       return new Response(JSON.stringify({ error: 'Invalid endpoint' }), {
         status: 400,
@@ -91,6 +97,84 @@ async function handleBrightcoveAuth(req: Request) {
     });
   } catch (error) {
     console.error('Error in Brightcove auth:', error);
+    throw error;
+  }
+}
+
+// Handle checking if a video exists in Brightcove
+async function handleCheckVideo(req: Request) {
+  const { videoId, accountId, accessToken } = await req.json();
+
+  if (!videoId || !accountId || !accessToken) {
+    const missingFields = {
+      videoId: !videoId,
+      accountId: !accountId,
+      accessToken: !accessToken
+    };
+    console.error('Video check request missing required fields:', missingFields);
+    return new Response(JSON.stringify({ error: 'Missing required fields', details: missingFields }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    console.log(`Checking if Brightcove video ${videoId} exists...`);
+    
+    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}`;
+    console.log('Video check request details:', {
+      url: apiUrl,
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    const responseData = await response.text();
+    console.log('Brightcove video check response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: responseData.substring(0, 200) + (responseData.length > 200 ? '...' : '') // Truncate long response
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.error('Brightcove video not found:', videoId);
+        return new Response(JSON.stringify({ error: 'Video not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.error('Brightcove video check error:', response.status, responseData);
+      throw new Error(`Failed to check video: ${response.status} - ${responseData}`);
+    }
+
+    const videoData = JSON.parse(responseData);
+    console.log('Video found:', videoId);
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      video: { 
+        id: videoData.id,
+        name: videoData.name,
+        duration: videoData.duration 
+      } 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error checking Brightcove video:', error);
     throw error;
   }
 }
@@ -173,6 +257,93 @@ async function handleBrightcoveCaptions(req: Request) {
     });
   } catch (error) {
     console.error('Error in Brightcove caption addition:', error);
+    throw error;
+  }
+}
+
+// Handle listing captions for a Brightcove video
+async function handleListCaptions(req: Request) {
+  const { videoId, accountId, accessToken } = await req.json();
+
+  if (!videoId || !accountId || !accessToken) {
+    console.error('List captions request missing required fields');
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    console.log(`Listing captions for Brightcove video ${videoId}...`);
+    
+    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/text_tracks`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    const responseData = await response.text();
+    
+    if (!response.ok) {
+      console.error('Brightcove list captions error:', response.status, responseData);
+      throw new Error(`Failed to list captions: ${response.status} - ${responseData}`);
+    }
+
+    const data = JSON.parse(responseData);
+    console.log(`Found ${data.length} captions for video ${videoId}`);
+    
+    return new Response(JSON.stringify({ text_tracks: data }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error listing Brightcove captions:', error);
+    throw error;
+  }
+}
+
+// Handle deleting a caption from a Brightcove video
+async function handleDeleteCaption(req: Request) {
+  const { videoId, captionId, accountId, accessToken } = await req.json();
+
+  if (!videoId || !captionId || !accountId || !accessToken) {
+    console.error('Delete caption request missing required fields');
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    console.log(`Deleting caption ${captionId} from Brightcove video ${videoId}...`);
+    
+    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/text_tracks/${captionId}`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    // DELETE operations usually return no content on success
+    if (!response.ok) {
+      const responseData = await response.text();
+      console.error('Brightcove delete caption error:', response.status, responseData);
+      throw new Error(`Failed to delete caption: ${response.status} - ${responseData}`);
+    }
+
+    console.log(`Successfully deleted caption ${captionId} from video ${videoId}`);
+    
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error deleting Brightcove caption:', error);
     throw error;
   }
 }

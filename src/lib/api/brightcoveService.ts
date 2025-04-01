@@ -48,8 +48,14 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to get Brightcove token: ${response.statusText} - ${errorText}`);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        errorText = 'Unable to get error details';
+      }
+      
+      throw new Error(`Failed to get Brightcove token: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
@@ -70,6 +76,36 @@ export async function addCaptionToBrightcove(
   accessToken: string
 ) {
   try {
+    // Validate inputs
+    if (!videoId || !vttContent || !accountId || !accessToken) {
+      throw new Error('Missing required parameters for adding caption');
+    }
+    
+    // First, check if the video exists to provide better error messages
+    const checkResponse = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/check-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        videoId,
+        accountId,
+        accessToken
+      }),
+    });
+    
+    if (!checkResponse.ok) {
+      if (checkResponse.status === 404) {
+        throw new Error(`Video ID ${videoId} not found in Brightcove. Please check the ID and try again.`);
+      }
+      
+      const errorText = await checkResponse.text();
+      throw new Error(`Error checking video: ${checkResponse.status} - ${errorText}`);
+    }
+    
+    // Once we know the video exists, add the caption
     const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/captions`, {
       method: 'POST',
       headers: {
@@ -89,12 +125,89 @@ export async function addCaptionToBrightcove(
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to add caption: ${response.statusText} - ${errorText}`);
+      
+      // Handle different error cases
+      if (response.status === 409) {
+        throw new Error('A caption track with this language already exists. Please delete it first or choose a different language.');
+      } else if (response.status === 413) {
+        throw new Error('The caption file is too large. Please reduce the size and try again.');
+      } else {
+        throw new Error(`Failed to add caption: ${response.status} - ${errorText}`);
+      }
     }
     
     return true;
   } catch (error) {
     console.error('Error adding caption to Brightcove:', error);
+    throw error;
+  }
+}
+
+// Delete caption from Brightcove video
+export async function deleteCaptionFromBrightcove(
+  videoId: string,
+  captionId: string,
+  accountId: string,
+  accessToken: string
+) {
+  try {
+    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/delete-caption`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        videoId,
+        captionId,
+        accountId,
+        accessToken
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to delete caption: ${response.status} - ${errorText}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting caption from Brightcove:', error);
+    throw error;
+  }
+}
+
+// List captions for a video
+export async function listCaptionsForBrightcoveVideo(
+  videoId: string,
+  accountId: string,
+  accessToken: string
+) {
+  try {
+    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/list-captions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        videoId,
+        accountId,
+        accessToken
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to list captions: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return data.text_tracks || [];
+  } catch (error) {
+    console.error('Error listing captions for Brightcove video:', error);
     throw error;
   }
 }
