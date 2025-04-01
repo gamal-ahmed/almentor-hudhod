@@ -172,17 +172,37 @@ export async function getSessionTranscriptionJobs(sessionId: string) {
     
     if (isTimestamp) {
       console.log(`Session ID appears to be a timestamp: ${sessionId}`);
-      // Parse the timestamp and find jobs within a window
+      
+      // URL decode the timestamp if needed
+      const decodedTimestamp = decodeURIComponent(sessionId);
+      console.log(`Decoded timestamp: ${decodedTimestamp}`);
+      
       try {
-        const timestampDate = parseISO(sessionId);
-        const startTime = new Date(timestampDate.getTime() - 120000); // 2 minutes before
-        const endTime = new Date(timestampDate.getTime() + 120000);   // 2 minutes after
+        const timestampDate = new Date(decodedTimestamp);
+        
+        // Use a wider time window to find jobs (10 minutes before and after)
+        const TIME_WINDOW = 10 * 60 * 1000; // 10 minutes in milliseconds
+        const startTime = new Date(timestampDate.getTime() - TIME_WINDOW);
+        const endTime = new Date(timestampDate.getTime() + TIME_WINDOW);
         
         console.log(`Searching for jobs between ${startTime.toISOString()} and ${endTime.toISOString()}`);
         
-        // Query transcriptions within the time window
-        const { data, error } = await supabase
+        // Try direct database query first
+        const { data: directJobs, error: directError } = await supabase
           .from('transcriptions')
+          .select('*')
+          .gte('created_at', startTime.toISOString())
+          .lte('created_at', endTime.toISOString())
+          .order('created_at', { ascending: false });
+          
+        if (!directError && directJobs && directJobs.length > 0) {
+          console.log(`Found ${directJobs.length} jobs directly from database`);
+          return directJobs;
+        }
+          
+        // Fallback to view if direct query fails or returns no results
+        const { data, error } = await supabase
+          .from('transcription_jobs')
           .select('*')
           .gte('created_at', startTime.toISOString())
           .lte('created_at', endTime.toISOString())
@@ -193,15 +213,46 @@ export async function getSessionTranscriptionJobs(sessionId: string) {
         }
         
         console.log(`Found ${data?.length || 0} jobs within timestamp window`);
+        
+        if (!data || data.length === 0) {
+          // If no jobs found within the window, get recent jobs as a fallback
+          const { data: recentJobs, error: recentError } = await supabase
+            .from('transcription_jobs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10);
+            
+          if (recentError) {
+            throw new Error(`Failed to fetch recent jobs: ${recentError.message}`);
+          }
+          
+          console.log(`Returning ${recentJobs?.length || 0} recent jobs as fallback`);
+          return recentJobs || [];
+        }
+        
         return data || [];
       } catch (parseError) {
-        console.error(`Error parsing timestamp ${sessionId}:`, parseError);
+        console.error(`Error processing timestamp ${sessionId}:`, parseError);
         throw new Error(`Invalid timestamp format: ${parseError.message}`);
       }
     } else {
-      // Query the transcriptions table directly with session_id filter
-      const { data, error } = await supabase
+      // For UUID-based sessions, use the normal query
+      
+      // Try direct query first
+      const { data: directJobs, error: directError } = await supabase
         .from('transcriptions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false });
+        
+      if (!directError && directJobs && directJobs.length > 0) {
+        console.log(`Found ${directJobs.length} jobs directly from database for session ${sessionId}`);
+        return directJobs;
+      }
+      
+      // Fallback to view
+      const { data, error } = await supabase
+        .from('transcription_jobs')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false });

@@ -101,11 +101,13 @@ const SessionDetails = () => {
   const [videoId, setVideoId] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   useEffect(() => {
     const fetchSessionJobs = async () => {
       try {
         setLoading(true);
+        setFetchError(null);
         
         const identifier = sessionId || sessionTimestamp;
         
@@ -115,45 +117,105 @@ const SessionDetails = () => {
             description: "Could not load session details: No session ID or timestamp provided",
             variant: "destructive",
           });
+          setFetchError("No session identifier provided");
+          setLoading(false);
           return;
         }
         
         console.log(`Using session identifier: ${identifier}`);
         
         let matchingJobs: TranscriptionJob[] = [];
+        let isTimestamp = false;
         
+        // Check if the identifier looks like a timestamp
         if (identifier.includes('T') && identifier.includes('Z')) {
+          isTimestamp = true;
           console.log("Identifier appears to be a timestamp");
           
+          // Make sure to decode URL-encoded timestamp
           const decodedTimestamp = decodeURIComponent(identifier);
           console.log(`Decoded timestamp: ${decodedTimestamp}`);
           
           try {
+            // We'll use a wider time window (10 minutes) to find jobs
+            const TIME_WINDOW = 10 * 60 * 1000; // 10 minutes in milliseconds
             const timestampDate = new Date(decodedTimestamp);
             
-            const allJobs = await getUserTranscriptionJobs();
-            console.log(`Retrieved ${allJobs.length} total jobs`);
-            
-            const TIME_WINDOW = 5 * 60 * 1000;
-            matchingJobs = allJobs
-              .filter((apiJob: TranscriptionJobFromAPI) => {
-                try {
-                  const jobCreatedAt = new Date(apiJob.created_at);
-                  const diffMs = Math.abs(jobCreatedAt.getTime() - timestampDate.getTime());
-                  return diffMs <= TIME_WINDOW;
-                } catch (err) {
-                  console.error("Error comparing dates:", err);
-                  return false;
+            // Fetch jobs via API with throttling protection
+            const fetchJobsWithRetry = async (retries = 3) => {
+              try {
+                // Try direct database query first if possible
+                const { data: directJobs, error: directError } = await supabase
+                  .from('transcriptions')
+                  .select('*')
+                  .gte('created_at', new Date(timestampDate.getTime() - TIME_WINDOW).toISOString())
+                  .lte('created_at', new Date(timestampDate.getTime() + TIME_WINDOW).toISOString())
+                  .order('created_at', { ascending: false });
+                
+                if (!directError && directJobs && directJobs.length > 0) {
+                  console.log(`Found ${directJobs.length} jobs directly from database`);
+                  return directJobs.map(convertToTranscriptionJob);
                 }
-              })
-              .map(convertToTranscriptionJob);
-              
-            console.log(`Found ${matchingJobs.length} jobs within the time window`);
+                
+                // Fallback to API
+                const allJobs = await getUserTranscriptionJobs();
+                console.log(`Retrieved ${allJobs.length} total jobs`);
+                
+                // Filter jobs by created_at timestamp within the window
+                const timeFilteredJobs = allJobs
+                  .filter((apiJob: TranscriptionJobFromAPI) => {
+                    try {
+                      const jobCreatedAt = new Date(apiJob.created_at);
+                      const diffMs = Math.abs(jobCreatedAt.getTime() - timestampDate.getTime());
+                      return diffMs <= TIME_WINDOW;
+                    } catch (err) {
+                      console.error("Error comparing dates:", err);
+                      return false;
+                    }
+                  })
+                  .map(convertToTranscriptionJob);
+                  
+                console.log(`Found ${timeFilteredJobs.length} jobs within the time window`);
+                return timeFilteredJobs;
+              } catch (err) {
+                if (retries > 0) {
+                  console.log(`Retrying job fetch, ${retries} attempts left`);
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  return fetchJobsWithRetry(retries - 1);
+                }
+                throw err;
+              }
+            };
+            
+            matchingJobs = await fetchJobsWithRetry();
+            
+            if (matchingJobs.length === 0) {
+              // Last resort: get most recent jobs
+              const { data: recentJobs } = await supabase
+                .from('transcriptions')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(10);
+                
+              if (recentJobs && recentJobs.length > 0) {
+                console.log(`Found ${recentJobs.length} recent jobs as fallback`);
+                matchingJobs = recentJobs.map(convertToTranscriptionJob);
+              }
+            }
+            
           } catch (err) {
             console.error(`Error parsing timestamp ${decodedTimestamp}:`, err);
+            setFetchError(`Error processing timestamp: ${err.message}`);
             
-            const allJobs = await getUserTranscriptionJobs();
-            matchingJobs = allJobs.slice(0, 10).map(convertToTranscriptionJob);
+            // Fallback: get some recent jobs as a last resort
+            try {
+              const allJobs = await getUserTranscriptionJobs();
+              matchingJobs = allJobs.slice(0, 10).map(convertToTranscriptionJob);
+              console.log(`Using ${matchingJobs.length} recent jobs as fallback`);
+            } catch (fallbackErr) {
+              console.error("Fallback fetch also failed:", fallbackErr);
+              setFetchError(`Failed to fetch jobs: ${fallbackErr.message}`);
+            }
           }
         } else {
           console.log("Identifier appears to be a UUID");
@@ -164,12 +226,31 @@ const SessionDetails = () => {
             console.log(`Found ${matchingJobs.length} jobs with session ID: ${identifier}`);
           } catch (error) {
             console.error(`Error fetching jobs for session ${identifier}:`, error);
+            setFetchError(`Error fetching session jobs: ${error.message}`);
             
-            const allJobs = await getUserTranscriptionJobs();
-            matchingJobs = allJobs
-              .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === identifier)
-              .map(convertToTranscriptionJob);
-            console.log(`Found ${matchingJobs.length} jobs using fallback method`);
+            // Fallback: try direct query
+            try {
+              const { data: directJobs, error: directError } = await supabase
+                .from('transcriptions')
+                .select('*')
+                .eq('session_id', identifier)
+                .order('created_at', { ascending: false });
+                
+              if (!directError && directJobs && directJobs.length > 0) {
+                matchingJobs = directJobs.map(convertToTranscriptionJob);
+                console.log(`Found ${matchingJobs.length} jobs with direct query`);
+              } else {
+                // Second fallback: try regular API
+                const allJobs = await getUserTranscriptionJobs();
+                matchingJobs = allJobs
+                  .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === identifier)
+                  .map(convertToTranscriptionJob);
+                console.log(`Found ${matchingJobs.length} jobs using fallback method`);
+              }
+            } catch (fallbackErr) {
+              console.error("Fallback fetch also failed:", fallbackErr);
+              // Keep the original error message
+            }
           }
         }
         
@@ -184,18 +265,19 @@ const SessionDetails = () => {
           setSelectedJob(matchingJobs[0]);
         }
         
-        if (sessionId && !sessionId.includes('T')) {
+        // Load audio URL if it's a UUID session
+        if (identifier && !isTimestamp) {
           try {
             const { data: sessionData } = await supabase
               .from('transcription_sessions')
               .select('audio_file_name')
-              .eq('id', sessionId)
+              .eq('id', identifier)
               .single();
               
             if (sessionData?.audio_file_name) {
               const { data } = await supabase.storage
                 .from('transcriptions')
-                .createSignedUrl(`sessions/${sessionId}/${sessionData.audio_file_name}`, 3600);
+                .createSignedUrl(`sessions/${identifier}/${sessionData.audio_file_name}`, 3600);
                 
               if (data) {
                 setAudioUrl(data.signedUrl);
@@ -203,10 +285,12 @@ const SessionDetails = () => {
             }
           } catch (error) {
             console.error("Error fetching audio URL:", error);
+            // Don't set fetch error - audio is optional
           }
         }
       } catch (error) {
         console.error("Error fetching session jobs:", error);
+        setFetchError(`Failed to load session data: ${error.message}`);
         toast({
           title: "Error loading session",
           description: error instanceof Error ? error.message : "Unknown error occurred",
@@ -219,6 +303,7 @@ const SessionDetails = () => {
     
     fetchSessionJobs();
   }, [sessionId, sessionTimestamp, toast]);
+  
   
   const getModelDisplayName = (model: string) => {
     switch (model) {
@@ -569,6 +654,22 @@ const SessionDetails = () => {
         throw new Error("No session identifier available");
       }
 
+      // For timestamp sessions, we'll just store in storage without DB update
+      if (sessionIdentifier.includes('T') && sessionIdentifier.includes('Z')) {
+        addLog(`Saved transcription to storage (without session update): ${fileName}`, "success", {
+          source: "SessionDetails",
+          details: `Model: ${getModelDisplayName(selectedJob.model)}, URL: ${publicUrlData.publicUrl}`
+        });
+        
+        toast({
+          title: "Transcription Saved",
+          description: "The selected transcription has been saved to storage (without session update).",
+          variant: "default"
+        });
+        return;
+      }
+
+      // For UUID sessions, update the session record
       const { error: sessionUpdateError } = await supabase
         .from('transcription_sessions')
         .update({ 
@@ -619,6 +720,77 @@ const SessionDetails = () => {
       });
     }
   };
+  
+  // Refresh jobs manually
+  const handleRefreshJobs = async () => {
+    setLoading(true);
+    try {
+      const identifier = sessionId || sessionTimestamp;
+      if (!identifier) return;
+      
+      if (identifier.includes('T') && identifier.includes('Z')) {
+        const decodedTimestamp = decodeURIComponent(identifier);
+        const timestampDate = new Date(decodedTimestamp);
+        
+        // Use a wider time window (15 minutes)
+        const TIME_WINDOW = 15 * 60 * 1000; 
+        
+        const { data: directJobs, error: directError } = await supabase
+          .from('transcriptions')
+          .select('*')
+          .gte('created_at', new Date(timestampDate.getTime() - TIME_WINDOW).toISOString())
+          .lte('created_at', new Date(timestampDate.getTime() + TIME_WINDOW).toISOString())
+          .order('created_at', { ascending: false });
+          
+        if (!directError && directJobs && directJobs.length > 0) {
+          setSessionJobs(directJobs.map(convertToTranscriptionJob));
+          console.log(`Refreshed and found ${directJobs.length} jobs`);
+          
+          const completedJobs = directJobs
+            .filter(job => job.status === 'completed')
+            .map(convertToTranscriptionJob);
+            
+          if (completedJobs.length > 0 && !selectedJob) {
+            setSelectedJob(completedJobs[0]);
+          }
+          
+          toast({
+            title: "Jobs Refreshed",
+            description: `Found ${directJobs.length} jobs for this session`,
+          });
+        } else {
+          toast({
+            title: "No New Jobs Found",
+            description: "Couldn't find any additional jobs for this session",
+          });
+        }
+      } else {
+        // UUID-based session
+        const refreshedJobs = await getSessionTranscriptionJobs(identifier);
+        if (refreshedJobs.length > 0) {
+          setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
+          toast({
+            title: "Jobs Refreshed",
+            description: `Found ${refreshedJobs.length} jobs for this session`,
+          });
+        } else {
+          toast({
+            title: "No New Jobs Found",
+            description: "Couldn't find any additional jobs for this session",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing jobs:", error);
+      toast({
+        title: "Refresh Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -640,6 +812,21 @@ const SessionDetails = () => {
               </Button>
               
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleRefreshJobs}
+                  className="flex items-center gap-1.5 shadow-soft hover-lift"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Refresh Jobs
+                </Button>
+                
                 <Button
                   variant={comparisonMode ? "default" : "outline"}
                   size="sm"
@@ -694,7 +881,7 @@ const SessionDetails = () => {
                         <div className="space-y-2">
                           <Label className="font-medium">Selected Transcription</Label>
                           <div className="p-3 bg-muted rounded-md text-sm border">
-                            <span className="font-medium">{getModelDisplayName(selectedJob.model)}</span>
+                            <span className="font-medium">{selectedJob && getModelDisplayName(selectedJob.model)}</span>
                           </div>
                         </div>
                       </div>
@@ -741,277 +928,4 @@ const SessionDetails = () => {
               )}
               {sessionId && !sessionTimestamp && (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <p>
-                    Session ID: {sessionId}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {loading ? (
-            <div className="flex flex-col items-center justify-center p-12 mt-8 border rounded-lg shadow-soft bg-card">
-              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-              <p className="text-muted-foreground">Loading session details...</p>
-            </div>
-          ) : sessionJobs.length === 0 ? (
-            <Card className="p-8 text-center shadow-soft border-2 animate-fade-in mt-8">
-              <CardContent className="flex flex-col items-center justify-center pt-6">
-                <div className="w-16 h-16 rounded-full bg-muted/80 flex items-center justify-center mb-4">
-                  <FileText className="h-8 w-8 text-muted-foreground/50" />
-                </div>
-                <h2 className="text-xl font-semibold mb-2">No Jobs Found</h2>
-                <p className="text-muted-foreground mb-4">
-                  We couldn't find any transcription jobs for this session.
-                </p>
-                <Button asChild className="shadow-soft hover-lift">
-                  <Link to="/app">Return to Dashboard</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {comparisonMode && jobsToCompare.length > 0 && (
-                <div className="mb-6 p-4 bg-primary/5 rounded-lg border border-primary/20 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium flex items-center">
-                        <Info className="mr-2 h-4 w-4 text-primary" />
-                        Selected for comparison: {jobsToCompare.length}
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {jobsToCompare.map(job => (
-                          <Badge key={job.id} variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                            {getModelDisplayName(job.model)}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      variant="default" 
-                      onClick={startComparison}
-                      disabled={jobsToCompare.length < 2}
-                      className="flex items-center gap-1.5 shadow-soft hover-lift"
-                    >
-                      <Columns className="h-4 w-4" />
-                      Compare Side by Side
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {viewMode === 'compare' ? (
-                <div className="grid gap-6 auto-cols-fr animate-scale-in">
-                  <div className={`grid grid-cols-1 ${
-                    jobsToCompare.length === 2 ? 'md:grid-cols-2' : 
-                    jobsToCompare.length === 3 ? 'md:grid-cols-3' : 
-                    jobsToCompare.length >= 4 ? 'md:grid-cols-2 lg:grid-cols-3' : ''
-                  } gap-6`}>
-                    {jobsToCompare.map((job) => (
-                      <Card key={job.id} className="h-full shadow-soft border-2 hover:shadow-md transition-shadow duration-300">
-                        <CardHeader className="bg-gradient-to-r from-accent/5 to-primary/5 border-b">
-                          <CardTitle className="text-xl flex items-center gap-2">
-                            <Badge className="bg-accent text-accent-foreground">
-                              {getModelDisplayName(job.model)}
-                            </Badge>
-                          </CardTitle>
-                          <CardDescription>
-                            Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                          <ScrollArea className="h-[500px] p-4">
-                            <TranscriptionCard
-                              modelName={getModelDisplayName(job.model)}
-                              vttContent={extractVttContent(job)}
-                              prompt={job.result?.prompt || ""}
-                              onSelect={() => {}}
-                              isSelected={true}
-                              audioSrc={audioUrl || undefined}
-                              isLoading={false}
-                            />
-                          </ScrollArea>
-                        </CardContent>
-                        <CardFooter className="border-t p-3 flex justify-end gap-2 bg-muted/30">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="gap-1.5"
-                            onClick={() => exportTranscription(job)}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            Export
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                  <div className="flex justify-center mt-2">
-                    <Button 
-                      variant="outline" 
-                      className="gap-1.5 shadow-soft hover-lift"
-                      onClick={() => setViewMode('single')}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Return to Single View
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-fade-in">
-                  <Card className="md:col-span-5 shadow-soft">
-                    <CardHeader className="bg-gradient-to-r from-background to-secondary/30">
-                      <CardTitle className="flex items-center gap-2">
-                        <RefreshCw className="h-5 w-5 text-primary" />
-                        Transcription Jobs
-                      </CardTitle>
-                      <CardDescription>
-                        {sessionJobs.length} jobs in this session
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Model</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sessionJobs.map((job) => (
-                            <TableRow 
-                              key={job.id}
-                              className={`
-                                ${job.id === selectedJob?.id ? "bg-primary/5" : ""}
-                                ${isJobSelectedForComparison(job.id) ? "bg-accent/10" : ""}
-                                highlight-on-hover
-                              `}
-                              onClick={() => handleSelectJob(job)}
-                              style={{ cursor: job.status === 'completed' ? 'pointer' : 'default' }}
-                            >
-                              <TableCell className="font-medium">{getModelDisplayName(job.model)}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1.5">
-                                  {getStatusIcon(job.status)}
-                                  <span className={getStatusColor(job.status)}>
-                                    {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {job.status === 'completed' ? (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSelectJob(job);
-                                    }}
-                                    className="hover:bg-primary/10"
-                                  >
-                                    {comparisonMode ? (
-                                      isJobSelectedForComparison(job.id) ? "Deselect" : "Select"
-                                    ) : (
-                                      "View"
-                                    )}
-                                  </Button>
-                                ) : (
-                                  <div className="w-16">
-                                    <Progress value={getProgressValue(job.status)} className="h-1.5" />
-                                  </div>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="md:col-span-7 shadow-soft border-2">
-                    <CardHeader className="bg-gradient-to-r from-background to-muted/50 border-b">
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        Transcription Result
-                      </CardTitle>
-                      <CardDescription>
-                        {selectedJob 
-                          ? `${getModelDisplayName(selectedJob.model)} transcription` 
-                          : "Select a completed job to view details"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                      {selectedJob ? (
-                        <div className="animate-fade-in">
-                          <TranscriptionCard
-                            modelName={getModelDisplayName(selectedJob.model)}
-                            vttContent={extractVttContent(selectedJob)}
-                            prompt={selectedJob.result?.prompt || ""}
-                            onSelect={() => {}}
-                            isSelected={true}
-                            audioSrc={audioUrl || undefined}
-                            isLoading={false}
-                          />
-                        </div>
-                      ) : (
-                        <div className="p-12 text-center border rounded-md border-dashed animate-pulse-opacity">
-                          <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
-                          <p className="text-muted-foreground">
-                            Select a completed transcription job from the list to view its details.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                    {selectedJob && (
-                      <CardFooter className="border-t p-4 flex justify-between gap-4 bg-muted/20">
-                        <div className="flex gap-2">
-                          <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as ExportFormat)}>
-                            <SelectTrigger className="w-[120px]">
-                              <SelectValue placeholder="Format" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="vtt">VTT</SelectItem>
-                              <SelectItem value="srt">SRT</SelectItem>
-                              <SelectItem value="text">Text</SelectItem>
-                              <SelectItem value="json">JSON</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button 
-                            variant="outline" 
-                            className="gap-1.5"
-                            onClick={() => exportTranscription(selectedJob)}
-                          >
-                            <Download className="h-4 w-4" />
-                            Export
-                          </Button>
-                        </div>
-                        <Button 
-                          variant="default" 
-                          className="gap-1.5 bg-primary"
-                          onClick={handleSaveSelectedTranscription}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          Save as Selected Transcription
-                        </Button>
-                      </CardFooter>
-                    )}
-                  </Card>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </>
-  );
-};
-
-export default SessionDetails;
+                  <Calendar className="
