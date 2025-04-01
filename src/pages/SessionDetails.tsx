@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getSessionTranscriptionJobs } from "@/lib/api";
@@ -139,14 +140,15 @@ const SessionDetails = () => {
             
             const fetchJobsWithRetry = async (retries = 3) => {
               try {
-                const directJobs = await supabase
+                // Fix for PostgrestSingleResponse error - properly check data property
+                const { data: directJobs, error: directError } = await supabase
                   .from('transcriptions')
                   .select('*')
                   .gte('created_at', new Date(timestampDate.getTime() - TIME_WINDOW).toISOString())
                   .lte('created_at', new Date(timestampDate.getTime() + TIME_WINDOW).toISOString())
                   .order('created_at', { ascending: false });
                 
-                if (directJobs && directJobs.length > 0) {
+                if (!directError && directJobs && directJobs.length > 0) {
                   console.log(`Found ${directJobs.length} jobs directly from database`);
                   return directJobs.map(convertToTranscriptionJob);
                 }
@@ -182,13 +184,14 @@ const SessionDetails = () => {
             matchingJobs = await fetchJobsWithRetry();
             
             if (matchingJobs.length === 0) {
-              const { data: recentJobs } = await supabase
+              // Fix for PostgrestSingleResponse error - properly check data property
+              const { data: recentJobs, error: recentError } = await supabase
                 .from('transcriptions')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(10);
                 
-              if (recentJobs && recentJobs.length > 0) {
+              if (!recentError && recentJobs && recentJobs.length > 0) {
                 console.log(`Found ${recentJobs.length} recent jobs as fallback`);
                 matchingJobs = recentJobs.map(convertToTranscriptionJob);
               }
@@ -219,6 +222,7 @@ const SessionDetails = () => {
             setFetchError(`Error fetching session jobs: ${error.message}`);
             
             try {
+              // Fix for PostgrestSingleResponse error - properly check data property
               const { data: directJobs, error: directError } = await supabase
                 .from('transcriptions')
                 .select('*')
@@ -254,18 +258,18 @@ const SessionDetails = () => {
         
         if (identifier && !isTimestamp) {
           try {
-            const { data: sessionData } = await supabase
+            const { data: sessionData, error: sessionError } = await supabase
               .from('transcription_sessions')
               .select('audio_file_name')
               .eq('id', identifier)
               .single();
               
-            if (sessionData?.audio_file_name) {
-              const { data } = await supabase.storage
+            if (!sessionError && sessionData?.audio_file_name) {
+              const { data, error } = await supabase.storage
                 .from('transcriptions')
                 .createSignedUrl(`sessions/${identifier}/${sessionData.audio_file_name}`, 3600);
                 
-              if (data) {
+              if (!error && data) {
                 setAudioUrl(data.signedUrl);
               }
             }
@@ -714,8 +718,10 @@ const SessionDetails = () => {
         const decodedTimestamp = decodeURIComponent(identifier);
         const timestampDate = new Date(decodedTimestamp);
         
+        // Use a wider time window (15 minutes)
         const TIME_WINDOW = 15 * 60 * 1000; 
         
+        // Fix for PostgrestSingleResponse error - properly check data property
         const { data: directJobs, error: directError } = await supabase
           .from('transcriptions')
           .select('*')
@@ -746,6 +752,7 @@ const SessionDetails = () => {
           });
         }
       } else {
+        // UUID-based session
         const refreshedJobs = await getSessionTranscriptionJobs(identifier);
         if (refreshedJobs.length > 0) {
           setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
@@ -1123,7 +1130,6 @@ const SessionDetails = () => {
                                 <TranscriptionCard 
                                   modelName={getModelDisplayName(selectedJob.model)}
                                   vttContent={extractVttContent(selectedJob)}
-                                  className="border shadow-none"
                                   isSelected={true}
                                   onSelect={() => {}}
                                 />
@@ -1187,10 +1193,9 @@ const SessionDetails = () => {
                               <TranscriptionCard 
                                 modelName={getModelDisplayName(job.model)}
                                 vttContent={extractVttContent(job)}
-                                className="border shadow-none h-[400px]"
-                                showPagination={false}
                                 isSelected={true}
                                 onSelect={() => {}}
+                                showPagination={false}
                               />
                             </div>
                           ))}
