@@ -7,6 +7,7 @@ import {
   getUserTranscriptionJobs, 
   resetStuckJobs,
   saveTranscriptionToVTT,
+  saveSelectedTranscription,
   getSessionTranscriptionJobs
 } from "./transcriptionService";
 import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
@@ -27,5 +28,6 @@ export {
   fetchSharePointFiles,
   downloadSharePointFile,
   saveTranscriptionToVTT,
+  saveSelectedTranscription,
   getSessionTranscriptionJobs
 };

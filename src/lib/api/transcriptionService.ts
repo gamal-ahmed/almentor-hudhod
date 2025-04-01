@@ -10,13 +10,20 @@ export {
 
 export { 
   checkTranscriptionJobStatus,
-  getUserTranscriptionJobs,
-  getSessionTranscriptionJobs,
+  getUserTranscriptionJobs
+} from "./services/transcription/jobStatus";
+
+export {
+  getSessionTranscriptionJobs
+} from "./services/transcription/sessionJobs";
+
+export {
   resetStuckJobs
-} from "./services/jobStatusService";
+} from "./services/transcription/jobMaintenance";
 
 export { 
-  saveTranscriptionToVTT 
+  saveTranscriptionToVTT,
+  saveSelectedTranscription
 } from "./services/storageService";
 
 // Also provide the baseService for direct use if needed
