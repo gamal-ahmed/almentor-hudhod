@@ -150,21 +150,25 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
       }
       
       // Fallback to view
-      // Use explicit type annotation to help TypeScript resolve the type
-      type TranscriptionData = any[];
-      const { data, error }: { data: TranscriptionData | null, error: any } = await baseService.supabase
+      // Simplify the type structure to avoid deep instantiation issues
+      interface SupabaseQueryResponse {
+        data: any[] | null;
+        error: any;
+      }
+      
+      const result: SupabaseQueryResponse = await baseService.supabase
         .from('transcription_jobs')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false });
       
-      if (error) {
-        console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
-        throw new Error(`Failed to fetch session jobs: ${error.message}`);
+      if (result.error) {
+        console.error(`Error fetching transcription jobs for session ${sessionId}:`, result.error);
+        throw new Error(`Failed to fetch session jobs: ${result.error.message}`);
       }
       
-      console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
-      return (data || []).map(mapToTranscriptionJob);
+      console.log(`Found ${result.data?.length || 0} jobs for session ${sessionId}`);
+      return (result.data || []).map(mapToTranscriptionJob);
     }
   } catch (error) {
     console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
