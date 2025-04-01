@@ -31,7 +31,7 @@ interface TranscriptionJobListProps {
   jobsToCompare: TranscriptionJob[];
   onSelectJob: (job: TranscriptionJob) => void;
   isJobSelectedForComparison: (jobId: string) => boolean;
-  selectedModelId?: string;
+  selectedModelId?: string | null;
   onMarkAsSelected?: (job: TranscriptionJob) => void;
 }
 

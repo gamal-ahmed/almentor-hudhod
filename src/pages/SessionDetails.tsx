@@ -19,6 +19,7 @@ import TranscriptionJobList from "@/components/session/TranscriptionJobList";
 import ComparisonModeHeader from "@/components/session/ComparisonModeHeader";
 import ComparisonView from "@/components/session/ComparisonView";
 import SingleJobView from "@/components/session/SingleJobView";
+import PublishDialog from "@/components/session/PublishDialog";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
 import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
 import { saveSelectedTranscription } from "@/lib/api/transcriptionService";
@@ -131,7 +132,7 @@ const SessionDetails = () => {
             
             const { data: sessionData, error: sessionDataError } = await supabase
               .from('transcription_sessions')
-              .select('selected_model_id')
+              .select('selected_model, selected_model_id')
               .eq('id', identifier)
               .single();
               
@@ -410,7 +411,72 @@ const SessionDetails = () => {
     });
   };
 
-  const publishToBrightcove = async (videoId: string) => {
+  const handleMarkAsSelected = async (job: TranscriptionJob) => {
+    if (!job) return;
+    
+    try {
+      const identifier = loadedSessionId || sessionId;
+      
+      if (!identifier) {
+        throw new Error("Missing session identifier");
+      }
+      
+      if (selectedModelId === job.id) {
+        const { error } = await supabase
+          .from('transcription_sessions')
+          .update({ 
+            selected_model_id: null,
+            selected_model: null 
+          })
+          .eq('id', identifier);
+          
+        if (error) throw error;
+        
+        setSelectedModelId(null);
+        
+        toast({
+          title: "Selection Removed",
+          description: `${getModelDisplayName(job.model)} is no longer selected`,
+        });
+        
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('transcription_sessions')
+        .update({ 
+          selected_model_id: job.id,
+          selected_model: job.model 
+        })
+        .eq('id', identifier);
+        
+      if (error) throw error;
+      
+      setSelectedModelId(job.id);
+      
+      setSelectedJob(job);
+      
+      toast({
+        title: "Model Selected",
+        description: `${getModelDisplayName(job.model)} selected as the winning transcription`,
+      });
+      
+      addLog(`Selected ${getModelDisplayName(job.model)} as the winning transcription`, "info", {
+        source: "SessionDetails",
+        details: `Session: ${identifier}, Job ID: ${job.id}`
+      });
+    } catch (error) {
+      console.error("Error selecting model:", error);
+      
+      toast({
+        title: "Selection Failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const publishToBrightcove = async () => {
     const jobToPublish = selectedModelId
       ? sessionJobs.find(job => job.id === selectedModelId) || selectedJob
       : selectedJob;
