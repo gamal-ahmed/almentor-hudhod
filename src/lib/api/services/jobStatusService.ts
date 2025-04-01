@@ -135,10 +135,10 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
           }
           
           console.log(`Returning ${recentJobs?.length || 0} recent jobs as fallback`);
-          return (recentJobs || []).map(mapToTranscriptionJob);
+          return (recentJobs || []).map(job => mapToTranscriptionJob(job as TranscriptionRecord));
         }
         
-        return (data || []).map(mapToTranscriptionJob);
+        return (data || []).map(job => mapToTranscriptionJob(job as TranscriptionRecord));
       } catch (parseError) {
         console.error(`Error processing timestamp ${sessionId}:`, parseError);
         throw new Error(`Invalid timestamp format: ${parseError.message}`);
@@ -158,7 +158,7 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
         
       if (!directError && directJobs && directJobs.length > 0) {
         console.log(`Found ${directJobs.length} jobs directly from database for session ${sessionId}`);
-        return directJobs.map(mapToTranscriptionJob);
+        return directJobs.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
       }
       
       // Fallback to view
@@ -168,7 +168,9 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false });
       
-      const data = viewQueryResult.data;
+      // Use type casting to avoid deep instantiation issues
+      type SimpleDataType = any[];
+      const data = viewQueryResult.data as SimpleDataType | null;
       const error = viewQueryResult.error;
       
       if (error) {
@@ -177,7 +179,7 @@ export async function getSessionTranscriptionJobs(sessionId: string): Promise<Tr
       }
       
       console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
-      return (data || []).map(mapToTranscriptionJob);
+      return (data || []).map(job => mapToTranscriptionJob(job as TranscriptionRecord));
     }
   } catch (error) {
     console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
