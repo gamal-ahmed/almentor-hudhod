@@ -22,10 +22,10 @@ export async function resetStuckJobs() {
     
     const data = await response.json();
     
-    addLog(`Successfully reset ${data.updatedCount} stuck jobs`, "success", {
-      source: "System",
-      details: `Jobs were updated from 'pending' or 'processing' to 'failed'`
-    });
+    // addLog(`Successfully reset ${data.updatedCount} stuck jobs`, "success", {
+    //   source: "System",
+    //   details: `Jobs were updated from 'pending' or 'processing' to 'failed'`
+    // });
     
     logOperation.complete(`Reset stuck jobs`, `${data.updatedCount} jobs updated`);
     

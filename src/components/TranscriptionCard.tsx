@@ -133,7 +133,6 @@ const TranscriptionCard = ({
         }
       }
       
-      console.log(`${modelName}: Successfully parsed ${segments.length} VTT segments`);
       
       if (modelName && modelName.includes("Gemini") && segments.length === 0 && vttContent.length > 0) {
         addLog(`Gemini VTT parsing issue: content exists but no segments parsed`, "warning", {

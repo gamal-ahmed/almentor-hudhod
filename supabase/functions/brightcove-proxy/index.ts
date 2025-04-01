@@ -122,6 +122,7 @@ async function handleCheckVideo(req: Request) {
     console.log(`Checking if Brightcove video ${videoId} exists...`);
     
     const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}`;
+    console.log('brightcove toke ' , accessToken);
     console.log('Video check request details:', {
       url: apiUrl,
       method: 'GET',

@@ -163,10 +163,6 @@ export async function transcribeAudio(
       throw new Error(`Transcription job timed out after ${maxAttempts * pollInterval / 1000} seconds`);
     }
     
-    addLog(`Successfully transcribed with ${model}`, "success", {
-      source: model,
-      details: `Generated ${result.vttContent.length} characters of VTT content`
-    });
     
     logOperation.complete(`Completed ${model} transcription`, `Generated ${result.vttContent.length} characters of VTT content`);
     

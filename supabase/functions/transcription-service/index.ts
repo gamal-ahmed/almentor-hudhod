@@ -121,7 +121,7 @@ async function handleDownloadAudio(req: Request) {
     }
     
     const arrayBuffer = await response.arrayBuffer();
-    console.log(`Successfully downloaded audio: ${arrayBuffer.byteLength} bytes`);
+    //console.log(`Successfully downloaded audio: ${arrayBuffer.byteLength} bytes`);
     
     return new Response(
       arrayBuffer,
