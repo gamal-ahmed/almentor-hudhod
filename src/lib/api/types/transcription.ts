@@ -49,10 +49,10 @@ export interface TranscriptionSession {
   audio_file_name?: string;
   selected_models: string[];
   selected_model?: string;
-  selected_model_id?: string;
-  selected_transcription?: string;
-  selected_transcription_url?: string;
-  video_id?: string;
-  vtt_file_url?: string;
+  selected_model_id?: string | null;
+  selected_transcription?: string | null;
+  selected_transcription_url?: string | null;
+  video_id?: string | null;
+  vtt_file_url?: string | null;
   transcriptions: Json;
 }

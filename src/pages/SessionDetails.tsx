@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -24,28 +23,13 @@ import PublishDialog from "@/components/session/PublishDialog";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
 import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
 import { saveSelectedTranscription } from "@/lib/api/transcriptionService";
+import { TranscriptionJob, TranscriptionSession } from "@/lib/api/types/transcription";
 
 export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 interface TranscriptionJobFromAPI {
   id: string;
   status: string;
-  model: string;
-  created_at: string;
-  updated_at: string;
-  status_message: string;
-  error?: string;
-  session_id?: string;
-  result?: { 
-    vttContent: string; 
-    text: string; 
-    prompt: string;
-  } | any;
-}
-
-interface TranscriptionJob {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
   model: string;
   created_at: string;
   updated_at: string;
@@ -139,11 +123,14 @@ const SessionDetails = () => {
                 .eq('id', identifier)
                 .single();
                 
-              if (!sessionDataError) {
-                // Check if selected_model_id property exists and has a value
-                const modelId = sessionData && 'selected_model_id' in sessionData ? sessionData.selected_model_id : null;
-                
-                if (modelId) {
+              if (!sessionDataError && sessionData) {
+                // Safely handle the model ID with proper type checking
+                if (sessionData && 
+                    'selected_model_id' in sessionData && 
+                    sessionData.selected_model_id !== null && 
+                    typeof sessionData.selected_model_id === 'string') {
+                    
+                  const modelId = sessionData.selected_model_id;
                   setSelectedModelId(modelId);
                   
                   const selectedJob = jobs.find(job => job.id === modelId);
