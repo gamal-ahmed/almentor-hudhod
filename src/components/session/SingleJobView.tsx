@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { CopyIcon, Download, FileSymlink } from "lucide-react";
 import TranscriptionCard from "@/components/TranscriptionCard";
-import AudioPlayer from "@/components/ui/AudioPlayer";
+import AudioPlayer from "@/components/AudioPlayer";
 import PublishDialog from "@/components/session/PublishDialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -122,6 +122,19 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Session-level actions */}
+      <div className="flex justify-end">
+        <Button 
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={handlePublishToBrightcove}
+        >
+          <FileSymlink className="h-4 w-4" />
+          Publish to Brightcove
+        </Button>
+      </div>
+      
       {/* Audio player section */}
       {audioUrl && (
         <Card className="shadow-soft border-2">
@@ -144,7 +157,6 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         showExportOptions={true}
         onExport={() => onExport(selectedJob)}
         onSave={() => onSave(selectedJob)}
-        onPublish={handlePublishToBrightcove}
       />
 
       {/* Publish dialog */}
