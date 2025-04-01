@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken } from "@/lib/api";
+import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getSessionTranscriptionJobs } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,7 +106,6 @@ const SessionDetails = () => {
     const fetchSessionJobs = async () => {
       try {
         setLoading(true);
-        const allJobs = await getUserTranscriptionJobs();
         
         if (!sessionId && !sessionTimestamp) {
           toast({
@@ -120,10 +119,24 @@ const SessionDetails = () => {
         let matchingJobs: TranscriptionJob[] = [];
         
         if (sessionId) {
-          matchingJobs = allJobs
-            .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === sessionId)
-            .map(convertToTranscriptionJob);
+          const { data: transcriptions, error } = await supabase
+            .from('transcriptions')
+            .select('*')
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: false });
+          
+          if (error) {
+            console.error("Error fetching session jobs directly:", error);
+            const allJobs = await getUserTranscriptionJobs();
+            matchingJobs = allJobs
+              .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === sessionId)
+              .map(convertToTranscriptionJob);
+          } else {
+            console.log("Fetched transcriptions directly:", transcriptions?.length);
+            matchingJobs = (transcriptions || []).map(convertToTranscriptionJob);
+          }
         } else if (sessionTimestamp) {
+          const allJobs = await getUserTranscriptionJobs();
           const targetTimestamp = new Date(decodeURIComponent(sessionTimestamp));
           
           matchingJobs = allJobs
@@ -134,11 +147,36 @@ const SessionDetails = () => {
             .map(convertToTranscriptionJob);
         }
         
+        console.log("Total matching jobs:", matchingJobs.length);
+        console.log("Jobs data:", matchingJobs);
+        console.log("Session ID:", sessionId);
+        
         const completedJobs = matchingJobs.filter(job => job.status === 'completed');
-        setSessionJobs(completedJobs);
+        console.log("Completed jobs count:", completedJobs.length);
+        setSessionJobs(matchingJobs);
         
         if (completedJobs.length > 0) {
           setSelectedJob(completedJobs[0]);
+        } else if (matchingJobs.length > 0) {
+          setSelectedJob(matchingJobs[0]);
+        }
+        
+        if (sessionId) {
+          const { data: sessionData } = await supabase
+            .from('transcription_sessions')
+            .select('audio_file_name')
+            .eq('id', sessionId)
+            .single();
+            
+          if (sessionData?.audio_file_name) {
+            const { data } = await supabase.storage
+              .from('transcriptions')
+              .createSignedUrl(`sessions/${sessionId}/${sessionData.audio_file_name}`, 3600);
+              
+            if (data) {
+              setAudioUrl(data.signedUrl);
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching session jobs:", error);

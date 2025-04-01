@@ -1,10 +1,12 @@
+
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { 
   transcribeAudio as serverTranscribeAudio,
   createTranscriptionJob,
   checkTranscriptionJobStatus,
   getUserTranscriptionJobs,
-  resetStuckJobs
+  resetStuckJobs,
+  getSessionTranscriptionJobs
 } from "./api/transcriptionService";
 import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./api/brightcoveService";
 import { fetchAudioFromUrl } from "./api/audioDownloadService";
@@ -31,7 +33,8 @@ export {
   resetStuckJobs,
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
-  fetchAudioFromUrl
+  fetchAudioFromUrl,
+  getSessionTranscriptionJobs
 };
 
 // Fetch Brightcove keys from Supabase

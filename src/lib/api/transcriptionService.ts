@@ -144,6 +144,7 @@ export async function checkTranscriptionJobStatus(jobId: string) {
 // Get all transcription jobs for the current user
 export async function getUserTranscriptionJobs() {
   try {
+    // Use the transcription_jobs view to get all jobs
     const { data, error } = await supabase
       .from('transcription_jobs')
       .select('*')
@@ -156,6 +157,31 @@ export async function getUserTranscriptionJobs() {
     return data || [];
   } catch (error) {
     console.error('Error fetching user transcription jobs:', error);
+    throw error;
+  }
+}
+
+// Get all transcription jobs for a specific session
+export async function getSessionTranscriptionJobs(sessionId: string) {
+  try {
+    console.log(`Fetching jobs for session ${sessionId}`);
+    
+    // Query the transcriptions table directly with session_id filter
+    const { data, error } = await supabase
+      .from('transcriptions')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
+      throw new Error(`Failed to fetch session jobs: ${error.message}`);
+    }
+    
+    console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
+    return data || [];
+  } catch (error) {
+    console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
     throw error;
   }
 }
