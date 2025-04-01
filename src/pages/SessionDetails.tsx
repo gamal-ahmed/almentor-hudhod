@@ -1,12 +1,14 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { Info } from "lucide-react";
+import { Info, FileSymlink } from "lucide-react";
 import { 
   getBrightcoveAuthToken, 
   addCaptionToBrightcove, 
@@ -579,6 +581,14 @@ const SessionDetails = () => {
   };
 
   const handlePublishToBrightcove = () => {
+    if (!selectedJob) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a transcription to publish",
+        variant: "destructive",
+      });
+      return;
+    }
     setPublishDialogOpen(true);
   };
 
