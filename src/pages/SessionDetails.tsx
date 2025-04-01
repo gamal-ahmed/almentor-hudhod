@@ -77,6 +77,7 @@ const SessionDetails = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [acceptedModelId, setAcceptedModelId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSessionJobs = async () => {
@@ -120,7 +121,7 @@ const SessionDetails = () => {
             try {
               const { data: sessionData, error: sessionDataError } = await supabase
                 .from('transcription_sessions')
-                .select('selected_model, selected_model_id')
+                .select('selected_model, selected_model_id, accepted_model_id')
                 .eq('id', identifier)
                 .single();
                 
@@ -151,6 +152,14 @@ const SessionDetails = () => {
                   } else if (jobs.length > 0) {
                     setSelectedJob(jobs[0]);
                   }
+                }
+                
+                if (sessionData && 
+                    'accepted_model_id' in sessionData && 
+                    sessionData.accepted_model_id !== null && 
+                    typeof sessionData.accepted_model_id === 'string') {
+                  
+                  setAcceptedModelId(sessionData.accepted_model_id);
                 }
               } else {
                 console.error("Error fetching session data:", sessionDataError);
@@ -495,6 +504,108 @@ const SessionDetails = () => {
     }
   };
 
+  const handleMarkAsAccepted = async (job: TranscriptionJob) => {
+    if (!job) return;
+    
+    try {
+      const identifier = loadedSessionId || sessionId;
+      
+      if (!identifier) {
+        throw new Error("Missing session identifier");
+      }
+      
+      if (acceptedModelId === job.id) {
+        const { error } = await supabase
+          .from('transcription_sessions')
+          .update({ 
+            accepted_model_id: null
+          })
+          .eq('id', identifier);
+          
+        if (error) throw error;
+        
+        setAcceptedModelId(null);
+        
+        toast({
+          title: "Acceptance Removed",
+          description: `${getModelDisplayName(job.model)} is no longer accepted`,
+        });
+        
+        return;
+      }
+      
+      try {
+        const vttContent = extractVttContent(job);
+        
+        if (!vttContent) {
+          throw new Error("No content to save");
+        }
+        
+        const fileName = `transcription_${job.model}_${new Date().toISOString().slice(0, 10)}_${uuidv4()}.vtt`;
+        
+        const blob = new Blob([vttContent], { type: 'text/vtt' });
+        
+        const uploadPath = `sessions/${identifier}/${fileName}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('transcriptions')
+          .upload(uploadPath, blob, {
+            contentType: 'text/vtt',
+            upsert: true
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('transcriptions')
+          .getPublicUrl(uploadPath);
+
+        if (!publicUrlData) throw new Error("Failed to get public URL");
+
+        const { error } = await supabase
+          .from('transcription_sessions')
+          .update({ 
+            accepted_model_id: job.id,
+            selected_transcription_url: publicUrlData.publicUrl,
+            selected_transcription: vttContent,
+            selected_model: job.model
+          })
+          .eq('id', identifier);
+          
+        if (error) throw error;
+        
+        setAcceptedModelId(job.id);
+        setSelectedJob(job);
+        
+        addLog(`Accepted ${getModelDisplayName(job.model)} transcription and saved to storage`, "success", {
+          source: "SessionDetails",
+          details: `Session: ${identifier}, Job ID: ${job.id}, URL: ${publicUrlData.publicUrl}`
+        });
+        
+        toast({
+          title: "Transcription Accepted",
+          description: `${getModelDisplayName(job.model)} has been accepted and saved to storage`,
+          variant: "default"
+        });
+      } catch (error) {
+        console.error("Error accepting transcription:", error);
+        
+        toast({
+          title: "Acceptance Failed",
+          description: error instanceof Error ? error.message : "An error occurred",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error selecting model:", error);
+      
+      toast({
+        title: "Selection Failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
   const saveSelectedTranscriptionToStorage = async (job: TranscriptionJob) => {
     try {
       const vttContent = extractVttContent(job);
@@ -783,7 +894,8 @@ const SessionDetails = () => {
                         onSelectJob={handleSelectJob}
                         isJobSelectedForComparison={isJobSelectedForComparison}
                         selectedModelId={selectedModelId}
-                        onMarkAsSelected={handleMarkAsSelected}
+                        acceptedModelId={acceptedModelId}
+                        onMarkAsAccepted={handleMarkAsAccepted}
                       />
                     </CardContent>
                   </Card>

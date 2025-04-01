@@ -23,7 +23,7 @@ interface TranscriptionCardProps {
   showPagination?: boolean;
   showExportOptions?: boolean;
   onExport?: () => void;
-  onSave?: () => void;
+  onAccept?: () => void;
 }
 
 interface VTTSegment {
@@ -44,7 +44,7 @@ const TranscriptionCard = ({
   showPagination = false,
   showExportOptions = false,
   onExport = () => {},
-  onSave = () => {}
+  onAccept = () => {}
 }: TranscriptionCardProps) => {
   const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -625,10 +625,10 @@ const TranscriptionCard = ({
                 variant="default"
                 size="sm"
                 className="w-full"
-                onClick={onSave}
+                onClick={onAccept}
               >
                 <Save className="h-4 w-4 mr-2" />
-                Save
+                Accept
               </Button>
             </div>
           </div>

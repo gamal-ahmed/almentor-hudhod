@@ -456,6 +456,7 @@ export type Database = {
       }
       transcription_sessions: {
         Row: {
+          accepted_model_id: string | null
           audio_file_name: string | null
           created_at: string
           id: string
@@ -470,6 +471,7 @@ export type Database = {
           vtt_file_url: string | null
         }
         Insert: {
+          accepted_model_id?: string | null
           audio_file_name?: string | null
           created_at?: string
           id?: string
@@ -484,6 +486,7 @@ export type Database = {
           vtt_file_url?: string | null
         }
         Update: {
+          accepted_model_id?: string | null
           audio_file_name?: string | null
           created_at?: string
           id?: string

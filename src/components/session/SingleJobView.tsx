@@ -22,7 +22,7 @@ interface SingleJobViewProps {
   extractVttContent: (job: any) => string;
   getModelDisplayName: (model: string) => string;
   onExport: (job: any) => void;
-  onSave: (job: any) => void;
+  onAccept: (job: any) => void;
 }
 
 const SingleJobView: React.FC<SingleJobViewProps> = ({
@@ -31,7 +31,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   extractVttContent,
   getModelDisplayName,
   onExport,
-  onSave
+  onAccept
 }) => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [videoId, setVideoId] = useState('');
@@ -156,7 +156,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         audioSrc={audioUrl}
         showExportOptions={true}
         onExport={() => onExport(selectedJob)}
-        onSave={() => onSave(selectedJob)}
+        onAccept={() => onAccept(selectedJob)}
       />
 
       {/* Publish dialog */}

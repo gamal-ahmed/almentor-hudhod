@@ -17,6 +17,7 @@ interface TranscriptionJob {
   status_message: string;
   error?: string;
   session_id?: string;
+  file_path: string;
   result?: { 
     vttContent: string; 
     text: string; 
@@ -32,7 +33,8 @@ interface TranscriptionJobListProps {
   onSelectJob: (job: TranscriptionJob) => void;
   isJobSelectedForComparison: (jobId: string) => boolean;
   selectedModelId?: string | null;
-  onMarkAsSelected?: (job: TranscriptionJob) => void;
+  acceptedModelId?: string | null;
+  onMarkAsAccepted?: (job: TranscriptionJob) => void;
 }
 
 const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
@@ -43,7 +45,8 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
   onSelectJob,
   isJobSelectedForComparison,
   selectedModelId,
-  onMarkAsSelected
+  acceptedModelId,
+  onMarkAsAccepted
 }) => {
   const getModelDisplayName = (model: string) => {
     switch (model) {
@@ -110,6 +113,7 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
       <div className="space-y-3">
         {jobs.map((job) => {
           const isSelected = selectedModelId === job.id;
+          const isAccepted = acceptedModelId === job.id;
           
           return (
             <div
@@ -119,7 +123,8 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
                 job.status === 'completed' ? 'hover:border-primary/50 hover:bg-muted/50' : '',
                 selectedJob?.id === job.id && !comparisonMode ? 'border-primary bg-primary/5' : '',
                 isJobSelectedForComparison(job.id) ? 'border-primary bg-primary/5' : '',
-                isSelected ? 'border-primary border-2 bg-primary/10 shadow-md' : ''
+                isAccepted ? 'border-green-500 border-2 bg-green-500/10 shadow-md' : '',
+                isSelected && !isAccepted ? 'border-primary border-2 bg-primary/10 shadow-md' : ''
               )}
               onClick={() => onSelectJob(job)}
             >
@@ -130,10 +135,10 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
                     <span className="ml-1 capitalize">{job.status}</span>
                   </Badge>
                   
-                  {isSelected && (
-                    <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                      <Star className="h-3 w-3 mr-1 fill-amber-500 text-amber-500" />
-                      Selected
+                  {isAccepted && (
+                    <Badge variant="outline" className="ml-2 bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                      <Star className="h-3 w-3 mr-1 fill-green-500 text-green-500" />
+                      Accepted
                     </Badge>
                   )}
                 </div>
@@ -158,31 +163,31 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
                 </div>
               </div>
               
-              {job.status === 'completed' && onMarkAsSelected && (
+              {job.status === 'completed' && onMarkAsAccepted && (
                 <div className="mt-3 flex justify-end">
                   <Button 
                     size="sm" 
-                    variant={isSelected ? "default" : "outline"}
+                    variant={isAccepted ? "default" : "outline"}
                     className={cn(
                       "text-xs",
-                      isSelected 
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                        : "border-primary/30 text-primary hover:bg-primary/10"
+                      isAccepted 
+                        ? "bg-green-600 text-white hover:bg-green-700 border-green-600" 
+                        : "border-green-600/30 text-green-600 hover:bg-green-600/10"
                     )}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onMarkAsSelected(job);
+                      onMarkAsAccepted(job);
                     }}
                   >
-                    {isSelected ? (
+                    {isAccepted ? (
                       <>
                         <StarIcon className="h-3.5 w-3.5 mr-1 fill-current" />
-                        Selected
+                        Accepted
                       </>
                     ) : (
                       <>
                         <Star className="h-3.5 w-3.5 mr-1" />
-                        Select as Winner
+                        Accept
                       </>
                     )}
                   </Button>
