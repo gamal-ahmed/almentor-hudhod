@@ -47,43 +47,45 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
     console.log(`Searching for jobs between ${startTime.toISOString()} and ${endTime.toISOString()}`);
     
     // Try direct database query first
-    const directQueryResult: SupabaseQueryResult = await baseService.supabase
+    const directQueryResult = await baseService.supabase
       .from('transcriptions')
       .select('*')
       .gte('created_at', startTime.toISOString())
       .lte('created_at', endTime.toISOString())
       .order('created_at', { ascending: false });
       
-    const directJobs = directQueryResult.data;
+    const directJobs = directQueryResult.data || [];
     const directError = directQueryResult.error;
       
-    if (!directError && directJobs && directJobs.length > 0) {
+    if (!directError && directJobs.length > 0) {
       console.log(`Found ${directJobs.length} jobs directly from database`);
+      // Use explicit casting to avoid deep type instantiation
       return directJobs.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
     }
       
     // Fallback to view if direct query fails or returns no results
-    const viewQueryResult: SupabaseQueryResult = await baseService.supabase
+    const viewQueryResult = await baseService.supabase
       .from('transcription_jobs')
       .select('*')
       .gte('created_at', startTime.toISOString())
       .lte('created_at', endTime.toISOString())
       .order('created_at', { ascending: false });
     
-    const data = viewQueryResult.data;
+    const data = viewQueryResult.data || [];
     const error = viewQueryResult.error;
     
     if (error) {
       throw new Error(`Failed to fetch jobs by timestamp: ${error.message}`);
     }
     
-    console.log(`Found ${data?.length || 0} jobs within timestamp window`);
+    console.log(`Found ${data.length} jobs within timestamp window`);
     
-    if (!data || data.length === 0) {
+    if (data.length === 0) {
       return await getFallbackRecentJobs();
     }
     
-    return (data || []).map(job => mapToTranscriptionJob(job as TranscriptionRecord));
+    // Use explicit casting to avoid deep type instantiation
+    return data.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
   } catch (parseError) {
     console.error(`Error processing timestamp ${sessionId}:`, parseError);
     throw new Error(`Invalid timestamp format: ${parseError.message}`);
@@ -93,28 +95,29 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
 // Handle session ID-based job retrieval logic
 async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]> {
   // Try direct query first
-  const directQueryResult: SupabaseQueryResult = await baseService.supabase
+  const directQueryResult = await baseService.supabase
     .from('transcriptions')
     .select('*')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: false });
     
-  const directJobs = directQueryResult.data;
+  const directJobs = directQueryResult.data || [];
   const directError = directQueryResult.error;
     
-  if (!directError && directJobs && directJobs.length > 0) {
+  if (!directError && directJobs.length > 0) {
     console.log(`Found ${directJobs.length} jobs directly from database for session ${sessionId}`);
+    // Use explicit casting to avoid deep type instantiation
     return directJobs.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
   }
   
   // Fallback to view
-  const viewQueryResult: SupabaseQueryResult = await baseService.supabase
+  const viewQueryResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: false });
   
-  const data = viewQueryResult.data;
+  const data = viewQueryResult.data || [];
   const error = viewQueryResult.error;
   
   if (error) {
@@ -122,25 +125,27 @@ async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]
     throw new Error(`Failed to fetch session jobs: ${error.message}`);
   }
   
-  console.log(`Found ${data?.length || 0} jobs for session ${sessionId}`);
-  return (data || []).map(job => mapToTranscriptionJob(job as TranscriptionRecord));
+  console.log(`Found ${data.length} jobs for session ${sessionId}`);
+  // Use explicit casting to avoid deep type instantiation
+  return data.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
 }
 
 // Get recent jobs as a fallback
 async function getFallbackRecentJobs(): Promise<TranscriptionJob[]> {
-  const recentQueryResult: SupabaseQueryResult = await baseService.supabase
+  const recentQueryResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(10);
     
-  const recentJobs = recentQueryResult.data;
+  const recentJobs = recentQueryResult.data || [];
   const recentError = recentQueryResult.error;
     
   if (recentError) {
     throw new Error(`Failed to fetch recent jobs: ${recentError.message}`);
   }
   
-  console.log(`Returning ${recentJobs?.length || 0} recent jobs as fallback`);
-  return (recentJobs || []).map(job => mapToTranscriptionJob(job as TranscriptionRecord));
+  console.log(`Returning ${recentJobs.length} recent jobs as fallback`);
+  // Use explicit casting to avoid deep type instantiation
+  return recentJobs.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
 }
