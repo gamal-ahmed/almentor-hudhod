@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getSessionTranscriptionJobs } from "@/lib/api";
+import { getSessionTranscriptionJobs } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,7 @@ const convertToTranscriptionJob = (job: TranscriptionJobFromAPI): TranscriptionJ
 type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 const SessionDetails = () => {
-  const { sessionId, sessionTimestamp } = useParams<{ sessionId?: string; sessionTimestamp?: string }>();
+  const { sessionId } = useParams<{ sessionId?: string }>();
   const [loading, setLoading] = useState(true);
   const [sessionJobs, setSessionJobs] = useState<TranscriptionJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
@@ -109,12 +109,12 @@ const SessionDetails = () => {
         setLoading(true);
         setFetchError(null);
         
-        const identifier = sessionId || sessionTimestamp;
+        const identifier = sessionId;
         
         if (!identifier) {
           toast({
             title: "Missing session identifier",
-            description: "Could not load session details: No session ID or timestamp provided",
+            description: "Could not load session details: No session ID provided",
             variant: "destructive",
           });
           setFetchError("No session identifier provided");
@@ -125,123 +125,28 @@ const SessionDetails = () => {
         console.log(`Using session identifier: ${identifier}`);
         
         let matchingJobs: TranscriptionJob[] = [];
-        let isTimestamp = false;
         
-        if (identifier.includes('T') && identifier.includes('Z')) {
-          isTimestamp = true;
-          console.log("Identifier appears to be a timestamp");
-          
-          const decodedTimestamp = decodeURIComponent(identifier);
-          console.log(`Decoded timestamp: ${decodedTimestamp}`);
-          
-          try {
-            const TIME_WINDOW = 10 * 60 * 1000;
-            const timestampDate = new Date(decodedTimestamp);
-            
-            const fetchJobsWithRetry = async (retries = 3) => {
-              try {
-                // Fix for PostgrestSingleResponse error - properly check data property
-                const { data: directJobs, error: directError } = await supabase
-                  .from('transcriptions')
-                  .select('*')
-                  .gte('created_at', new Date(timestampDate.getTime() - TIME_WINDOW).toISOString())
-                  .lte('created_at', new Date(timestampDate.getTime() + TIME_WINDOW).toISOString())
-                  .order('created_at', { ascending: false });
-                
-                if (!directError && directJobs && directJobs.length > 0) {
-                  console.log(`Found ${directJobs.length} jobs directly from database`);
-                  return directJobs.map(convertToTranscriptionJob);
-                }
-                
-                const allJobs = await getUserTranscriptionJobs();
-                console.log(`Retrieved ${allJobs.length} total jobs`);
-                
-                const timeFilteredJobs = allJobs
-                  .filter((apiJob: TranscriptionJobFromAPI) => {
-                    try {
-                      const jobCreatedAt = new Date(apiJob.created_at);
-                      const diffMs = Math.abs(jobCreatedAt.getTime() - timestampDate.getTime());
-                      return diffMs <= TIME_WINDOW;
-                    } catch (err) {
-                      console.error("Error comparing dates:", err);
-                      return false;
-                    }
-                  })
-                  .map(convertToTranscriptionJob);
-                  
-                console.log(`Found ${timeFilteredJobs.length} jobs within the time window`);
-                return timeFilteredJobs;
-              } catch (err) {
-                if (retries > 0) {
-                  console.log(`Retrying job fetch, ${retries} attempts left`);
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                  return fetchJobsWithRetry(retries - 1);
-                }
-                throw err;
-              }
-            };
-            
-            matchingJobs = await fetchJobsWithRetry();
-            
-            if (matchingJobs.length === 0) {
-              // Fix for PostgrestSingleResponse error - properly check data property
-              const { data: recentJobs, error: recentError } = await supabase
-                .from('transcriptions')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(10);
-                
-              if (!recentError && recentJobs && recentJobs.length > 0) {
-                console.log(`Found ${recentJobs.length} recent jobs as fallback`);
-                matchingJobs = recentJobs.map(convertToTranscriptionJob);
-              }
-            }
-            
-          } catch (err) {
-            console.error(`Error parsing timestamp ${decodedTimestamp}:`, err);
-            setFetchError(`Error processing timestamp: ${err.message}`);
-            
-            try {
-              const allJobs = await getUserTranscriptionJobs();
-              matchingJobs = allJobs.slice(0, 10).map(convertToTranscriptionJob);
-              console.log(`Using ${matchingJobs.length} recent jobs as fallback`);
-            } catch (fallbackErr) {
-              console.error("Fallback fetch also failed:", fallbackErr);
-              setFetchError(`Failed to fetch jobs: ${fallbackErr.message}`);
-            }
-          }
-        } else {
-          console.log("Identifier appears to be a UUID");
+        try {
+          const sessionJobs = await getSessionTranscriptionJobs(identifier);
+          matchingJobs = sessionJobs.map(convertToTranscriptionJob);
+          console.log(`Found ${matchingJobs.length} jobs with session ID: ${identifier}`);
+        } catch (error) {
+          console.error(`Error fetching jobs for session ${identifier}:`, error);
+          setFetchError(`Error fetching session jobs: ${error.message}`);
           
           try {
-            const sessionJobs = await getSessionTranscriptionJobs(identifier);
-            matchingJobs = sessionJobs.map(convertToTranscriptionJob);
-            console.log(`Found ${matchingJobs.length} jobs with session ID: ${identifier}`);
-          } catch (error) {
-            console.error(`Error fetching jobs for session ${identifier}:`, error);
-            setFetchError(`Error fetching session jobs: ${error.message}`);
-            
-            try {
-              // Fix for PostgrestSingleResponse error - properly check data property
-              const { data: directJobs, error: directError } = await supabase
-                .from('transcriptions')
-                .select('*')
-                .eq('session_id', identifier)
-                .order('created_at', { ascending: false });
-                
-              if (!directError && directJobs && directJobs.length > 0) {
-                matchingJobs = directJobs.map(convertToTranscriptionJob);
-                console.log(`Found ${matchingJobs.length} jobs with direct query`);
-              } else {
-                const allJobs = await getUserTranscriptionJobs();
-                matchingJobs = allJobs
-                  .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === identifier)
-                  .map(convertToTranscriptionJob);
-                console.log(`Found ${matchingJobs.length} jobs using fallback method`);
-              }
-            } catch (fallbackErr) {
-              console.error("Fallback fetch also failed:", fallbackErr);
+            const { data: directJobs, error: directError } = await supabase
+              .from('transcriptions')
+              .select('*')
+              .eq('session_id', identifier)
+              .order('created_at', { ascending: false });
+              
+            if (!directError && directJobs && directJobs.length > 0) {
+              matchingJobs = directJobs.map(convertToTranscriptionJob);
+              console.log(`Found ${matchingJobs.length} jobs with direct query`);
             }
+          } catch (fallbackErr) {
+            console.error("Fallback fetch also failed:", fallbackErr);
           }
         }
         
@@ -256,7 +161,7 @@ const SessionDetails = () => {
           setSelectedJob(matchingJobs[0]);
         }
         
-        if (identifier && !isTimestamp) {
+        if (identifier) {
           try {
             const { data: sessionData, error: sessionError } = await supabase
               .from('transcription_sessions')
@@ -291,7 +196,7 @@ const SessionDetails = () => {
     };
     
     fetchSessionJobs();
-  }, [sessionId, sessionTimestamp, toast]);
+  }, [sessionId, toast]);
   
   
   const getModelDisplayName = (model: string) => {
@@ -637,24 +542,10 @@ const SessionDetails = () => {
 
       if (!publicUrlData) throw new Error("Failed to get public URL");
 
-      const sessionIdentifier = sessionId || sessionTimestamp;
+      const sessionIdentifier = sessionId;
       
       if (!sessionIdentifier) {
         throw new Error("No session identifier available");
-      }
-
-      if (sessionIdentifier.includes('T') && sessionIdentifier.includes('Z')) {
-        addLog(`Saved transcription to storage (without session update): ${fileName}`, "success", {
-          source: "SessionDetails",
-          details: `Model: ${getModelDisplayName(selectedJob.model)}, URL: ${publicUrlData.publicUrl}`
-        });
-        
-        toast({
-          title: "Transcription Saved",
-          description: "The selected transcription has been saved to storage (without session update).",
-          variant: "default"
-        });
-        return;
       }
 
       const { error: sessionUpdateError } = await supabase
@@ -711,61 +602,21 @@ const SessionDetails = () => {
   const handleRefreshJobs = async () => {
     setLoading(true);
     try {
-      const identifier = sessionId || sessionTimestamp;
+      const identifier = sessionId;
       if (!identifier) return;
       
-      if (identifier.includes('T') && identifier.includes('Z')) {
-        const decodedTimestamp = decodeURIComponent(identifier);
-        const timestampDate = new Date(decodedTimestamp);
-        
-        // Use a wider time window (15 minutes)
-        const TIME_WINDOW = 15 * 60 * 1000; 
-        
-        // Fix for PostgrestSingleResponse error - properly check data property
-        const { data: directJobs, error: directError } = await supabase
-          .from('transcriptions')
-          .select('*')
-          .gte('created_at', new Date(timestampDate.getTime() - TIME_WINDOW).toISOString())
-          .lte('created_at', new Date(timestampDate.getTime() + TIME_WINDOW).toISOString())
-          .order('created_at', { ascending: false });
-          
-        if (!directError && directJobs && directJobs.length > 0) {
-          setSessionJobs(directJobs.map(convertToTranscriptionJob));
-          console.log(`Refreshed and found ${directJobs.length} jobs`);
-          
-          const completedJobs = directJobs
-            .filter(job => job.status === 'completed')
-            .map(convertToTranscriptionJob);
-            
-          if (completedJobs.length > 0 && !selectedJob) {
-            setSelectedJob(completedJobs[0]);
-          }
-          
-          toast({
-            title: "Jobs Refreshed",
-            description: `Found ${directJobs.length} jobs for this session`,
-          });
-        } else {
-          toast({
-            title: "No New Jobs Found",
-            description: "Couldn't find any additional jobs for this session",
-          });
-        }
+      const refreshedJobs = await getSessionTranscriptionJobs(identifier);
+      if (refreshedJobs.length > 0) {
+        setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
+        toast({
+          title: "Jobs Refreshed",
+          description: `Found ${refreshedJobs.length} jobs for this session`,
+        });
       } else {
-        // UUID-based session
-        const refreshedJobs = await getSessionTranscriptionJobs(identifier);
-        if (refreshedJobs.length > 0) {
-          setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
-          toast({
-            title: "Jobs Refreshed",
-            description: `Found ${refreshedJobs.length} jobs for this session`,
-          });
-        } else {
-          toast({
-            title: "No New Jobs Found",
-            description: "Couldn't find any additional jobs for this session",
-          });
-        }
+        toast({
+          title: "No New Jobs Found",
+          description: "Couldn't find any additional jobs for this session",
+        });
       }
     } catch (error) {
       console.error("Error refreshing jobs:", error);
@@ -902,18 +753,7 @@ const SessionDetails = () => {
             
             <div className="space-y-2">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Transcription Session Details</h1>
-              {sessionTimestamp && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <p>
-                    Session from {format(new Date(decodeURIComponent(sessionTimestamp)), 'MMM d, yyyy - h:mm a')} 
-                    <span className="text-muted-foreground/70 text-sm ml-2">
-                      ({formatDistanceToNow(new Date(decodeURIComponent(sessionTimestamp)), { addSuffix: true })})
-                    </span>
-                  </p>
-                </div>
-              )}
-              {sessionId && !sessionTimestamp && (
+              {sessionId && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Info className="h-4 w-4" />
                   <p>Session ID: {sessionId}</p>
