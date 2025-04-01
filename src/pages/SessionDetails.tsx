@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -21,7 +20,6 @@ import ComparisonModeHeader from "@/components/session/ComparisonModeHeader";
 import ExportControls, { ExportFormat } from "@/components/session/ExportControls";
 import ComparisonView from "@/components/session/ComparisonView";
 import SingleJobView from "@/components/session/SingleJobView";
-import PublishDialog from "@/components/session/PublishDialog";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
 import { getSessionTranscriptionJobs } from "@/lib/api/services/transcription/sessionJobs";
 
@@ -81,9 +79,6 @@ const SessionDetails = () => {
   const [jobsToCompare, setJobsToCompare] = useState<TranscriptionJob[]>([]);
   const [viewMode, setViewMode] = useState<'single' | 'compare'>('single');
   
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [videoId, setVideoId] = useState("");
-  const [isPublishing, setIsPublishing] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   const [fetchError, setFetchError] = useState<string | null>(null);
   
@@ -391,11 +386,11 @@ const SessionDetails = () => {
     });
   };
 
-  const publishToBrightcove = async () => {
-    if (!selectedJob || !videoId) {
+  const publishToBrightcove = async (videoId: string) => {
+    if (!selectedJob) {
       toast({
         title: "Missing Information",
-        description: "Please select a transcription and enter a video ID.",
+        description: "Please select a transcription to publish.",
         variant: "destructive",
       });
       return;
@@ -412,8 +407,6 @@ const SessionDetails = () => {
     }
     
     try {
-      setIsPublishing(true);
-      
       const brightcoveKeys = await fetchBrightcoveKeys();
       
       const authToken = await getBrightcoveAuthToken(
@@ -439,8 +432,6 @@ const SessionDetails = () => {
         title: "Publishing Successful",
         description: "Caption has been published to Brightcove",
       });
-      
-      setPublishDialogOpen(false);
     } catch (error) {
       console.error("Error publishing to Brightcove:", error);
       
@@ -449,8 +440,6 @@ const SessionDetails = () => {
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
-    } finally {
-      setIsPublishing(false);
     }
   };
 
@@ -616,11 +605,9 @@ const SessionDetails = () => {
               sessionId={displaySessionId}
               loading={loading}
               comparisonMode={comparisonMode}
-              publishDialogOpen={publishDialogOpen}
-              setPublishDialogOpen={setPublishDialogOpen}
-              selectedJob={selectedJob}
-              handleRefreshJobs={handleRefreshJobs}
               toggleComparisonMode={toggleComparisonMode}
+              handleRefreshJobs={handleRefreshJobs}
+              selectedJob={selectedJob}
             />
             
             <div className="space-y-2">
@@ -702,18 +689,6 @@ const SessionDetails = () => {
           </div>
         </div>
       </div>
-
-      {/* Publish Dialog */}
-      {selectedJob && (
-        <PublishDialog 
-          videoId={videoId}
-          setVideoId={setVideoId}
-          isPublishing={isPublishing}
-          publishToBrightcove={publishToBrightcove}
-          selectedJob={selectedJob}
-          getModelDisplayName={getModelDisplayName}
-        />
-      )}
     </>
   );
 };

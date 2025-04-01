@@ -1,11 +1,13 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Upload } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 import TranscriptionCard from "@/components/TranscriptionCard";
+import PublishDialog from "./PublishDialog";
 
 interface SingleJobViewProps {
   selectedJob: any;
@@ -20,6 +22,10 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   extractVttContent,
   getModelDisplayName
 }) => {
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [videoId, setVideoId] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+
   // Safely handle null job
   if (!selectedJob) {
     return (
@@ -32,6 +38,15 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
       </Card>
     );
   }
+
+  const handlePublishToBrightcove = () => {
+    setIsPublishing(true);
+    // This would be connected to your actual publish function in a real implementation
+    setTimeout(() => {
+      setIsPublishing(false);
+      setPublishDialogOpen(false);
+    }, 2000);
+  };
 
   return (
     <Card className="shadow-soft border-2 h-full">
@@ -67,12 +82,26 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
           </TabsList>
           <TabsContent value="preview" className="m-0">
             {selectedJob.status === 'completed' ? (
-              <TranscriptionCard 
-                modelName={getModelDisplayName(selectedJob.model)}
-                vttContent={extractVttContent(selectedJob)}
-                isSelected={true}
-                onSelect={() => {}}
-              />
+              <>
+                <TranscriptionCard 
+                  modelName={getModelDisplayName(selectedJob.model)}
+                  vttContent={extractVttContent(selectedJob)}
+                  isSelected={true}
+                  onSelect={() => {}}
+                />
+                
+                {/* Add publish button */}
+                <div className="mt-4 flex justify-end">
+                  <Button 
+                    onClick={() => setPublishDialogOpen(true)}
+                    className="gap-1.5"
+                    variant="outline"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Publish to Brightcove
+                  </Button>
+                </div>
+              </>
             ) : selectedJob.status === 'failed' ? (
               <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
                 <h3 className="font-medium mb-1">Transcription Failed</h3>
@@ -96,6 +125,18 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {/* Dialog for publishing to Brightcove */}
+      <PublishDialog 
+        videoId={videoId}
+        setVideoId={setVideoId}
+        isPublishing={isPublishing}
+        publishToBrightcove={handlePublishToBrightcove}
+        selectedJob={selectedJob}
+        getModelDisplayName={getModelDisplayName}
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+      />
     </Card>
   );
 };

@@ -1,6 +1,7 @@
 
 import React from "react";
 import { 
+  Dialog,
   DialogContent, 
   DialogDescription, 
   DialogFooter, 
@@ -19,6 +20,8 @@ interface PublishDialogProps {
   publishToBrightcove: () => void;
   selectedJob: any;
   getModelDisplayName: (model: string) => string;
+  open: boolean; // New prop for controlling dialog state
+  onOpenChange: (open: boolean) => void; // New prop for handling state changes
 }
 
 const PublishDialog: React.FC<PublishDialogProps> = ({
@@ -27,60 +30,64 @@ const PublishDialog: React.FC<PublishDialogProps> = ({
   isPublishing,
   publishToBrightcove,
   selectedJob,
-  getModelDisplayName
+  getModelDisplayName,
+  open,
+  onOpenChange
 }) => {
   return (
-    <DialogContent className="shadow-soft border-2">
-      <DialogHeader>
-        <DialogTitle className="text-xl flex items-center gap-2">
-          <Video className="h-5 w-5 text-primary" />
-          Publish to Brightcove
-        </DialogTitle>
-        <DialogDescription>
-          Enter the Brightcove video ID to publish the selected transcription as a caption.
-        </DialogDescription>
-      </DialogHeader>
-      <div className="grid gap-4 py-4">
-        <div className="space-y-2">
-          <Label htmlFor="videoId" className="font-medium">Brightcove Video ID</Label>
-          <Input 
-            id="videoId"
-            value={videoId}
-            onChange={(e) => setVideoId(e.target.value)}
-            placeholder="e.g. 1234567890"
-            className="shadow-inner-soft focus:ring-2 focus:ring-primary/30"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="font-medium">Selected Transcription</Label>
-          <div className="p-3 bg-muted rounded-md text-sm border">
-            <span className="font-medium">{selectedJob && getModelDisplayName(selectedJob.model)}</span>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="shadow-soft border-2">
+        <DialogHeader>
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <Video className="h-5 w-5 text-primary" />
+            Publish to Brightcove
+          </DialogTitle>
+          <DialogDescription>
+            Enter the Brightcove video ID to publish the selected transcription as a caption.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="videoId" className="font-medium">Brightcove Video ID</Label>
+            <Input 
+              id="videoId"
+              value={videoId}
+              onChange={(e) => setVideoId(e.target.value)}
+              placeholder="e.g. 1234567890"
+              className="shadow-inner-soft focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="font-medium">Selected Transcription</Label>
+            <div className="p-3 bg-muted rounded-md text-sm border">
+              <span className="font-medium">{selectedJob && getModelDisplayName(selectedJob.model)}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={() => {}}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={publishToBrightcove} 
-          disabled={isPublishing || !videoId}
-          className="gap-1.5"
-        >
-          {isPublishing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Publishing...
-            </>
-          ) : (
-            <>
-              <FileSymlink className="h-4 w-4" />
-              Publish Caption
-            </>
-          )}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={publishToBrightcove} 
+            disabled={isPublishing || !videoId}
+            className="gap-1.5"
+          >
+            {isPublishing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Publishing...
+              </>
+            ) : (
+              <>
+                <FileSymlink className="h-4 w-4" />
+                Publish Caption
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
