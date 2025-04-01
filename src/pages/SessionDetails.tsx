@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { VttParser } from '@/lib/vttParser';
 import { useAuth } from '@/lib/AuthContext';
+import { TranscriptionJob } from '@/lib/types';
 
 const SessionDetails: React.FC = () => {
   const { sessionTimestamp } = useParams<{ sessionTimestamp: string }>();
@@ -18,7 +20,7 @@ const SessionDetails: React.FC = () => {
 
   const { data: transcriptions, isLoading, error, refetch } = useQuery({
     queryKey: ['userTranscriptions', user?.id],
-    queryFn: () => getUserTranscriptionJobs(user?.id || ''),
+    queryFn: () => getUserTranscriptionJobs(),
     enabled: !!user?.id,
   });
 
@@ -44,7 +46,7 @@ const SessionDetails: React.FC = () => {
     }
 
     try {
-      await saveSelectedTranscription(selectedTranscription.id);
+      await saveSelectedTranscription(selectedTranscription.id, selectedTranscription.result?.vttContent || '');
       toast({
         title: "Transcription saved",
         description: "The transcription has been successfully saved.",
@@ -62,7 +64,7 @@ const SessionDetails: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-4">Session Details</h1>
       {isLoading && <p>Loading transcriptions...</p>}
-      {error && <p className="text-red-500">Error: {error.message}</p>}
+      {error && <p className="text-red-500">Error: {(error as Error).message}</p>}
       {transcriptions && transcriptions.length > 0 ? (
         <div>
           <h2 className="text-lg font-semibold mb-2">Available Transcriptions:</h2>

@@ -1,11 +1,14 @@
-
 interface VTTSegment {
   startTime: string;
   endTime: string;
   text: string;
 }
 
-export function parseVTT(vttContent: string): VTTSegment[] {
+export const VttParser = {
+  parseVTT: parseVTT
+};
+
+function parseVTT(vttContent: string): VTTSegment[] {
   if (!vttContent || typeof vttContent !== 'string') return [];
   
   try {
