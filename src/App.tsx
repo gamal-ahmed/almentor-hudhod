@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -57,6 +56,11 @@ const App = () => (
                   </AuthGuard>
                 } />
                 <Route path="/session/:sessionId" element={
+                  <AuthGuard>
+                    <SessionDetails />
+                  </AuthGuard>
+                } />
+                <Route path="/session/:sessionTimestamp" element={
                   <AuthGuard>
                     <SessionDetails />
                   </AuthGuard>

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getSessionTranscriptionJobs } from "@/lib/api";
@@ -108,7 +107,9 @@ const SessionDetails = () => {
       try {
         setLoading(true);
         
-        if (!sessionId && !sessionTimestamp) {
+        const identifier = sessionId || sessionTimestamp;
+        
+        if (!identifier) {
           toast({
             title: "Missing session identifier",
             description: "Could not load session details: No session ID or timestamp provided",
@@ -117,107 +118,73 @@ const SessionDetails = () => {
           return;
         }
         
+        console.log(`Using session identifier: ${identifier}`);
+        
         let matchingJobs: TranscriptionJob[] = [];
         
-        if (sessionId) {
+        if (identifier.includes('T') && identifier.includes('Z')) {
+          console.log("Identifier appears to be a timestamp");
+          
+          const decodedTimestamp = decodeURIComponent(identifier);
+          console.log(`Decoded timestamp: ${decodedTimestamp}`);
+          
           try {
-            console.log(`Fetching jobs for session ID: ${sessionId}`);
-            const sessionJobs = await getSessionTranscriptionJobs(sessionId);
+            const timestampDate = new Date(decodedTimestamp);
+            
+            const allJobs = await getUserTranscriptionJobs();
+            console.log(`Retrieved ${allJobs.length} total jobs`);
+            
+            const TIME_WINDOW = 5 * 60 * 1000;
+            matchingJobs = allJobs
+              .filter((apiJob: TranscriptionJobFromAPI) => {
+                try {
+                  const jobCreatedAt = new Date(apiJob.created_at);
+                  const diffMs = Math.abs(jobCreatedAt.getTime() - timestampDate.getTime());
+                  return diffMs <= TIME_WINDOW;
+                } catch (err) {
+                  console.error("Error comparing dates:", err);
+                  return false;
+                }
+              })
+              .map(convertToTranscriptionJob);
+              
+            console.log(`Found ${matchingJobs.length} jobs within the time window`);
+          } catch (err) {
+            console.error(`Error parsing timestamp ${decodedTimestamp}:`, err);
+            
+            const allJobs = await getUserTranscriptionJobs();
+            matchingJobs = allJobs.slice(0, 10).map(convertToTranscriptionJob);
+          }
+        } else {
+          console.log("Identifier appears to be a UUID");
+          
+          try {
+            const sessionJobs = await getSessionTranscriptionJobs(identifier);
             matchingJobs = sessionJobs.map(convertToTranscriptionJob);
-            console.log(`Found ${matchingJobs.length} jobs with session ID: ${sessionId}`);
+            console.log(`Found ${matchingJobs.length} jobs with session ID: ${identifier}`);
           } catch (error) {
-            console.error(`Error fetching jobs by session ID ${sessionId}:`, error);
-            // Fallback to getting all jobs if direct query fails
+            console.error(`Error fetching jobs for session ${identifier}:`, error);
+            
             const allJobs = await getUserTranscriptionJobs();
             matchingJobs = allJobs
-              .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === sessionId)
+              .filter((apiJob: TranscriptionJobFromAPI) => apiJob.session_id === identifier)
               .map(convertToTranscriptionJob);
             console.log(`Found ${matchingJobs.length} jobs using fallback method`);
           }
-        } else if (sessionTimestamp) {
-          try {
-            // First try to parse the timestamp to fix URL encoding issues
-            const decodedTimestamp = decodeURIComponent(sessionTimestamp);
-            console.log(`Fetching jobs for timestamp: ${decodedTimestamp}`);
-            
-            const timestampDate = parseISO(decodedTimestamp);
-            const formattedTimestamp = format(timestampDate, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-            console.log(`Searching with formatted timestamp: ${formattedTimestamp}`);
-            
-            // Direct query using timestamp - allow for jobs within 60 seconds window
-            const startTime = new Date(timestampDate.getTime() - 60000);
-            const endTime = new Date(timestampDate.getTime() + 60000);
-            
-            const { data, error } = await supabase
-              .from('transcriptions')
-              .select('*')
-              .gte('created_at', startTime.toISOString())
-              .lte('created_at', endTime.toISOString())
-              .order('created_at', { ascending: false });
-            
-            if (error) {
-              throw new Error(`Error querying transcriptions by timestamp: ${error.message}`);
-            }
-            
-            if (data && data.length > 0) {
-              matchingJobs = data.map(convertToTranscriptionJob);
-              console.log(`Found ${matchingJobs.length} jobs by timestamp range`);
-            } else {
-              console.log("No jobs found in timestamp range, trying fallback method");
-              // Fallback to getting all jobs
-              const allJobs = await getUserTranscriptionJobs();
-              
-              // Filter jobs by approximate timestamp
-              matchingJobs = allJobs
-                .filter((apiJob: TranscriptionJobFromAPI) => {
-                  try {
-                    const jobCreatedAt = parseISO(apiJob.created_at);
-                    const sessionTime = parseISO(decodedTimestamp);
-                    const diffInMs = Math.abs(jobCreatedAt.getTime() - sessionTime.getTime());
-                    const diffInMinutes = diffInMs / (1000 * 60);
-                    
-                    // Accept jobs created within 2 minutes of the session timestamp
-                    return diffInMinutes <= 2;
-                  } catch (err) {
-                    console.error("Error comparing dates:", err);
-                    return false;
-                  }
-                })
-                .map(convertToTranscriptionJob);
-              
-              console.log(`Found ${matchingJobs.length} jobs using fallback timestamp method`);
-            }
-          } catch (error) {
-            console.error(`Error fetching jobs by timestamp ${sessionTimestamp}:`, error);
-            // Last resort - try getting all recent jobs
-            const allJobs = await getUserTranscriptionJobs();
-            matchingJobs = allJobs
-              .slice(0, 10) // Just get the most recent 10 jobs as a fallback
-              .map(convertToTranscriptionJob);
-            console.log(`Using last resort fallback, found ${matchingJobs.length} recent jobs`);
-          }
         }
         
-        console.log("Total matching jobs:", matchingJobs.length);
-        console.log("Jobs data:", matchingJobs);
-        
-        if (sessionId || sessionTimestamp) {
-          console.log(`Session identifier: ${sessionId || sessionTimestamp}`);
-        }
-        
-        const completedJobs = matchingJobs.filter(job => job.status === 'completed');
-        console.log("Completed jobs count:", completedJobs.length);
+        console.log("Final jobs to display:", matchingJobs.length);
         
         setSessionJobs(matchingJobs);
         
+        const completedJobs = matchingJobs.filter(job => job.status === 'completed');
         if (completedJobs.length > 0) {
           setSelectedJob(completedJobs[0]);
         } else if (matchingJobs.length > 0) {
           setSelectedJob(matchingJobs[0]);
         }
         
-        // Try to fetch audio URL if we have a session ID
-        if (sessionId) {
+        if (sessionId && !sessionId.includes('T')) {
           try {
             const { data: sessionData } = await supabase
               .from('transcription_sessions')
