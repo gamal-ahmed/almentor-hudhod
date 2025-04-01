@@ -467,6 +467,7 @@ export type Database = {
           transcriptions: Json
           user_id: string
           video_id: string | null
+          vtt_file_url: string | null
         }
         Insert: {
           audio_file_name?: string | null
@@ -480,6 +481,7 @@ export type Database = {
           transcriptions?: Json
           user_id: string
           video_id?: string | null
+          vtt_file_url?: string | null
         }
         Update: {
           audio_file_name?: string | null
@@ -493,6 +495,7 @@ export type Database = {
           transcriptions?: Json
           user_id?: string
           video_id?: string | null
+          vtt_file_url?: string | null
         }
         Relationships: []
       }
@@ -504,6 +507,7 @@ export type Database = {
           id: string
           model: string
           result: Json | null
+          session_id: string | null
           status: string
           status_message: string | null
           updated_at: string
@@ -517,6 +521,7 @@ export type Database = {
           id?: string
           model: string
           result?: Json | null
+          session_id?: string | null
           status?: string
           status_message?: string | null
           updated_at?: string
@@ -530,13 +535,22 @@ export type Database = {
           id?: string
           model?: string
           result?: Json | null
+          session_id?: string | null
           status?: string
           status_message?: string | null
           updated_at?: string
           user_id?: string | null
           vtt_file_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "transcription_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
