@@ -3,7 +3,7 @@ import { baseService } from "../baseService";
 import { mapToTranscriptionJob } from "./utils";
 import { TranscriptionJob, TranscriptionRecord } from "../../types/transcription";
 
-// Define simplified type for Supabase query response to avoid excessive type instantiation
+// Define simplified type for Supabase query results to avoid excessive type instantiation
 type SupabaseQueryResult = {
   data: any[] | null;
   error: any | null;
@@ -46,32 +46,32 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
     
     console.log(`Searching for jobs between ${startTime.toISOString()} and ${endTime.toISOString()}`);
     
-    // Try direct database query first - use the simplified type
-    const directQueryResult: SupabaseQueryResult = await baseService.supabase
+    // Try direct database query first
+    const result = await baseService.supabase
       .from('transcriptions')
       .select('*')
       .gte('created_at', startTime.toISOString())
       .lte('created_at', endTime.toISOString())
       .order('created_at', { ascending: false });
       
-    const directJobs = directQueryResult.data || [];
-    const directError = directQueryResult.error;
+    const directJobs = result.data || [];
+    const directError = result.error;
       
     if (!directError && directJobs.length > 0) {
       console.log(`Found ${directJobs.length} jobs directly from database`);
       return directJobs.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
     }
       
-    // Fallback to view if direct query fails or returns no results - use the simplified type
-    const viewQueryResult: SupabaseQueryResult = await baseService.supabase
+    // Fallback to view if direct query fails or returns no results
+    const viewResult = await baseService.supabase
       .from('transcription_jobs')
       .select('*')
       .gte('created_at', startTime.toISOString())
       .lte('created_at', endTime.toISOString())
       .order('created_at', { ascending: false });
     
-    const data = viewQueryResult.data || [];
-    const error = viewQueryResult.error;
+    const data = viewResult.data || [];
+    const error = viewResult.error;
     
     if (error) {
       throw new Error(`Failed to fetch jobs by timestamp: ${error.message}`);
@@ -92,30 +92,30 @@ async function getJobsByTimestamp(sessionId: string): Promise<TranscriptionJob[]
 
 // Handle session ID-based job retrieval logic
 async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]> {
-  // Try direct query first - use the simplified type
-  const directQueryResult: SupabaseQueryResult = await baseService.supabase
+  // Try direct query first
+  const directResult = await baseService.supabase
     .from('transcriptions')
     .select('*')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: false });
     
-  const directJobs = directQueryResult.data || [];
-  const directError = directQueryResult.error;
+  const directJobs = directResult.data || [];
+  const directError = directResult.error;
     
   if (!directError && directJobs.length > 0) {
     console.log(`Found ${directJobs.length} jobs directly from database for session ${sessionId}`);
     return directJobs.map(job => mapToTranscriptionJob(job as TranscriptionRecord));
   }
   
-  // Fallback to view - use the simplified type
-  const viewQueryResult: SupabaseQueryResult = await baseService.supabase
+  // Fallback to view
+  const viewResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: false });
   
-  const data = viewQueryResult.data || [];
-  const error = viewQueryResult.error;
+  const data = viewResult.data || [];
+  const error = viewResult.error;
   
   if (error) {
     console.error(`Error fetching transcription jobs for session ${sessionId}:`, error);
@@ -128,15 +128,14 @@ async function getJobsBySessionId(sessionId: string): Promise<TranscriptionJob[]
 
 // Get recent jobs as a fallback
 async function getFallbackRecentJobs(): Promise<TranscriptionJob[]> {
-  // Use the simplified type
-  const recentQueryResult: SupabaseQueryResult = await baseService.supabase
+  const recentResult = await baseService.supabase
     .from('transcription_jobs')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(10);
     
-  const recentJobs = recentQueryResult.data || [];
-  const recentError = recentQueryResult.error;
+  const recentJobs = recentResult.data || [];
+  const recentError = recentResult.error;
     
   if (recentError) {
     throw new Error(`Failed to fetch recent jobs: ${recentError.message}`);
