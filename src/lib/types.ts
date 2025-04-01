@@ -1,7 +1,7 @@
 
 export interface TranscriptionJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | string;
   model: string;
   created_at: string;
   updated_at: string;
@@ -13,4 +13,6 @@ export interface TranscriptionJob {
     prompt: string;
   } | any;
   vtt_file_url?: string;
+  file_path?: string;
+  user_id?: string;
 }

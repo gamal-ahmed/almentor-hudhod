@@ -32,7 +32,12 @@ const SessionDetails: React.FC = () => {
         return transcriptionCreatedAt === sessionTimestampNumber;
       });
 
-      setSelectedTranscription(initialTranscription || null);
+      if (initialTranscription) {
+        // Type assertion to ensure it's treated as a TranscriptionJob
+        setSelectedTranscription(initialTranscription as TranscriptionJob);
+      } else {
+        setSelectedTranscription(null);
+      }
     }
   }, [sessionTimestamp, transcriptions]);
 
@@ -78,7 +83,7 @@ const SessionDetails: React.FC = () => {
                     name="transcription"
                     value={transcription.id}
                     checked={selectedTranscription?.id === transcription.id}
-                    onChange={() => setSelectedTranscription(transcription)}
+                    onChange={() => setSelectedTranscription(transcription as TranscriptionJob)}
                   />
                   <span className="ml-2">{new Date(transcription.created_at).toLocaleString()} - {transcription.status}</span>
                 </label>

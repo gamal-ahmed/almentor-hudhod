@@ -1,14 +1,11 @@
+
 interface VTTSegment {
   startTime: string;
   endTime: string;
   text: string;
 }
 
-export const VttParser = {
-  parseVTT: parseVTT
-};
-
-function parseVTT(vttContent: string): VTTSegment[] {
+export const parseVTT = (vttContent: string): VTTSegment[] => {
   if (!vttContent || typeof vttContent !== 'string') return [];
   
   try {
@@ -104,7 +101,7 @@ function parseVTT(vttContent: string): VTTSegment[] {
     
     return [];
   }
-}
+};
 
 function formatTimestamp(timestamp: string): string {
   try {
@@ -126,3 +123,8 @@ function formatTimestamp(timestamp: string): string {
     return "00:00:00.000";
   }
 }
+
+// Add an object to maintain backwards compatibility with code using VttParser.parseVTT
+export const VttParser = {
+  parseVTT
+};
