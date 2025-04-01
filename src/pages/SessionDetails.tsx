@@ -1,4 +1,4 @@
-/// Start of Selection
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -309,10 +309,10 @@ const SessionDetails = () => {
     cues.forEach(cue => {
       const lines = cue.split('\n').filter(line => line.trim());
       
-      const textLines = lines.filter(line => !line.includes('-->') && !/^\d+$/.test(line));
+      const textLinesFromCue = lines.filter(line => !line.includes('-->') && !/^\d+$/.test(line));
       
-      if (textLines.length) {
-        textLines.push(...textLines);
+      if (textLinesFromCue.length) {
+        textLines.push(...textLinesFromCue);
       }
     });
     
@@ -685,5 +685,3 @@ const SessionDetails = () => {
 };
 
 export default SessionDetails;
-/// End of Selection
-```
