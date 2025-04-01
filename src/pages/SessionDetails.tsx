@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getUserTranscriptionJobs, addCaptionToBrightcove, fetchBrightcoveKeys, getBrightcoveAuthToken, getSessionTranscriptionJobs } from "@/lib/api";
@@ -928,4 +929,310 @@ const SessionDetails = () => {
               )}
               {sessionId && !sessionTimestamp && (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="
+                  <Info className="h-4 w-4" />
+                  <p>Session ID: {sessionId}</p>
+                </div>
+              )}
+            </div>
+            
+            {/* This is where the content of the page begins */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-10">
+                <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+                <p className="text-muted-foreground text-center">Loading session details...</p>
+              </div>
+            ) : fetchError ? (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 my-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-lg font-medium text-destructive mb-2">Error Loading Session</h3>
+                    <p className="text-muted-foreground mb-4">{fetchError}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleRefreshJobs}
+                      className="flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Try Again
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : sessionJobs.length === 0 ? (
+              <div className="bg-muted rounded-lg p-6 my-4 text-center">
+                <FileText className="h-10 w-10 text-muted-foreground/70 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Transcription Jobs Found</h3>
+                <p className="text-muted-foreground mb-4">
+                  We couldn't find any transcription jobs for this session.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRefreshJobs}
+                  className="flex items-center gap-1.5 mx-auto"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-6 mt-4">
+                <div className="md:col-span-1">
+                  <Card className="shadow-soft border-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-xl">
+                        <FileText className="h-5 w-5 text-primary" />
+                        Transcription Jobs
+                      </CardTitle>
+                      <CardDescription>
+                        {sessionJobs.length} job{sessionJobs.length !== 1 ? 's' : ''} found
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      {comparisonMode && (
+                        <div className="bg-accent/20 rounded-md p-3 mb-4 flex flex-col space-y-2 border border-accent">
+                          <p className="text-sm font-medium">Comparison Mode</p>
+                          <p className="text-xs text-muted-foreground">
+                            Selected: {jobsToCompare.length} transcription{jobsToCompare.length !== 1 ? 's' : ''}
+                          </p>
+                          <div className="flex gap-2 mt-2">
+                            <Button 
+                              size="sm" 
+                              variant="default"
+                              className="text-xs h-8 flex items-center gap-1.5 w-full"
+                              onClick={startComparison}
+                              disabled={jobsToCompare.length < 2}
+                            >
+                              <Columns className="h-3.5 w-3.5" />
+                              Compare Selected
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="text-xs h-8 flex items-center gap-1.5"
+                              onClick={toggleComparisonMode}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <ScrollArea className="h-[340px] pr-4 -mr-4">
+                        <div className="space-y-3">
+                          {sessionJobs.map((job) => (
+                            <div
+                              key={job.id}
+                              className={`
+                                border rounded-md p-3 cursor-pointer transition-all
+                                ${job.status === 'completed' ? 'hover:border-primary/50 hover:bg-muted/50' : ''}
+                                ${selectedJob?.id === job.id && !comparisonMode ? 'border-primary bg-primary/5' : ''}
+                                ${isJobSelectedForComparison(job.id) ? 'border-primary bg-primary/5' : ''}
+                              `}
+                              onClick={() => handleSelectJob(job)}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge variant={job.status === 'completed' ? 'default' : job.status === 'failed' ? 'destructive' : 'outline'}>
+                                    {getStatusIcon(job.status)}
+                                    <span className="ml-1 capitalize">{job.status}</span>
+                                  </Badge>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                                </span>
+                              </div>
+                              <div className="mb-2">
+                                <h4 className="font-medium">{getModelDisplayName(job.model)}</h4>
+                              </div>
+                              <div className="mt-2">
+                                <Progress value={getProgressValue(job.status)} className="h-1 mb-1" />
+                                <div className="flex justify-between text-xs">
+                                  <span className={getStatusColor(job.status)}>
+                                    {job.status === 'failed' ? 'Failed' : job.status === 'completed' ? 'Complete' : 'Processing...'}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {format(new Date(job.created_at), 'MMM d, h:mm a')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                    <CardFooter className="pt-0">
+                      <div className="w-full flex justify-end gap-2 mt-3">
+                        <Select
+                          value={exportFormat}
+                          onValueChange={(value) => setExportFormat(value as ExportFormat)}
+                        >
+                          <SelectTrigger className="w-[110px] text-xs h-9">
+                            <SelectValue placeholder="Format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vtt">VTT</SelectItem>
+                            <SelectItem value="srt">SRT</SelectItem>
+                            <SelectItem value="text">Text</SelectItem>
+                            <SelectItem value="json">JSON</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-1.5"
+                          disabled={!selectedJob || selectedJob.status !== 'completed'}
+                          onClick={() => selectedJob && exportTranscription(selectedJob)}
+                        >
+                          <Download className="h-4 w-4" />
+                          Export
+                        </Button>
+                        
+                        <Button 
+                          size="sm" 
+                          className="flex items-center gap-1.5"
+                          disabled={!selectedJob || selectedJob.status !== 'completed'}
+                          onClick={handleSaveSelectedTranscription}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Save
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                </div>
+                
+                <div className="md:col-span-2">
+                  {viewMode === 'single' ? (
+                    selectedJob ? (
+                      <Card className="shadow-soft border-2 h-full">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="flex justify-between items-center">
+                            <span className="text-xl flex items-center gap-2">
+                              <FileText className="h-5 w-5 text-primary" />
+                              {getModelDisplayName(selectedJob.model)}
+                            </span>
+                            <Badge variant={selectedJob.status === 'completed' ? 'default' : 'outline'}>
+                              {selectedJob.status}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription>
+                            Created {format(new Date(selectedJob.created_at), 'PPp')}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {audioUrl && (
+                            <div className="mb-4 p-3 rounded-md bg-muted border">
+                              <p className="text-sm font-medium mb-2">Original Audio</p>
+                              <audio controls className="w-full">
+                                <source src={audioUrl} type="audio/mpeg" />
+                                Your browser does not support the audio element.
+                              </audio>
+                            </div>
+                          )}
+                          
+                          <Tabs defaultValue="preview">
+                            <TabsList className="mb-3">
+                              <TabsTrigger value="preview">Preview</TabsTrigger>
+                              <TabsTrigger value="raw" disabled={selectedJob.status !== 'completed'}>Raw VTT</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="preview" className="m-0">
+                              {selectedJob.status === 'completed' ? (
+                                <TranscriptionCard 
+                                  vttContent={extractVttContent(selectedJob)}
+                                  className="border shadow-none"
+                                />
+                              ) : selectedJob.status === 'failed' ? (
+                                <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
+                                  <h3 className="font-medium mb-1">Transcription Failed</h3>
+                                  <p className="text-sm">{selectedJob.error || "Unknown error occurred"}</p>
+                                </div>
+                              ) : (
+                                <div className="p-4 border rounded-md bg-muted flex items-center justify-center h-[300px]">
+                                  <div className="text-center">
+                                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-primary" />
+                                    <p className="text-muted-foreground">Processing transcription...</p>
+                                  </div>
+                                </div>
+                              )}
+                            </TabsContent>
+                            <TabsContent value="raw" className="m-0">
+                              <div className="border rounded-md p-4 bg-muted/50">
+                                <pre className="text-xs overflow-x-auto h-[300px]">
+                                  {extractVttContent(selectedJob)}
+                                </pre>
+                              </div>
+                            </TabsContent>
+                          </Tabs>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="shadow-soft border-2 h-full flex items-center justify-center">
+                        <CardContent className="text-center py-10">
+                          <FileText className="h-10 w-10 mx-auto mb-4 text-muted-foreground/70" />
+                          <h3 className="text-lg font-medium mb-2">No Transcription Selected</h3>
+                          <p className="text-muted-foreground">
+                            Select a transcription job from the list to view details.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )
+                  ) : (
+                    <Card className="shadow-soft border-2 h-full">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          <Columns className="h-5 w-5 text-primary" />
+                          Comparison View
+                        </CardTitle>
+                        <CardDescription>
+                          Comparing {jobsToCompare.length} transcriptions
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 divide-y md:grid-cols-2 md:divide-y-0 md:divide-x gap-4">
+                          {jobsToCompare.map((job) => (
+                            <div key={job.id} className="p-2">
+                              <div className="mb-2">
+                                <h3 className="font-medium">{getModelDisplayName(job.model)}</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(job.created_at), 'MMM d, h:mm a')}
+                                </p>
+                              </div>
+                              <Separator className="my-2" />
+                              <TranscriptionCard 
+                                vttContent={extractVttContent(job)}
+                                className="border shadow-none h-[400px]"
+                                showPagination={false}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-0">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="ml-auto flex items-center gap-1.5"
+                          onClick={() => setViewMode('single')}
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                          Back to Single View
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default SessionDetails;
