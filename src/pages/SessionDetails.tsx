@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getSessionTranscriptionJobs } from "@/lib/api";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -127,27 +126,19 @@ const SessionDetails = () => {
         let matchingJobs: TranscriptionJob[] = [];
         
         try {
-          const sessionJobs = await getSessionTranscriptionJobs(identifier);
-          matchingJobs = sessionJobs.map(convertToTranscriptionJob);
-          console.log(`Found ${matchingJobs.length} jobs with session ID: ${identifier}`);
+          const { data: directJobs, error: directError } = await supabase
+            .from('transcriptions')
+            .select('*')
+            .eq('session_id', identifier)
+            .order('created_at', { ascending: false });
+            
+          if (!directError && directJobs && directJobs.length > 0) {
+            matchingJobs = directJobs.map(convertToTranscriptionJob);
+            console.log(`Found ${matchingJobs.length} jobs with direct query`);
+          }
         } catch (error) {
           console.error(`Error fetching jobs for session ${identifier}:`, error);
           setFetchError(`Error fetching session jobs: ${error.message}`);
-          
-          try {
-            const { data: directJobs, error: directError } = await supabase
-              .from('transcriptions')
-              .select('*')
-              .eq('session_id', identifier)
-              .order('created_at', { ascending: false });
-              
-            if (!directError && directJobs && directJobs.length > 0) {
-              matchingJobs = directJobs.map(convertToTranscriptionJob);
-              console.log(`Found ${matchingJobs.length} jobs with direct query`);
-            }
-          } catch (fallbackErr) {
-            console.error("Fallback fetch also failed:", fallbackErr);
-          }
         }
         
         console.log("Final jobs to display:", matchingJobs.length);
@@ -605,7 +596,14 @@ const SessionDetails = () => {
       const identifier = sessionId;
       if (!identifier) return;
       
-      const refreshedJobs = await getSessionTranscriptionJobs(identifier);
+      const { data: refreshedJobs, error } = await supabase
+        .from('transcriptions')
+        .select('*')
+        .eq('session_id', identifier)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
       if (refreshedJobs.length > 0) {
         setSessionJobs(refreshedJobs.map(convertToTranscriptionJob));
         toast({
