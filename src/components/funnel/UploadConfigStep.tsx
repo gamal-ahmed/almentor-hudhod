@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Upload, FileAudio, Share, Pause, Play } from 'lucide-react';
+import { AlertCircle, Upload, FileAudio, Pause, Play, Link } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
-import SharePointDownloader from '@/components/SharePointDownloader';
 import ModelSelector from '@/components/ModelSelector';
 import PromptOptions from '@/components/PromptOptions';
+import UrlTranscription from '@/components/UrlTranscription';
 import { createTranscriptionJob } from '@/lib/api';
 import { toast } from 'sonner';
 import { useLogsStore } from '@/lib/useLogsStore';
@@ -42,20 +42,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     
     // Automatically start transcription after file upload
     await startTranscription(file);
-  };
-  
-  const handleSharePointFileSelect = async (files: File[]) => {
-    if (files.length > 0) {
-      console.log("SharePoint file selected:", files[0].name);
-      setUploadedFile(files[0]);
-      addLog(`SharePoint file selected: ${files[0].name}`, "info", {
-        source: "SharePoint",
-        details: `Type: ${files[0].type}`
-      });
-      
-      // Automatically start transcription after file selection
-      await startTranscription(files[0]);
-    }
   };
   
   const toggleAudioPlayback = () => {
@@ -192,9 +178,9 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
               <Upload className="h-4 w-4" />
               <span>Direct Upload</span>
             </TabsTrigger>
-            <TabsTrigger value="sharepoint" className="flex items-center gap-2">
-              <Share className="h-4 w-4" />
-              <span>SharePoint</span>
+            <TabsTrigger value="url" className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              <span>URL</span>
             </TabsTrigger>
           </TabsList>
           
@@ -205,15 +191,19 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
             />
           </TabsContent>
           
-          <TabsContent value="sharepoint" className="space-y-4">
-            <SharePointDownloader 
-              onFilesQueued={handleSharePointFileSelect}
+          <TabsContent value="url" className="space-y-4">
+            <UrlTranscription
+              selectedModels={selectedModels}
+              prompt={prompt}
               isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
+              onTranscriptionsCreated={onTranscriptionsCreated}
+              onStepComplete={onStepComplete}
             />
           </TabsContent>
         </Tabs>
         
-        {uploadedFile && (
+        {uploadedFile && uploadTab === 'direct' && (
           <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -286,22 +276,24 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         </div>
       </CardContent>
       
-      <CardFooter className="flex justify-between border-t p-6">
-        <Button
-          variant="default"
-          className="w-full"
-          onClick={() => startTranscription()}
-          disabled={!uploadedFile || selectedModels.length === 0 || isProcessing}
-        >
-          {isProcessing ? (
-            <>
-              <span className="animate-pulse">Processing...</span>
-            </>
-          ) : (
-            <>Start Transcription</>
-          )}
-        </Button>
-      </CardFooter>
+      {uploadTab === 'direct' && (
+        <CardFooter className="flex justify-between border-t p-6">
+          <Button
+            variant="default"
+            className="w-full"
+            onClick={() => startTranscription()}
+            disabled={!uploadedFile || selectedModels.length === 0 || isProcessing}
+          >
+            {isProcessing ? (
+              <>
+                <span className="animate-pulse">Processing...</span>
+              </>
+            ) : (
+              <>Start Transcription</>
+            )}
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 };
