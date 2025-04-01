@@ -88,6 +88,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
                   vttContent={extractVttContent(selectedJob)}
                   isSelected={true}
                   onSelect={() => {}}
+                  audioSrc={audioUrl}
                 />
                 
                 {/* Add publish button */}
