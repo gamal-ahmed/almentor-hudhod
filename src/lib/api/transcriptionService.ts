@@ -39,7 +39,7 @@ export async function createTranscriptionJob(
     });
     
     // Create job record in the database first - using the actual table, not the view
-    const insertData: any = {
+    const insertData: Record<string, any> = {
       model: model as string,
       file_path: fileName,
       status: 'pending'
@@ -309,7 +309,7 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
       .from('transcription_sessions')
       .update({
         vtt_file_url: publicUrl
-      } as any)
+      })
       .eq('id', sessionId);
     
     if (updateError) {
