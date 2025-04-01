@@ -901,4 +901,4 @@ const SessionDetails = () => {
                       ) : (
                         <div className="p-12 text-center border rounded-md border-dashed animate-pulse-opacity">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No transcription selected</h3>
+                          <h3 className="text-lg font-medium mb-2">No transcription selected
