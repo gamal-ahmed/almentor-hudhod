@@ -1,8 +1,9 @@
 
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio, createTranscriptionJob, checkTranscriptionJobStatus, getUserTranscriptionJobs, resetStuckJobs } from "./transcriptionService";
-import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./brightcoveService";
+import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
+import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
 
 // Re-export all API functions for easy access
 export {
@@ -13,5 +14,8 @@ export {
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
   resetStuckJobs,
-  fetchAudioFromUrl
+  fetchAudioFromUrl,
+  fetchBrightcoveKeys,
+  fetchSharePointFiles,
+  downloadSharePointFile
 };

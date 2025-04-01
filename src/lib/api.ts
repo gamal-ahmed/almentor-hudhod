@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { 
   transcribeAudio as serverTranscribeAudio,
@@ -7,7 +6,7 @@ import {
   getUserTranscriptionJobs,
   resetStuckJobs
 } from "./api/transcriptionService";
-import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./api/index";
+import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./api/brightcoveService";
 import { fetchAudioFromUrl } from "./api/audioDownloadService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
@@ -173,72 +172,4 @@ function formatVTTTime(seconds: number): string {
   const milliseconds = Math.floor((seconds % 1) * 1000);
   
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
-}
-
-// Get Brightcove Auth Token using our proxy
-export async function getBrightcoveAuthToken(clientId: string, clientSecret: string) {
-  try {
-    const response = await fetch(`${BRIGHTCOVE_PROXY_URL}/auth`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to get Brightcove token: ${response.statusText} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    return data.access_token;
-  } catch (error) {
-    console.error('Error getting Brightcove token:', error);
-    throw error;
-  }
-}
-
-// Add caption to Brightcove video using our proxy
-export async function addCaptionToBrightcove(
-  videoId: string, 
-  vttContent: string, 
-  language = 'ar', 
-  label = 'Arabic',
-  accountId: string,
-  accessToken: string
-) {
-  try {
-    const response = await fetch(`${BRIGHTCOVE_PROXY_URL}/captions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({
-        videoId,
-        vttContent,
-        language,
-        label,
-        accountId,
-        accessToken
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to add caption: ${response.statusText} - ${errorText}`);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error adding caption to Brightcove:', error);
-    throw error;
-  }
 }
