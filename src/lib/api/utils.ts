@@ -1,67 +1,24 @@
-// API base URL (Proxy for external services or Edge Functions)
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-// Supabase anon key for service requests
-export const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-// API endpoints
+// API endpoints (using Supabase Edge Functions)
 export const API_ENDPOINTS = {
-  // Transcription services
-  TRANSCRIBE: `${API_BASE_URL}/functions/v1/openai-transcribe`,
-  TRANSCRIPTION_JOB: `${API_BASE_URL}/functions/v1/transcription-job`,
-  TRANSCRIPTION_JOB_STATUS: `${API_BASE_URL}/functions/v1/transcription-job-status`,
-  TRANSCRIPTION_JOBS: `${API_BASE_URL}/functions/v1/transcription-jobs`,
-  RESET_STUCK_JOBS: `${API_BASE_URL}/functions/v1/reset-stuck-jobs`,
-  
-  // SharePoint integration
-  SHAREPOINT_FILES: `${API_BASE_URL}/functions/v1/sharepoint-files`,
-  SHAREPOINT_DOWNLOAD: `${API_BASE_URL}/functions/v1/sharepoint-download`,
-  SHAREPOINT_PROXY: `${API_BASE_URL}/functions/v1/sharepoint-proxy`,
-  
-  // Brightcove integration
-  BRIGHTCOVE_AUTH: `${API_BASE_URL}/functions/v1/brightcove-auth`,
-  BRIGHTCOVE_CAPTION: `${API_BASE_URL}/functions/v1/brightcove-caption`,
-  BRIGHTCOVE_KEYS: `${API_BASE_URL}/functions/v1/brightcove-keys`,
-  BRIGHTCOVE_PROXY: `${API_BASE_URL}/functions/v1/brightcove-proxy`,
-  
-  // Cloud storage integration
-  CLOUD_STORAGE_AUTH: `${API_BASE_URL}/functions/v1/cloud-storage-auth`,
-  CLOUD_STORAGE_TOKEN: `${API_BASE_URL}/functions/v1/cloud-storage-token`,
-  CLOUD_STORAGE_FILES: `${API_BASE_URL}/functions/v1/cloud-storage-files`,
-  CLOUD_STORAGE_DOWNLOAD: `${API_BASE_URL}/functions/v1/cloud-storage-download`,
-  
-  // Transcription service - fix the URL path to use the correct format
-  TRANSCRIPTION_SERVICE: `${API_BASE_URL}/functions/v1/transcription-service`,
+  OPENAI_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/openai-transcribe',
+  GEMINI_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe',
+  PHI4_TRANSCRIBE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe',
+  BRIGHTCOVE_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy',
+  SHAREPOINT_PROXY: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
+  TRANSCRIPTION_SERVICE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/transcription-service'
 };
 
-// Error handling helper
-export const handleApiError = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  return 'An unknown error occurred';
-};
+// Supabase API key for authentication
+export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhid25qZmR6Ym55dmF4bXF1ZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTU5ODIsImV4cCI6MjA1ODM5MTk4Mn0.4-BgbiXxUcR6k7zMRpC1BPRKapqrai6LsOxETi_hYtk';
 
-// Format VTT time
-export function formatVTTTime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const milliseconds = Math.floor((seconds % 1) * 1000);
-  
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
-}
-
-// Convert text to VTT format
+// Helper function to convert text to VTT format
 export function convertTextToVTT(text: string): string {
   let vttContent = 'WEBVTT\n\n';
   
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   
-  sentences.forEach((sentence: string, index: number) => {
+  sentences.forEach((sentence, index) => {
     const startTime = formatVTTTime(index * 5);
     const endTime = formatVTTTime((index + 1) * 5);
     vttContent += `${startTime} --> ${endTime}\n${sentence.trim()}\n\n`;
@@ -70,17 +27,25 @@ export function convertTextToVTT(text: string): string {
   return vttContent;
 }
 
-// Convert chunks to VTT format
-export function convertChunksToVTT(chunks: any[]): string {
-  if (!chunks || chunks.length === 0) return convertTextToVTT('No transcript available');
-  
+// Helper function to convert chunks with timestamps to VTT format
+export function convertChunksToVTT(chunks: Array<{ text: string; timestamp: [number, number] }>): string {
   let vttContent = 'WEBVTT\n\n';
   
-  chunks.forEach((chunk: any) => {
-    const startTime = formatVTTTime(chunk.start);
-    const endTime = formatVTTTime(chunk.end);
+  chunks.forEach((chunk) => {
+    const startTime = formatVTTTime(chunk.timestamp[0]);
+    const endTime = formatVTTTime(chunk.timestamp[1]);
     vttContent += `${startTime} --> ${endTime}\n${chunk.text.trim()}\n\n`;
   });
   
   return vttContent;
+}
+
+// Helper function to format time for VTT
+export function formatVTTTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const milliseconds = Math.floor((seconds % 1) * 1000);
+  
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
 }

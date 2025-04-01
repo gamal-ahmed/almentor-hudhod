@@ -1,8 +1,0 @@
-
-# OAuth client IDs (populated from environment variables)
-# GOOGLE_CLIENT_ID
-# DROPBOX_CLIENT_ID
-
-# Supabase configs for authentication
-# SUPABASE_URL
-# SUPABASE_SERVICE_ROLE_KEY

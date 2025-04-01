@@ -2,8 +2,7 @@
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { transcribeAudio, createTranscriptionJob, checkTranscriptionJobStatus, getUserTranscriptionJobs, resetStuckJobs } from "./transcriptionService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
-import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "./brightcoveService";
-import { cloudStorageService } from "./cloudStorageService";
+import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./brightcoveService";
 
 // Re-export all API functions for easy access
 export {
@@ -15,9 +14,5 @@ export {
   downloadSharePointFile,
   getBrightcoveAuthToken,
   addCaptionToBrightcove,
-  resetStuckJobs,
-  // Brightcove key function
-  fetchBrightcoveKeys,
-  // Cloud storage service
-  cloudStorageService
+  resetStuckJobs
 };

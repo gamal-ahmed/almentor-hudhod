@@ -247,45 +247,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cloud_storage_accounts: {
-        Row: {
-          access_token: string
-          created_at: string
-          email: string
-          expires_at: string | null
-          id: string
-          last_used: string | null
-          name: string | null
-          provider: string
-          refresh_token: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          created_at?: string
-          email: string
-          expires_at?: string | null
-          id?: string
-          last_used?: string | null
-          name?: string | null
-          provider: string
-          refresh_token?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          created_at?: string
-          email?: string
-          expires_at?: string | null
-          id?: string
-          last_used?: string | null
-          name?: string | null
-          provider?: string
-          refresh_token?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       fasela_program_feedbacks: {
         Row: {
           cohort: string | null

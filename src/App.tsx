@@ -10,11 +10,9 @@ import Landing from "./pages/Landing";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SessionDetails from "./pages/SessionDetails";
-import CloudStorage from "./pages/CloudStorage";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
-import OAuthCallback from './pages/OAuthCallback';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,17 +42,11 @@ const App = () => (
                     <Index />
                   </AuthGuard>
                 } />
-                <Route path="/cloud-storage" element={
-                  <AuthGuard>
-                    <CloudStorage />
-                  </AuthGuard>
-                } />
                 <Route path="/session/:sessionTimestamp" element={
                   <AuthGuard>
                     <SessionDetails />
                   </AuthGuard>
                 } />
-                <Route path="/auth/callback/:provider" element={<OAuthCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

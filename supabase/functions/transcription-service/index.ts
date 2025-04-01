@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
@@ -21,8 +20,6 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const endpoint = url.pathname.split('/').pop();
-  
-  console.log("Received request to endpoint:", endpoint);
 
   if (endpoint === 'start-job') {
     return await handleStartJob(req);
@@ -31,9 +28,8 @@ serve(async (req) => {
   } else if (endpoint === 'reset-stuck-jobs') {
     return await handleResetStuckJobs(req);
   } else {
-    console.log("Invalid endpoint requested:", endpoint);
     return new Response(
-      JSON.stringify({ error: "Invalid endpoint", requestedEndpoint: endpoint }),
+      JSON.stringify({ error: "Invalid endpoint" }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -41,6 +37,58 @@ serve(async (req) => {
     );
   }
 });
+
+// Handle starting a new transcription job
+async function handleStartJob(req: Request) {
+  try {
+    const formData = await req.formData();
+    const audioFile = formData.get("audio");
+    const prompt = formData.get("prompt") || "Please preserve all English words exactly as spoken";
+    const jobId = formData.get("jobId");
+
+    // Check if required data is provided
+    if (!audioFile || !(audioFile instanceof File)) {
+      throw new Error("No audio file provided or invalid file");
+    }
+
+    if (!jobId) {
+      throw new Error("No job ID provided");
+    }
+
+    console.log(`Processing job ${jobId}: file: ${audioFile.name}, size: ${audioFile.size} bytes`);
+
+    // Update job status - use the base table instead of the view
+    await updateJobStatus(jobId.toString(), 'processing', 'Transcription in progress');
+
+    // Process transcription in the background
+    EdgeRuntime.waitUntil(processTranscription(jobId.toString(), audioFile, prompt.toString()));
+
+    return new Response(
+      JSON.stringify({ 
+        message: "Transcription job started",
+        jobId
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error starting transcription job:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+}
 
 // Handle checking job status
 async function handleJobStatus(req: Request) {
@@ -142,59 +190,6 @@ async function handleResetStuckJobs(req: Request) {
   }
 }
 
-// Handle starting a new transcription job
-async function handleStartJob(req: Request) {
-  try {
-    console.log("Handling start-job request");
-    const formData = await req.formData();
-    const audioFile = formData.get("audio");
-    const prompt = formData.get("prompt") || "Please preserve all English words exactly as spoken";
-    const jobId = formData.get("jobId");
-
-    // Check if required data is provided
-    if (!audioFile || !(audioFile instanceof File)) {
-      throw new Error("No audio file provided or invalid file");
-    }
-
-    if (!jobId) {
-      throw new Error("No job ID provided");
-    }
-
-    console.log(`Processing job ${jobId}: file: ${audioFile.name}, size: ${audioFile.size} bytes`);
-
-    // Update job status - use the base table instead of the view
-    await updateJobStatus(jobId.toString(), 'processing', 'Transcription in progress');
-
-    // Process transcription in the background
-    EdgeRuntime.waitUntil(processTranscription(jobId.toString(), audioFile, prompt.toString()));
-
-    return new Response(
-      JSON.stringify({ 
-        message: "Transcription job started",
-        jobId
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Error starting transcription job:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  }
-}
-
 // Update job status in the database - modify to use the transcriptions table directly
 async function updateJobStatus(
   jobId: string, 
@@ -248,22 +243,19 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     
     // Determine which API to use based on the model
     let apiUrl = '';
-    const isOpenAIModel = job.model === 'openai';
-    
     switch (job.model) {
       case 'openai':
         apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
         break;
       case 'gemini-2.0-flash':
-        // Use internal endpoint for now
+        // Use internal endpoint for now (would need to implement proper Gemini API call)
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe';
         break;
       case 'phi4':
-        // Use internal endpoint for now
+        // Use internal endpoint for now (would need to implement proper Phi4 API call)
         apiUrl = 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe';
         break;
       default:
-        // Fallback to OpenAI
         apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
     }
     
@@ -274,7 +266,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     const formData = new FormData();
     const blob = new Blob([audioBuffer], { type: audioFile.type });
     
-    if (isOpenAIModel) {
+    if (job.model === 'openai') {
       // OpenAI-specific parameters
       formData.append('file', blob, audioFile.name);
       formData.append('model', 'whisper-1');
@@ -293,12 +285,8 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     
     // Additional headers for OpenAI
     const headers: Record<string, string> = {};
-    if (isOpenAIModel) {
-      const openAiKey = Deno.env.get("OPENAI_API_KEY");
-      if (!openAiKey) {
-        throw new Error("OPENAI_API_KEY environment variable is not set");
-      }
-      headers['Authorization'] = `Bearer ${openAiKey}`;
+    if (job.model === 'openai') {
+      headers['Authorization'] = `Bearer ${Deno.env.get("OPENAI_API_KEY")}`;
     } else {
       // For our Edge Functions
       headers['apikey'] = Deno.env.get("SUPABASE_ANON_KEY") || '';
@@ -321,12 +309,9 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
     
     // Process the response based on model
     let vttContent = '';
-    let text = '';
     
-    if (isOpenAIModel) {
+    if (job.model === 'openai') {
       // Handle OpenAI response
-      text = data.text || "";
-      
       if (data.segments && data.segments.length > 0) {
         vttContent = "WEBVTT\n\n";
         data.segments.forEach((segment: any) => {
@@ -336,12 +321,11 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
         });
       } else {
         // Fallback to plain text if no segments
-        vttContent = convertTextToVTT(text);
+        vttContent = convertTextToVTT(data.text);
       }
     } else {
       // Our Edge Functions return vttContent directly
       vttContent = data.vttContent;
-      text = data.text || "";
     }
     
     // Update job with success
@@ -352,7 +336,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
       undefined,
       { 
         vttContent, 
-        text,
+        text: data.text || "",
         prompt
       }
     );

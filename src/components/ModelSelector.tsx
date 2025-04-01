@@ -10,18 +10,12 @@ import { InfoIcon } from "lucide-react";
 export type TranscriptionModel = "openai" | "gemini-2.0-flash" | "phi4";
 
 interface ModelSelectorProps {
-  selectedModel: TranscriptionModel;
+  selectedModels: TranscriptionModel[];
   onModelChange: (models: TranscriptionModel[]) => void;
   disabled: boolean;
-  selectedModels?: TranscriptionModel[];
 }
 
-const ModelSelector = ({ 
-  selectedModel, 
-  selectedModels = [], 
-  onModelChange, 
-  disabled 
-}: ModelSelectorProps) => {
+const ModelSelector = ({ selectedModels, onModelChange, disabled }: ModelSelectorProps) => {
   const addLog = useLogsStore(state => state.addLog);
 
   const handleModelToggle = (model: TranscriptionModel) => {
@@ -29,11 +23,8 @@ const ModelSelector = ({
       // Log the action
       addLog(`Toggling model: ${model}`, "info", { source: "ModelSelector" });
       
-      // For backwards compatibility, we support both single model and multiple models
-      // If selectedModels is provided, use it, otherwise create an array from selectedModel
-      const currentModels = selectedModels.length > 0 
-        ? selectedModels 
-        : selectedModel ? [selectedModel] : [];
+      // Ensure selectedModels is always an array
+      const currentModels = Array.isArray(selectedModels) ? selectedModels : [];
       
       // Log current selection state
       addLog(`Current selected models: ${currentModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
@@ -41,16 +32,16 @@ const ModelSelector = ({
       if (currentModels.includes(model)) {
         const updatedModels = currentModels.filter(m => m !== model);
         addLog(`Removing ${model}, new selection: ${updatedModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
-        onModelChange(updatedModels.length ? updatedModels : [model]); // Always keep at least one model selected
+        onModelChange(updatedModels);
       } else {
         const updatedModels = [...currentModels, model];
         addLog(`Adding ${model}, new selection: ${updatedModels.join(", ") || "none"}`, "debug", { source: "ModelSelector" });
         onModelChange(updatedModels);
       }
     } catch (error) {
-      addLog(`Error toggling model: ${(error as Error).message}`, "error", { 
+      addLog(`Error toggling model: ${error.message}`, "error", { 
         source: "ModelSelector", 
-        details: (error as Error).stack 
+        details: error.stack 
       });
       console.error("Error toggling model:", error);
     }
@@ -77,18 +68,12 @@ const ModelSelector = ({
     }
   ];
 
-  // Determine if model is selected
-  const isModelSelected = (model: TranscriptionModel) => {
-    if (selectedModels.length > 0) {
-      return selectedModels.includes(model);
-    }
-    return selectedModel === model;
-  };
+  // Ensure selectedModels is always treated as an array
+  const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
 
   // Add additional logging for debugging
   console.log("ModelSelector render:", { 
-    selectedModel,
-    selectedModels,
+    selectedModels: safeSelectedModels,
     disabled
   });
 
@@ -99,14 +84,14 @@ const ModelSelector = ({
           <div 
             key={model.id} 
             className={`flex items-start space-x-2 p-2.5 rounded-md border border-border/50 transition-colors ${
-              isModelSelected(model.id) 
+              safeSelectedModels.includes(model.id) 
                 ? "bg-primary/5 border-primary/20" 
                 : "bg-background hover:bg-muted/30"
             } ${disabled ? "opacity-60" : ""}`}
           >
             <Checkbox 
               id={model.id} 
-              checked={isModelSelected(model.id)} 
+              checked={safeSelectedModels.includes(model.id)} 
               onCheckedChange={() => handleModelToggle(model.id)}
               disabled={disabled}
               className="mt-0.5"
