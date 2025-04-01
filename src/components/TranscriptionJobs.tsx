@@ -44,7 +44,7 @@ interface TranscriptionJobsProps {
 const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({ 
   onSelectTranscription,
   refreshTrigger = 0,
-  sessionId = null
+  sessionId,
 }) => {
   const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
   const [jobGroups, setJobGroups] = useState<JobGroup[]>([]);
