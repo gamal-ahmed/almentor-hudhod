@@ -61,11 +61,6 @@ const App = () => (
                     <SessionDetails />
                   </AuthGuard>
                 } />
-                <Route path="/session/:sessionTimestamp" element={
-                  <AuthGuard>
-                    <SessionDetails />
-                  </AuthGuard>
-                } />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
