@@ -10,14 +10,6 @@ import {
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -190,59 +182,44 @@ const SessionHistory = () => {
         <CardDescription>Your recent transcription sessions</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Session Time</TableHead>
-              <TableHead>Models</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sessionGroups.map((session, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{formatDistanceToNow(session.timestamp, { addSuffix: true })}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {session.jobCount} {session.jobCount === 1 ? 'model' : 'models'}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {session.models.map((model, i) => (
-                      <span key={i} className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-                        {model}
-                      </span>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    asChild
-                    className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                  >
-                    {session.sessionId ? (
-                      <Link to={`/session/${session.sessionId}`}>
-                        <span>Details</span>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    ) : (
-                      <Link to={`/app`}>
-                        <span>Dashboard</span>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    )}
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="grid grid-cols-1 gap-4">
+          {sessionGroups.map((session, index) => (
+            <div key={index} className="flex items-center justify-between p-4 bg-white shadow rounded-lg hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="text-sm font-medium">{formatDistanceToNow(session.timestamp, { addSuffix: true })}</div>
+                  <div className="text-xs text-muted-foreground">{session.jobCount} {session.jobCount === 1 ? 'model' : 'models'}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {session.models.map((model, i) => (
+                  <span key={i} className="text-xs px-3 py-1 bg-secondary rounded-full">
+                    {model}
+                  </span>
+                ))}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                asChild
+                className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
+              >
+                {session.sessionId ? (
+                  <Link to={`/session/${session.sessionId}`}>
+                    <span>Details</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                ) : (
+                  <Link to={`/app`}>
+                    <span>Dashboard</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
