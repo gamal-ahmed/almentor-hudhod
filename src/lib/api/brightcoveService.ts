@@ -69,7 +69,7 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
 // Add caption to Brightcove video using our proxy and Ingest API
 export async function addCaptionToBrightcove(
   videoId: string, 
-  vttContent: string, 
+  selectedTranscriptionUrl: string, 
   language = 'ar', 
   label = 'Arabic',
   accountId: string,
@@ -77,7 +77,7 @@ export async function addCaptionToBrightcove(
 ) {
   try {
     // Validate inputs
-    if (!videoId || !vttContent || !accountId || !accessToken) {
+    if (!videoId || !selectedTranscriptionUrl || !accountId || !accessToken) {
       throw new Error('Missing required parameters for adding caption');
     }
     
@@ -115,12 +115,11 @@ export async function addCaptionToBrightcove(
       },
       body: JSON.stringify({
         videoId,
-        vttContent,
+        selectedTranscriptionUrl,
         language,
         label,
         accountId,
         accessToken,
-        selected_transcription_url
       }),
     });
     
