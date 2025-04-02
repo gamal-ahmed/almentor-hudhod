@@ -72,12 +72,14 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         throw new Error("Transcription job is not associated with a session");
       }
 
-      // Use the simplified API with session ID
+      // Use the simplified API with session ID and model information
       publishLog.update(`Adding caption to Brightcove video ID: ${videoId} via Ingest API`);
       const result = await addCaptionToBrightcove(
         videoId,
         selectedJob.session_id,
-        authToken
+        authToken,
+        selectedJob.id,
+        selectedJob.model
       );
       
       publishLog.complete(

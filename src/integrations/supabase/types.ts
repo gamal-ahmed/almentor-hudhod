@@ -9,6 +9,70 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      brightcove_publications: {
+        Row: {
+          brightcove_master_url: string | null
+          brightcove_response: Json | null
+          created_at: string
+          id: string
+          is_published: boolean | null
+          model_id: string | null
+          model_name: string
+          session_id: string
+          transcription_url: string | null
+          updated_at: string
+          video_id: string
+        }
+        Insert: {
+          brightcove_master_url?: string | null
+          brightcove_response?: Json | null
+          created_at?: string
+          id?: string
+          is_published?: boolean | null
+          model_id?: string | null
+          model_name: string
+          session_id: string
+          transcription_url?: string | null
+          updated_at?: string
+          video_id: string
+        }
+        Update: {
+          brightcove_master_url?: string | null
+          brightcove_response?: Json | null
+          created_at?: string
+          id?: string
+          is_published?: boolean | null
+          model_id?: string | null
+          model_name?: string
+          session_id?: string
+          transcription_url?: string | null
+          updated_at?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brightcove_publications_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "transcription_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brightcove_publications_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "transcriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brightcove_publications_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "transcription_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       caption_uploads: {
         Row: {
           brightcove_response: Json | null

@@ -1,5 +1,5 @@
-
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // Fetch Brightcove keys from Supabase
 export async function fetchBrightcoveKeys() {
@@ -70,7 +70,9 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
 export async function addCaptionToBrightcove(
   videoId: string,
   sessionId: string,
-  accessToken: string
+  accessToken: string,
+  modelId?: string,
+  modelName?: string
 ) {
   try {
     // Validate inputs
@@ -135,6 +137,39 @@ export async function addCaptionToBrightcove(
     // Get the response data to check for the ingest job ID
     const responseData = await response.json();
     console.log('Caption ingestion started:', responseData);
+    
+    // Record this publication in our database
+    try {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('transcription_sessions')
+        .select('selected_transcription_url, vtt_file_url')
+        .eq('id', sessionId)
+        .single();
+        
+      if (sessionError) {
+        console.error('Error fetching session data:', sessionError);
+      }
+      
+      // Insert a record of this publication
+      const { error: insertError } = await supabase
+        .from('brightcove_publications')
+        .insert({
+          session_id: sessionId,
+          video_id: videoId,
+          model_id: modelId || null,
+          model_name: modelName || 'Unknown Model',
+          transcription_url: sessionData?.vtt_file_url || sessionData?.selected_transcription_url || null,
+          brightcove_response: responseData,
+          is_published: true
+        });
+        
+      if (insertError) {
+        console.error('Error recording publication:', insertError);
+      }
+    } catch (dbError) {
+      console.error('Error saving publication record:', dbError);
+      // Don't fail the publication if just the record-keeping fails
+    }
     
     return responseData;
   } catch (error) {

@@ -7,7 +7,7 @@ import TranscriptionCard from "@/components/TranscriptionCard";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
 import VideoIdInput from "@/components/VideoIdInput";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import LogsPanel from "@/components/LogsPanel";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
@@ -159,7 +159,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
 
   // Publish caption to Brightcove
   const publishCaption = async () => {
-    if (!selectedTranscription || !videoId || !sessionId) {
+    if (!selectedTranscription || !videoId || !sessionId || !selectedModel) {
       toast({
         title: "Missing Information",
         description: "Please select a transcription, enter a video ID, and ensure the session is valid.",
@@ -191,11 +191,17 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         
         publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
         
-        // Use the simplified API with session ID
+        // Find the job ID for the selected model
+        const selectedModelJob = latestResults[selectedModel];
+        const modelId = selectedModelJob?.id || null;
+        
+        // Use the updated API with model information
         const result = await addCaptionToBrightcove(
           videoId,
           sessionId,
-          authToken
+          authToken,
+          modelId,
+          selectedModel
         );
         
         publishLog.complete(

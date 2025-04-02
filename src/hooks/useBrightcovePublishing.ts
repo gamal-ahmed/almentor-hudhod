@@ -45,7 +45,9 @@ export function useBrightcovePublishing(sessionId: string | undefined, selectedJ
       await addCaptionToBrightcove(
         videoId,
         String(sessionId),
-        authToken
+        authToken,
+        jobToPublish.id,
+        jobToPublish.model
       );
       
       addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
