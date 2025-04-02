@@ -134,10 +134,11 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
       if (selectedTranscription && selectedModel && sessionId) {
         try {
           // Save selected transcription to database
-          await saveSelectedTranscription(sessionId, selectedModel, selectedTranscription);
+          const fileName = `transcription_${selectedModel}_${new Date().toISOString().slice(0, 10)}.vtt`;
+          await saveSelectedTranscription(sessionId, selectedTranscription, fileName, selectedModel);
           
           // Save as VTT file for Brightcove
-          await saveTranscriptionToVTT(sessionId, selectedTranscription);
+          await saveTranscriptionToVTT(sessionId, selectedTranscription, fileName);
           
           addLog(`Saved selected transcription (${selectedModel}) to session`, "info", {
             source: "ResultsPublishStep",

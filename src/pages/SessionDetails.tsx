@@ -743,24 +743,6 @@ const SessionDetails = () => {
     }
   };
 
-  const handlePublishToBrightcove = () => {
-    const jobToPublish = selectedModelId
-      ? sessionJobs.find(job => job.id === selectedModelId)
-      : selectedJob;
-      
-    if (!jobToPublish) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a transcription to publish",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setSelectedJob(jobToPublish);
-    setPublishDialogOpen(true);
-  };
-
   const publishToBrightcove = async () => {
     const jobToPublish = selectedModelId
       ? sessionJobs.find(job => job.id === selectedModelId) || selectedJob
@@ -775,7 +757,6 @@ const SessionDetails = () => {
       return;
     }
     
-    
     try {
       setIsPublishing(true);
       
@@ -788,10 +769,7 @@ const SessionDetails = () => {
       
       await addCaptionToBrightcove(
         videoId,
-        selectedTranscriptionUrl,
-        'ar',
-        'Arabic',
-        brightcoveKeys.brightcove_account_id,
+        String(sessionId),
         authToken
       );
       
