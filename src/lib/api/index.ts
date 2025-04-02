@@ -9,14 +9,14 @@ import {
   saveTranscriptionToVTT,
   saveSelectedTranscription,
   getSessionTranscriptionJobs
-} from "./api/transcriptionService";
+} from "./transcriptionService";
 import { 
   getBrightcoveAuthToken, 
   addCaptionToBrightcove, 
   fetchBrightcoveKeys 
-} from "./api/brightcoveService";
-import { fetchAudioFromUrl } from "./api/audioDownloadService";
-import { fetchSharePointFiles, downloadSharePointFile } from "./api/sharePointService";
+} from "./brightcoveService";
+import { fetchAudioFromUrl } from "./audioDownloadService";
+import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
 
 // Re-export all API functions for easy access
 export {

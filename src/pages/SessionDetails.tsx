@@ -81,6 +81,10 @@ const SessionDetails = () => {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [acceptedModelId, setAcceptedModelId] = useState<string | null>(null);
 
+  const handlePublishDialogOpen = () => {
+    setPublishDialogOpen(true);
+  };
+
   useEffect(() => {
     const fetchSessionJobs = async () => {
       try {
@@ -830,7 +834,7 @@ const SessionDetails = () => {
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={() => setPublishDialogOpen(true)}
+                onClick={handlePublishDialogOpen}
                 disabled={!selectedModelId && !selectedJob}
               >
                 <FileSymlink className="h-4 w-4" />
