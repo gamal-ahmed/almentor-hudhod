@@ -52,16 +52,6 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
       return;
     }
 
-    const vttContent = extractVttContent(selectedJob);
-    if (!vttContent) {
-      toast({
-        title: "No Content",
-        description: "No transcription content to publish",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsPublishing(true);
     const publishLog = startTimedLog("Caption Publishing", "info", "Brightcove");
     
@@ -78,11 +68,18 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         brightcoveKeys.brightcove_client_secret
       );
 
+      // Fetch the selected transcription URL
+      const selectedTranscriptionUrl = selectedJob.selected_transcription_url;
+
+      if (!selectedTranscriptionUrl) {
+        throw new Error("Selected transcription URL is missing");
+      }
+
       // Publish caption to Brightcove using Ingest API
       publishLog.update(`Adding caption to Brightcove video ID: ${videoId} via Ingest API`);
       const result = await addCaptionToBrightcove(
         videoId,
-        vttContent,
+        selectedTranscriptionUrl,
         'ar', // Language code (Arabic)
         'Arabic', // Language label
         brightcoveKeys.brightcove_account_id,
