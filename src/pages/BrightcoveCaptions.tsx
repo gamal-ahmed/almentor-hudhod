@@ -182,7 +182,12 @@ const BrightcoveCaptions = () => {
       await addCaptionToBrightcove(
         videoId,
         tempSessionId,
-        authToken
+        authToken,
+        undefined,
+        undefined,
+        captionLanguage,
+        captionLabel,
+        vttUrl
       );
       
       addLog(`Added caption to video ${videoId} using ${vttUrl}`, "info");

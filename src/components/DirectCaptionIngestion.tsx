@@ -54,7 +54,12 @@ const DirectCaptionIngestion = ({ videoId, accountId, authToken, onSuccess }: Di
       await addCaptionToBrightcove(
         videoId,
         `caption-upload-${Date.now()}`, // Use a unique session ID
-        authToken
+        authToken,
+        undefined, // modelId (optional)
+        undefined, // modelName (optional)
+        language,
+        label,
+        vttUrl
       );
       
       addLog(`Uploaded caption for video ${videoId}`, "info");
