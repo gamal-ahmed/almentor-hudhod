@@ -830,7 +830,7 @@ const SessionDetails = () => {
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={handlePublishToBrightcove}
+                onClick={() => setPublishDialogOpen(true)}
                 disabled={!selectedModelId && !selectedJob}
               >
                 <FileSymlink className="h-4 w-4" />
