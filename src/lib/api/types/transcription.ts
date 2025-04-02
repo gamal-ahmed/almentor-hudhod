@@ -50,7 +50,6 @@ export interface TranscriptionSession {
   selected_models: string[];
   selected_model?: string;
   accepted_model_id?: string | null;
-  accepted_model_id?: string | null;
   selected_transcription?: string | null;
   selected_transcription_url?: string | null;
   video_id?: string | null;
