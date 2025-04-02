@@ -70,11 +70,7 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
 export async function addCaptionToBrightcove(
   videoId: string,
   sessionId: string,
-  accessToken: string,
-  language = 'ar',
-  label = 'Arabic',
-  kind = 'captions',
-  status = 'published'
+  accessToken: string
 ) {
   try {
     // Validate inputs
@@ -119,11 +115,7 @@ export async function addCaptionToBrightcove(
       body: JSON.stringify({
         videoId,
         accessToken,
-        sessionId,
-        language,
-        label,
-        kind,
-        status
+        sessionId
       }),
     });
     

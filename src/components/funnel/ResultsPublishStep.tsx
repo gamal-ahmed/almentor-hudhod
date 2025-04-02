@@ -14,7 +14,9 @@ import {
   addCaptionToBrightcove, 
   fetchBrightcoveKeys, 
   getBrightcoveAuthToken, 
-  getUserTranscriptionJobs 
+  getUserTranscriptionJobs,
+  saveTranscriptionToVTT, 
+  saveSelectedTranscription 
 } from "@/lib/api";
 import { 
   Dialog, 
@@ -41,6 +43,7 @@ interface ResultsPublishStepProps {
   goToPreviousStep: () => void;
   selectedModels: string[];
   transcriptions: Record<string, { vtt: string; prompt: string; loading: boolean; }>;
+  sessionId?: string;
 }
 
 // Define export format options
@@ -60,6 +63,7 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
   goToPreviousStep,
   selectedModels,
   transcriptions,
+  sessionId,
 }) => {
   const { toast } = useToast();
   const { logs, addLog, startTimedLog } = useLogsStore();
@@ -124,12 +128,40 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     fetchCompletedJobs();
   }, [refreshJobsTrigger, addLog, selectedModels]);
 
+  // Save selected transcription to VTT when selected
+  useEffect(() => {
+    const saveSelectedVtt = async () => {
+      if (selectedTranscription && selectedModel && sessionId) {
+        try {
+          // Save selected transcription to database
+          await saveSelectedTranscription(sessionId, selectedModel, selectedTranscription);
+          
+          // Save as VTT file for Brightcove
+          await saveTranscriptionToVTT(sessionId, selectedTranscription);
+          
+          addLog(`Saved selected transcription (${selectedModel}) to session`, "info", {
+            source: "ResultsPublishStep",
+            details: `Session ID: ${sessionId}`
+          });
+        } catch (error) {
+          console.error("Error saving selected transcription:", error);
+          addLog(`Error saving selected transcription`, "error", {
+            details: error instanceof Error ? error.message : String(error),
+            source: "ResultsPublishStep"
+          });
+        }
+      }
+    };
+    
+    saveSelectedVtt();
+  }, [selectedTranscription, selectedModel, sessionId, addLog]);
+
   // Publish caption to Brightcove
   const publishCaption = async () => {
-    if (!selectedTranscription || !videoId) {
+    if (!selectedTranscription || !videoId || !sessionId) {
       toast({
         title: "Missing Information",
-        description: "Please select a transcription and enter a video ID.",
+        description: "Please select a transcription, enter a video ID, and ensure the session is valid.",
         variant: "destructive",
       });
       return;
@@ -158,12 +190,10 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         
         publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
         
-        await addCaptionToBrightcove(
+        // Use the simplified API with session ID
+        const result = await addCaptionToBrightcove(
           videoId,
-          selectedTranscription,
-          'ar',
-          'Arabic',
-          brightcoveKeys.brightcove_account_id,
+          sessionId,
           authToken
         );
         
