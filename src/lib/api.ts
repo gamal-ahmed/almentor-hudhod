@@ -10,7 +10,13 @@ import {
   saveTranscriptionToVTT,
   saveSelectedTranscription
 } from "./api/transcriptionService";
-import { getBrightcoveAuthToken, addCaptionToBrightcove } from "./api/brightcoveService";
+import { 
+  getBrightcoveAuthToken, 
+  addCaptionToBrightcove, 
+  deleteCaptionFromBrightcove,
+  listCaptionsForBrightcoveVideo, 
+  getVideoDetails 
+} from "./api/brightcoveService";
 import { fetchAudioFromUrl } from "./api/audioDownloadService";
 import { useLogsStore } from "@/lib/useLogsStore";
 
@@ -38,7 +44,11 @@ export {
   fetchAudioFromUrl,
   getSessionTranscriptionJobs,
   saveTranscriptionToVTT,
-  saveSelectedTranscription
+  saveSelectedTranscription,
+  // Export the Brightcove functions that were missing
+  deleteCaptionFromBrightcove,
+  listCaptionsForBrightcoveVideo,
+  getVideoDetails
 };
 
 // Fetch Brightcove keys from Supabase

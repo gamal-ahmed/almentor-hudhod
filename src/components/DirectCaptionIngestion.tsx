@@ -50,13 +50,12 @@ const DirectCaptionIngestion = ({ videoId, accountId, authToken, onSuccess }: Di
     
     setIsUploading(true);
     try {
-      // Use the VTT URL to add a caption to the Brightcove video
       await addCaptionToBrightcove(
         videoId,
-        `caption-upload-${Date.now()}`, // Use a unique session ID
+        `caption-upload-${Date.now()}`,
         authToken,
-        undefined, // modelId (optional)
-        undefined, // modelName (optional)
+        undefined,
+        undefined,
         language,
         label,
         vttUrl
@@ -68,7 +67,6 @@ const DirectCaptionIngestion = ({ videoId, accountId, authToken, onSuccess }: Di
         description: "Caption uploaded successfully",
       });
       
-      // Clear form and notify parent component
       setVttUrl("");
       onSuccess();
     } catch (error) {
@@ -86,7 +84,6 @@ const DirectCaptionIngestion = ({ videoId, accountId, authToken, onSuccess }: Di
   
   const handleLanguageChange = (value: string) => {
     setLanguage(value);
-    // Automatically set the label based on selected language
     const option = languageOptions.find(opt => opt.value === value);
     if (option) {
       setLabel(option.label);
