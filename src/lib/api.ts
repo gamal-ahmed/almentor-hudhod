@@ -15,7 +15,8 @@ import {
   addCaptionToBrightcove, 
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo, 
-  getVideoDetails 
+  getVideoDetails,
+  listAudioTracksForBrightcoveVideo
 } from "./api/brightcoveService";
 import { fetchAudioFromUrl } from "./api/audioDownloadService";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -48,7 +49,8 @@ export {
   // Export the Brightcove functions that were missing
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo,
-  getVideoDetails
+  getVideoDetails,
+  listAudioTracksForBrightcoveVideo
 };
 
 // Fetch Brightcove keys from Supabase
