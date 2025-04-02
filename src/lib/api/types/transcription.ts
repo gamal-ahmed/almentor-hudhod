@@ -49,7 +49,7 @@ export interface TranscriptionSession {
   audio_file_name?: string;
   selected_models: string[];
   selected_model?: string;
-  selected_model_id?: string | null;
+  accepted_model_id?: string | null;
   accepted_model_id?: string | null;
   selected_transcription?: string | null;
   selected_transcription_url?: string | null;

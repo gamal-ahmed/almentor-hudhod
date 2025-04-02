@@ -68,62 +68,62 @@ serve(async (req) => {
         }
       }
       
-      // Add selected_model_id column to transcription_sessions if it doesn't exist
+      // Add accepted_model_id column to transcription_sessions if it doesn't exist
       const { data: selectedModelIdColumnCheck, error: selectedModelIdColumnCheckError } = await supabase.rpc('check_column_exists', {
         table_name: 'transcription_sessions',
-        column_name: 'selected_model_id'
+        column_name: 'accepted_model_id'
       });
       
       if (selectedModelIdColumnCheckError) {
-        throw new Error(`Error checking selected_model_id column: ${selectedModelIdColumnCheckError.message}`);
+        throw new Error(`Error checking accepted_model_id column: ${selectedModelIdColumnCheckError.message}`);
       }
       
       if (!selectedModelIdColumnCheck) {
         const { error: addSelectedModelIdColumnError } = await supabase.rpc('add_column_if_not_exists', {
           table_name: 'transcription_sessions',
-          column_name: 'selected_model_id',
+          column_name: 'accepted_model_id',
           column_type: 'uuid'
         });
         
         if (addSelectedModelIdColumnError) {
-          throw new Error(`Error adding selected_model_id column: ${addSelectedModelIdColumnError.message}`);
+          throw new Error(`Error adding accepted_model_id column: ${addSelectedModelIdColumnError.message}`);
         }
       }
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Added session_id column to transcriptions table, vtt_file_url and selected_model_id columns to transcription_sessions table' 
+          message: 'Added session_id column to transcriptions table, vtt_file_url and accepted_model_id columns to transcription_sessions table' 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    // Check if selected_model_id column exists in transcription_sessions table
+    // Check if accepted_model_id column exists in transcription_sessions table
     const { data: selectedModelIdCheck, error: selectedModelIdCheckError } = await supabase.rpc('check_column_exists', {
       table_name: 'transcription_sessions',
-      column_name: 'selected_model_id'
+      column_name: 'accepted_model_id'
     });
     
     if (selectedModelIdCheckError) {
-      throw new Error(`Error checking selected_model_id column: ${selectedModelIdCheckError.message}`);
+      throw new Error(`Error checking accepted_model_id column: ${selectedModelIdCheckError.message}`);
     }
     
     if (!selectedModelIdCheck) {
       const { error: addSelectedModelIdError } = await supabase.rpc('add_column_if_not_exists', {
         table_name: 'transcription_sessions',
-        column_name: 'selected_model_id',
+        column_name: 'accepted_model_id',
         column_type: 'uuid'
       });
       
       if (addSelectedModelIdError) {
-        throw new Error(`Error adding selected_model_id column: ${addSelectedModelIdError.message}`);
+        throw new Error(`Error adding accepted_model_id column: ${addSelectedModelIdError.message}`);
       }
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Added selected_model_id column to transcription_sessions table' 
+          message: 'Added accepted_model_id column to transcription_sessions table' 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

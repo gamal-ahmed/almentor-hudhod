@@ -106,7 +106,7 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
           selected_transcription_url: publicUrlData.publicUrl,
           selected_transcription: vttContent,
           selected_model: modelName,
-          selected_model_id: null // Add this line to clear any previous selection
+          accepted_model_id: null // Add this line to clear any previous selection
         })
         .eq('id', sessionId);
 

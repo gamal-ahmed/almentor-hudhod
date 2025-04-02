@@ -1,5 +1,5 @@
 
--- Add selected_model_id column to transcription_sessions if it doesn't exist
+-- Add accepted_model_id column to transcription_sessions if it doesn't exist
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -7,9 +7,9 @@ BEGIN
     FROM information_schema.columns
     WHERE table_schema = 'public'
     AND table_name = 'transcription_sessions'
-    AND column_name = 'selected_model_id'
+    AND column_name = 'accepted_model_id'
   ) THEN
-    ALTER TABLE public.transcription_sessions ADD COLUMN selected_model_id uuid DEFAULT NULL;
+    ALTER TABLE public.transcription_sessions ADD COLUMN accepted_model_id uuid DEFAULT NULL;
   END IF;
 END
 $$;

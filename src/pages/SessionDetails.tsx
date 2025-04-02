@@ -121,17 +121,17 @@ const SessionDetails = () => {
             try {
               const { data: sessionData, error: sessionDataError } = await supabase
                 .from('transcription_sessions')
-                .select('selected_model, selected_model_id, accepted_model_id')
+                .select('selected_model, accepted_model_id, accepted_model_id')
                 .eq('id', identifier)
                 .single();
                 
               if (!sessionDataError && sessionData) {
                 if (sessionData && 
-                    'selected_model_id' in sessionData && 
-                    sessionData.selected_model_id !== null && 
-                    typeof sessionData.selected_model_id === 'string') {
+                    'accepted_model_id' in sessionData && 
+                    sessionData.accepted_model_id !== null && 
+                    typeof sessionData.accepted_model_id === 'string') {
                     
-                  const modelId = sessionData.selected_model_id;
+                  const modelId = sessionData.accepted_model_id;
                   setSelectedModelId(modelId);
                   
                   const selectedJob = jobs.find(job => job.id === modelId);
@@ -453,7 +453,7 @@ const SessionDetails = () => {
         const { error } = await supabase
           .from('transcription_sessions')
           .update({ 
-            selected_model_id: null,
+            accepted_model_id: null,
             selected_model: null 
           })
           .eq('id', identifier);
@@ -473,7 +473,7 @@ const SessionDetails = () => {
       const { error } = await supabase
         .from('transcription_sessions')
         .update({ 
-          selected_model_id: job.id,
+          accepted_model_id: job.id,
           selected_model: job.model 
         })
         .eq('id', identifier);
