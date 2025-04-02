@@ -1,3 +1,4 @@
+
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -107,7 +108,10 @@ export async function addCaptionToBrightcove(
   sessionId: string,
   accessToken: string,
   modelId?: string,
-  modelName?: string
+  modelName?: string,
+  language?: string,
+  label?: string,
+  vttUrl?: string
 ) {
   try {
     // Validate inputs
@@ -152,7 +156,10 @@ export async function addCaptionToBrightcove(
       body: JSON.stringify({
         videoId,
         accessToken,
-        sessionId
+        sessionId,
+        language,
+        label,
+        vttUrl
       }),
     });
     
@@ -202,7 +209,7 @@ export async function addCaptionToBrightcove(
             video_id: videoId,
             model_id: modelId || null,
             model_name: modelName || 'Unknown Model',
-            transcription_url: sessionData?.vtt_file_url || sessionData?.selected_transcription_url || null,
+            transcription_url: vttUrl || sessionData?.vtt_file_url || sessionData?.selected_transcription_url || null,
             brightcove_response: responseData,
             is_published: true
           })

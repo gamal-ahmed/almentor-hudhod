@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,12 +54,7 @@ const DirectCaptionIngestion = ({ videoId, accountId, authToken, onSuccess }: Di
       await addCaptionToBrightcove(
         videoId,
         `caption-upload-${Date.now()}`, // Use a unique session ID
-        authToken,
-        undefined, // No job ID needed for direct VTT upload
-        undefined, // No model needed for direct VTT upload
-        language,
-        label,
-        vttUrl // Pass the VTT URL
+        authToken
       );
       
       addLog(`Uploaded caption for video ${videoId}`, "info");
