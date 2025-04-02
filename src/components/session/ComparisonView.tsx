@@ -2,9 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Columns, ArrowLeft } from "lucide-react";
-import { format } from "date-fns";
 import TranscriptionCard from "@/components/TranscriptionCard";
 
 interface TranscriptionJob {

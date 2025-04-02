@@ -1,10 +1,9 @@
 
 import React, { useState } from "react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { CopyIcon, Download, FileSymlink } from "lucide-react";
+import { FileSymlink } from "lucide-react";
 import TranscriptionCard from "@/components/TranscriptionCard";
 import AudioPlayer from "@/components/AudioPlayer";
 import PublishDialog from "@/components/session/PublishDialog";
@@ -122,9 +121,6 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Session-level actions */}
-     
-      
       {/* Audio player section */}
       {audioUrl && (
         <Card className="shadow-soft border-2">

@@ -14,8 +14,8 @@ export function mapToTranscriptionJob(record: TranscriptionRecord): Transcriptio
         const parsed = JSON.parse(record.result);
         typedResult = parsed;
       } catch {
-        // If parsing fails, use an empty object
-        typedResult = {};
+        // If parsing fails, use an empty object with the string as vttContent
+        typedResult = { vttContent: record.result as string };
       }
     } else if (typeof record.result === 'object') {
       // If it's already an object, use it directly
