@@ -119,7 +119,8 @@ export async function addCaptionToBrightcove(
         language,
         label,
         accountId,
-        accessToken
+        accessToken,
+        selected_transcription_url
       }),
     });
     

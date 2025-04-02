@@ -62,6 +62,8 @@ const SessionDetails = () => {
   const [sessionJobs, setSessionJobs] = useState<TranscriptionJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedTranscriptionUrl, setSelectedTranscriptionUrl] = useState<string | null>(null);
+
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   
@@ -121,7 +123,7 @@ const SessionDetails = () => {
             try {
               const { data: sessionData, error: sessionDataError } = await supabase
                 .from('transcription_sessions')
-                .select('selected_model, accepted_model_id, accepted_model_id')
+                .select('selected_model, accepted_model_id, accepted_model_id, selected_transcription_url')
                 .eq('id', identifier)
                 .single();
                 
@@ -133,7 +135,7 @@ const SessionDetails = () => {
                     
                   const modelId = sessionData.accepted_model_id;
                   setSelectedModelId(modelId);
-                  
+                  setSelectedTranscriptionUrl(sessionData.selected_transcription_url);
                   const selectedJob = jobs.find(job => job.id === modelId);
                   if (selectedJob) {
                     setSelectedJob(selectedJob);
@@ -773,15 +775,6 @@ const SessionDetails = () => {
       return;
     }
     
-    const vttContent = extractVttContent(jobToPublish);
-    if (!vttContent) {
-      toast({
-        title: "Publishing Failed",
-        description: "No transcription content to publish",
-        variant: "destructive",
-      });
-      return;
-    }
     
     try {
       setIsPublishing(true);
@@ -795,7 +788,7 @@ const SessionDetails = () => {
       
       await addCaptionToBrightcove(
         videoId,
-        vttContent,
+        selectedTranscriptionUrl,
         'ar',
         'Arabic',
         brightcoveKeys.brightcove_account_id,

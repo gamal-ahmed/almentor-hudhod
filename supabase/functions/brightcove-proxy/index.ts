@@ -182,7 +182,7 @@ async function handleCheckVideo(req: Request) {
 
 // Handle Brightcove Caption Addition using Ingest API
 async function handleBrightcoveCaptions(req: Request) {
-  const { videoId, vttContent, language, label, accountId, accessToken } = await req.json();
+  const { videoId, vttContent, language, label, accountId, accessToken, selected_transcription_url } = await req.json();
 
   if (!videoId || !vttContent || !accountId || !accessToken) {
     const missingFields = {
@@ -201,13 +201,8 @@ async function handleBrightcoveCaptions(req: Request) {
   try {
     console.log(`Adding caption to Brightcove video ${videoId} using Ingest API...`);
     
-    // We need to first upload the VTT content to a temporary storage
-    // Since we're working in a Deno environment and can't use a local file system,
-    // we'll use base64 data URLs directly in the ingest request
-    
-    // Create a Base64 representation of the VTT content
-    const vttBase64 = btoa(unescape(encodeURIComponent(vttContent)));
-    const vttDataUrl = `data:text/vtt;base64,${vttBase64}`;
+    // Use the provided transcription URL instead of a data URL
+    const vttDataUrl = selected_transcription_url;
     
     // Request body for Brightcove Ingest API
     const requestBody = {
@@ -235,8 +230,7 @@ async function handleBrightcoveCaptions(req: Request) {
       },
       body: {
         ...requestBody,
-        vttContentLength: vttContent.length,
-        base64Length: vttBase64.length
+        vttContentLength: vttContent.length
       }
     });
 
