@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { useLogsStore } from "@/lib/useLogsStore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuthContext } from "@/lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 
 interface Caption {
   id: string;
@@ -41,9 +40,8 @@ const BrightcoveCaptions = () => {
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   const navigate = useNavigate();
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   
-  // Check if user is authenticated
   useEffect(() => {
     if (!user) {
       toast({
@@ -55,7 +53,6 @@ const BrightcoveCaptions = () => {
     }
   }, [user, navigate, toast]);
 
-  // Initialize Brightcove auth when component mounts
   useEffect(() => {
     async function initBrightcove() {
       try {
@@ -63,7 +60,6 @@ const BrightcoveCaptions = () => {
         if (keys.brightcove_account_id) {
           setAccountId(keys.brightcove_account_id);
           
-          // Get auth token
           const token = await getBrightcoveAuthToken(
             keys.brightcove_client_id,
             keys.brightcove_client_secret
@@ -104,12 +100,10 @@ const BrightcoveCaptions = () => {
     
     setLoading(true);
     try {
-      // Fetch video details
       const details = await getVideoDetails(videoId, authToken);
       setVideoDetails(details);
       addLog(`Retrieved details for video: ${videoId}`, "info");
       
-      // Fetch captions list
       await fetchCaptions();
     } catch (error) {
       console.error("Error fetching video details:", error);
@@ -157,7 +151,6 @@ const BrightcoveCaptions = () => {
         description: "Caption deleted successfully",
       });
       
-      // Refresh captions list
       await fetchCaptions();
     } catch (error) {
       console.error("Error deleting caption:", error);
@@ -184,10 +177,8 @@ const BrightcoveCaptions = () => {
     
     setUploadingCaption(true);
     try {
-      // For this example, we'll use a temporary session ID based on timestamp
       const tempSessionId = `caption-upload-${Date.now()}`;
       
-      // Create a special endpoint or modify existing one to handle direct VTT URL ingestion
       await addCaptionToBrightcove(
         videoId,
         tempSessionId,
@@ -200,10 +191,8 @@ const BrightcoveCaptions = () => {
         description: "Caption ingestion started successfully",
       });
       
-      // Clear the VTT URL field
       setVttUrl("");
       
-      // Refresh captions after a short delay to allow for processing
       setTimeout(() => {
         fetchCaptions();
       }, 3000);

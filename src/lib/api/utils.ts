@@ -5,7 +5,8 @@ export const API_ENDPOINTS = {
   GEMINI_TRANSCRIBE_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/gemini-transcribe',
   PHI4_TRANSCRIBE_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/phi4-transcribe',
   BRIGHTCOVE_PROXY_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/brightcove-proxy',
-  SHAREPOINT_PROXY_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy'
+  SHAREPOINT_PROXY_URL: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/sharepoint-proxy',
+  TRANSCRIPTION_SERVICE: 'https://xbwnjfdzbnyvaxmqufrw.supabase.co/functions/v1/transcription-service'
 };
 
 // Supabase API key for authentication

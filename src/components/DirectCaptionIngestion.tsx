@@ -8,6 +8,7 @@ import { useLogsStore } from "@/lib/useLogsStore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { addCaptionToBrightcove } from "@/lib/api";
 
 interface DirectCaptionIngestionProps {
   videoId: string;
@@ -50,8 +51,17 @@ const DirectCaptionIngestion = ({ videoId, accountId, authToken, onSuccess }: Di
     
     setIsUploading(true);
     try {
-      // Logic for direct caption upload will be implemented here
-      // This would use the addCaptionToBrightcove function
+      // Use the VTT URL to add a caption to the Brightcove video
+      await addCaptionToBrightcove(
+        videoId,
+        `caption-upload-${Date.now()}`, // Use a unique session ID
+        authToken,
+        undefined, // No job ID needed for direct VTT upload
+        undefined, // No model needed for direct VTT upload
+        language,
+        label,
+        vttUrl // Pass the VTT URL
+      );
       
       addLog(`Uploaded caption for video ${videoId}`, "info");
       toast({
