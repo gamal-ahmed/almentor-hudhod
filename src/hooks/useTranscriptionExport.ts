@@ -32,7 +32,8 @@ export function useTranscriptionExport() {
     console.log(`Exporting transcription with ${segments.length} segments`);
     addLog(`Exporting transcription with ${segments.length} segments`, "info", {
       source: "useTranscriptionExport",
-      model: job.model
+      model: job.model,
+      segments: segments.length
     });
     
     if (segments.length === 0) {

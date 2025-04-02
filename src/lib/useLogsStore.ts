@@ -9,6 +9,8 @@ interface LogsState {
     details?: string;
     source?: string;
     duration?: number;
+    model?: string;  // Add model property
+    segments?: number;  // Add segments property
   }) => void;
   clearLogs: () => void;
   startTimedLog: (initialMessage: string, level: LogLevel, source?: string) => {

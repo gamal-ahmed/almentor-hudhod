@@ -1,8 +1,6 @@
-
 import { baseService, getLogsStore } from "./baseService";
 import { parseVTT } from "@/lib/vttParser";
 
-// Save a VTT file to storage and update the session with the URL
 export async function saveTranscriptionToVTT(sessionId: string, vttContent: string, fileName: string) {
   const addLog = getLogsStore().addLog;
   const startTimedLog = getLogsStore().startTimedLog;
@@ -87,7 +85,6 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
   }
 }
 
-// Also add a function for saving selected transcriptions
 export async function saveSelectedTranscription(sessionId: string, vttContent: string, fileName: string, modelName: string) {
   const addLog = getLogsStore().addLog;
   
@@ -168,7 +165,6 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
   }
 }
 
-// Helper function to ensure a bucket exists, create if not
 async function ensureBucketExists(bucketName: string, addLog: Function) {
   const { data: buckets, error: bucketsError } = await baseService.supabase.storage.listBuckets();
   
