@@ -37,6 +37,8 @@ serve(async (req) => {
       return await handleDeleteCaption(req);
     } else if (path === 'get-video-details') {
       return await handleGetVideoDetails(req);
+    } else if (path === 'audio-tracks') {
+      return await handleListAudioTracks(req);
     } else {
       return new Response(JSON.stringify({ error: 'Invalid endpoint' }), {
         status: 400,
@@ -559,6 +561,50 @@ async function handleDeleteCaption(req: Request) {
     });
   } catch (error) {
     console.error('Error deleting Brightcove caption:', error);
+    throw error;
+  }
+}
+
+// Add a new function to handle audio tracks listing
+async function handleListAudioTracks(req: Request) {
+  const { videoId, accountId, accessToken } = await req.json();
+
+  if (!videoId || !accountId || !accessToken) {
+    console.error('List audio tracks request missing required fields');
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    console.log(`Listing audio tracks for Brightcove video ${videoId}...`);
+    
+    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}/audio_tracks`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    const responseData = await response.text();
+    
+    if (!response.ok) {
+      console.error('Brightcove list audio tracks error:', response.status, responseData);
+      throw new Error(`Failed to list audio tracks: ${response.status} - ${responseData}`);
+    }
+
+    const data = JSON.parse(responseData);
+    console.log(`Found ${data.length} audio tracks for video ${videoId}`);
+    
+    return new Response(JSON.stringify({ audio_tracks: data }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error listing Brightcove audio tracks:', error);
     throw error;
   }
 }

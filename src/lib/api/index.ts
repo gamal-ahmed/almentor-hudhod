@@ -1,4 +1,3 @@
-
 import { 
   transcribeAudio, 
   createTranscriptionJob, 
@@ -15,7 +14,8 @@ import {
   fetchBrightcoveKeys,
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo,
-  getVideoDetails
+  getVideoDetails,
+  listAudioTracksForBrightcoveVideo
 } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
@@ -38,5 +38,6 @@ export {
   getSessionTranscriptionJobs,
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo,
-  getVideoDetails
+  getVideoDetails,
+  listAudioTracksForBrightcoveVideo
 };

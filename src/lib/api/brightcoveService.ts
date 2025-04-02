@@ -1,4 +1,3 @@
-
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -296,6 +295,40 @@ export async function listCaptionsForBrightcoveVideo(
     return data.text_tracks || [];
   } catch (error) {
     console.error('Error listing captions for Brightcove video:', error);
+    throw error;
+  }
+}
+
+// New function to list audio tracks for a Brightcove video
+export async function listAudioTracksForBrightcoveVideo(
+  videoId: string,
+  accountId: string,
+  accessToken: string
+) {
+  try {
+    const response = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/audio-tracks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        videoId,
+        accountId,
+        accessToken
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to list audio tracks: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.audio_tracks || [];
+  } catch (error) {
+    console.error('Error listing audio tracks for Brightcove video:', error);
     throw error;
   }
 }

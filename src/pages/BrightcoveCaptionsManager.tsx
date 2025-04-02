@@ -1,36 +1,31 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Video, Captions, CaptionsOff, Upload, Trash2, Search } from "lucide-react";
+import { Video, Captions, Upload, Trash2, Search } from "lucide-react";
 import { 
   fetchBrightcoveKeys, 
   getBrightcoveAuthToken, 
   getVideoDetails, 
-  listCaptionsForBrightcoveVideo, 
-  deleteCaptionFromBrightcove 
+  listAudioTracksForBrightcoveVideo,
+  addCaptionToBrightcove
 } from "@/lib/api";
 import { useLogsStore } from "@/lib/useLogsStore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/AuthContext";
-import VideoIdInput from "@/components/VideoIdInput";
-import VideoDetails from "@/components/VideoDetails";
-import CaptionsList from "@/components/CaptionsList";
-import DirectCaptionIngestion from "@/components/DirectCaptionIngestion";
 
-interface Caption {
+interface AudioTrack {
   id: string;
   src: string;
   srclang: string;
   label: string;
   kind: string;
   default: boolean;
-  mime_type: string;
 }
 
 const BrightcoveCaptionsManager = () => {
@@ -39,13 +34,15 @@ const BrightcoveCaptionsManager = () => {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [videoDetails, setVideoDetails] = useState<any>(null);
-  const [captions, setCaptions] = useState<Caption[]>([]);
-  
+  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
+  const [vttUrl, setVttUrl] = useState("");
+  const [uploadingCaption, setUploadingCaption] = useState(false);
+
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   useEffect(() => {
     if (!user) {
       toast({
@@ -108,7 +105,7 @@ const BrightcoveCaptionsManager = () => {
       setVideoDetails(details);
       addLog(`Retrieved details for video: ${videoId}`, "info");
       
-      await fetchCaptions();
+      await fetchAudioTracks();
     } catch (error) {
       console.error("Error fetching video details:", error);
       addLog(`Failed to fetch video details: ${error instanceof Error ? error.message : String(error)}`, "error");
@@ -118,59 +115,78 @@ const BrightcoveCaptionsManager = () => {
         variant: "destructive",
       });
       setVideoDetails(null);
-      setCaptions([]);
+      setAudioTracks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchCaptions = async () => {
+  const fetchAudioTracks = async () => {
     if (!videoId || !authToken || !accountId) return;
     
     try {
-      const captionsList = await listCaptionsForBrightcoveVideo(videoId, accountId, authToken);
-      setCaptions(captionsList);
-      addLog(`Retrieved ${captionsList.length} captions for video ${videoId}`, "info");
+      const tracksList = await listAudioTracksForBrightcoveVideo(videoId, accountId, authToken);
+      setAudioTracks(tracksList);
+      addLog(`Retrieved ${tracksList.length} audio tracks for video ${videoId}`, "info");
     } catch (error) {
-      console.error("Error fetching captions:", error);
-      addLog(`Failed to fetch captions: ${error instanceof Error ? error.message : String(error)}`, "error");
+      console.error("Error fetching audio tracks:", error);
+      addLog(`Failed to fetch audio tracks: ${error instanceof Error ? error.message : String(error)}`, "error");
       toast({
         title: "Error",
-        description: "Failed to fetch captions",
+        description: "Failed to fetch audio tracks",
         variant: "destructive",
       });
-      setCaptions([]);
+      setAudioTracks([]);
     }
   };
 
-  const handleDeleteCaption = async (captionId: string) => {
-    if (!videoId || !authToken || !accountId) return;
+  const handleAddCaption = async () => {
+    if (!videoId || !authToken || !vttUrl) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide a video ID and VTT URL",
+        variant: "destructive",
+      });
+      return;
+    }
     
+    setUploadingCaption(true);
     try {
-      await deleteCaptionFromBrightcove(videoId, captionId, accountId, authToken);
-      addLog(`Deleted caption ${captionId} from video ${videoId}`, "info");
+      const tempSessionId = `caption-upload-${Date.now()}`;
+      
+      await addCaptionToBrightcove(
+        videoId,
+        tempSessionId,
+        authToken,
+        undefined,
+        undefined,
+        'en', // default language
+        'English', // default label
+        vttUrl
+      );
+      
+      addLog(`Added caption to video ${videoId} using ${vttUrl}`, "info");
       toast({
         title: "Success",
-        description: "Caption deleted successfully",
+        description: "Caption ingestion started successfully",
       });
       
-      await fetchCaptions();
+      setVttUrl("");
+      
+      setTimeout(() => {
+        fetchAudioTracks();
+      }, 3000);
     } catch (error) {
-      console.error("Error deleting caption:", error);
-      addLog(`Failed to delete caption: ${error instanceof Error ? error.message : String(error)}`, "error");
+      console.error("Error adding caption:", error);
+      addLog(`Failed to add caption: ${error instanceof Error ? error.message : String(error)}`, "error");
       toast({
         title: "Error",
-        description: "Failed to delete caption",
+        description: error instanceof Error ? error.message : "Failed to add caption",
         variant: "destructive",
       });
+    } finally {
+      setUploadingCaption(false);
     }
-  };
-
-  const handleCaptionSuccess = () => {
-    // Refresh captions list after a successful upload
-    setTimeout(() => {
-      fetchCaptions();
-    }, 3000); // Give Brightcove time to process the ingestion
   };
 
   return (
@@ -178,7 +194,7 @@ const BrightcoveCaptionsManager = () => {
       <Header />
       
       <main className="flex-1 container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-6">Brightcove Caption Manager</h1>
+        <h1 className="text-3xl font-bold mb-6">Brightcove Captions Manager</h1>
         
         <Card className="mb-8">
           <CardHeader>
@@ -192,10 +208,11 @@ const BrightcoveCaptionsManager = () => {
           <CardContent>
             <div className="flex gap-4">
               <div className="flex-1">
-                <VideoIdInput 
-                  videoId={videoId} 
-                  onChange={setVideoId} 
-                  disabled={loading}
+                <Input
+                  type="text"
+                  placeholder="Enter Brightcove Video ID"
+                  value={videoId}
+                  onChange={(e) => setVideoId(e.target.value)}
                 />
               </div>
               <Button 
@@ -210,39 +227,106 @@ const BrightcoveCaptionsManager = () => {
         
         {videoDetails && (
           <>
-            <VideoDetails details={videoDetails} />
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Video Details</CardTitle>
+                <CardDescription>Information about the selected video</CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Video ID</Label>
+                    <p className="font-medium">{videoDetails.id}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Name</Label>
+                    <p className="font-medium">{videoDetails.name}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             
-            <Tabs defaultValue="existing" className="mb-8">
-              <TabsList className="mb-4">
-                <TabsTrigger value="existing" className="flex items-center gap-1">
-                  <Captions className="h-4 w-4" />
-                  Existing Captions
-                </TabsTrigger>
-                <TabsTrigger value="add" className="flex items-center gap-1">
-                  <Upload className="h-4 w-4" />
-                  Add Caption
-                </TabsTrigger>
-              </TabsList>
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Captions className="h-5 w-5" />
+                  Audio Tracks
+                </CardTitle>
+                <CardDescription>Captions and audio tracks for this video</CardDescription>
+              </CardHeader>
               
-              <TabsContent value="existing">
-                <CaptionsList 
-                  captions={captions} 
-                  onDelete={handleDeleteCaption}
-                  onRefresh={fetchCaptions}
-                />
-              </TabsContent>
-              
-              <TabsContent value="add">
-                {authToken && videoId && (
-                  <DirectCaptionIngestion
-                    videoId={videoId}
-                    accountId={accountId || ''}
-                    authToken={authToken}
-                    onSuccess={handleCaptionSuccess}
-                  />
+              <CardContent>
+                {audioTracks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No audio tracks found
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {audioTracks.map((track) => (
+                      <div key={track.id} className="border rounded-md p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium">{track.label || track.srclang}</h3>
+                            <p className="text-sm text-muted-foreground">Language: {track.srclang}</p>
+                            <p className="text-sm text-muted-foreground">Type: {track.kind}</p>
+                            {track.default && (
+                              <span className="inline-flex items-center px-2 py-1 mt-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {track.src && (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-1">Source URL:</p>
+                            <div className="p-2 bg-secondary/20 rounded text-xs break-all">
+                              {track.src}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </TabsContent>
-            </Tabs>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Add Caption
+                </CardTitle>
+                <CardDescription>Add a new caption track to this video</CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="vtt-url">Caption VTT URL</Label>
+                    <Input
+                      id="vtt-url"
+                      placeholder="https://example.com/caption.vtt"
+                      value={vttUrl}
+                      onChange={(e) => setVttUrl(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Provide a publicly accessible URL to a VTT caption file
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleAddCaption} 
+                    disabled={uploadingCaption || !vttUrl || !videoId}
+                  >
+                    {uploadingCaption ? "Uploading..." : "Add Caption"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </>
         )}
       </main>
