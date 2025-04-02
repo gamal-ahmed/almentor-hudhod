@@ -14,7 +14,8 @@ import {
   addCaptionToBrightcove, 
   fetchBrightcoveKeys,
   deleteCaptionFromBrightcove,
-  listCaptionsForBrightcoveVideo
+  listCaptionsForBrightcoveVideo,
+  getVideoDetails
 } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
 import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
@@ -36,5 +37,6 @@ export {
   saveSelectedTranscription,
   getSessionTranscriptionJobs,
   deleteCaptionFromBrightcove,
-  listCaptionsForBrightcoveVideo
+  listCaptionsForBrightcoveVideo,
+  getVideoDetails
 };

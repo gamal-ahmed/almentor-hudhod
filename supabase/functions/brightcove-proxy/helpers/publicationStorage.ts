@@ -10,6 +10,7 @@ export async function storePublicationRecord(
   modelId: string | null,
   modelName: string,
   transcriptionUrl: string | null,
+  brightcoveMasterUrl: string | null,
   brightcoveResponse: any
 ) {
   try {
@@ -24,6 +25,7 @@ export async function storePublicationRecord(
         model_id: modelId,
         model_name: modelName,
         transcription_url: transcriptionUrl,
+        brightcove_master_url: brightcoveMasterUrl,
         brightcove_response: brightcoveResponse,
         is_published: true
       });

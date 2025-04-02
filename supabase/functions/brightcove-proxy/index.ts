@@ -35,6 +35,8 @@ serve(async (req) => {
       return await handleListCaptions(req);
     } else if (path === 'delete-caption') {
       return await handleDeleteCaption(req);
+    } else if (path === 'get-video-details') {
+      return await handleGetVideoDetails(req);
     } else {
       return new Response(JSON.stringify({ error: 'Invalid endpoint' }), {
         status: 400,
@@ -186,6 +188,89 @@ async function handleCheckVideo(req: Request) {
   }
 }
 
+// New function to get video details including master URL
+async function handleGetVideoDetails(req: Request) {
+  const { videoId, accountId, accessToken } = await req.json();
+
+  if (!videoId || !accountId || !accessToken) {
+    const missingFields = {
+      videoId: !videoId,
+      accountId: !accountId,
+      accessToken: !accessToken
+    };
+    console.error('Video details request missing required fields:', missingFields);
+    return new Response(JSON.stringify({ error: 'Missing required fields', details: missingFields }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    console.log(`Fetching Brightcove video details for ${videoId}...`);
+    
+    const apiUrl = `https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}`;
+    console.log('Video details request details:', {
+      url: apiUrl,
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    const responseData = await response.text();
+    console.log('Brightcove video details response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: responseData.substring(0, 300) + (responseData.length > 300 ? '...' : '') // Truncate long response
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.error('Brightcove video not found:', videoId);
+        return new Response(JSON.stringify({ error: 'Video not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.error('Brightcove video details error:', response.status, responseData);
+      throw new Error(`Failed to get video details: ${response.status} - ${responseData}`);
+    }
+
+    const videoData = JSON.parse(responseData);
+    
+    // Extract the important fields, especially master URL
+    const masterUrl = videoData.digital_master?.url || null;
+    console.log(`Video ${videoId} master URL:`, masterUrl);
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      video: { 
+        id: videoData.id,
+        name: videoData.name,
+        duration: videoData.duration,
+        master_url: masterUrl,
+        complete: videoData.complete
+      } 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error fetching Brightcove video details:', error);
+    throw error;
+  }
+}
+
 // Handle Brightcove Caption Addition using Ingest API
 async function handleBrightcoveCaptions(req: Request) {
   // Get simplified parameters from request
@@ -259,6 +344,31 @@ async function handleBrightcoveCaptions(req: Request) {
     const accountId = integrationData.key_value;
     console.log(`Using Brightcove account ID: ${accountId}`);
 
+    // Get the video details to fetch the master URL
+    console.log('Fetching master URL from Brightcove');
+    const videoDetailsResponse = await fetch(`https://cms.api.brightcove.com/v1/accounts/${accountId}/videos/${videoId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!videoDetailsResponse.ok) {
+      const errorText = await videoDetailsResponse.text();
+      console.error('Failed to get video details:', videoDetailsResponse.status, errorText);
+      throw new Error(`Failed to get video details: ${videoDetailsResponse.status} - ${errorText}`);
+    }
+
+    const videoDetails = await videoDetailsResponse.json();
+    const masterUrl = videoDetails.digital_master?.url || null;
+    
+    console.log(`Video master URL: ${masterUrl}`);
+
+    if (!masterUrl) {
+      console.warn('No master URL found for video, embed_closed_caption may fail');
+    }
+
     // Use the Ingest API to add captions
     console.log(`Adding caption to Brightcove video ${videoId} using Ingest API...`);
     
@@ -272,9 +382,12 @@ async function handleBrightcoveCaptions(req: Request) {
           label: label,
           default: true,
           status: status,
-          embed_closed_caption: true
+          // Only include embed_closed_caption if we have a master URL
+          ...(masterUrl ? { embed_closed_caption: true } : {})
         }
-      ]
+      ],
+      // Include the master URL if available
+      ...(masterUrl ? { master: { url: masterUrl } } : {})
     };
 
     // Use the Ingest API URL
@@ -346,7 +459,8 @@ async function handleBrightcoveCaptions(req: Request) {
       videoId,
       null, // model_id might not be available here
       'API Caption Upload', // default model name
-      null, // transcription URL might not be available 
+      sessionData.selected_transcription_url, 
+      masterUrl, // Pass the master URL to the storage function
       responseData
     );
     
