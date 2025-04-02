@@ -143,6 +143,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         showExportOptions={true}
         onExport={() => onExport(selectedJob)}
         onAccept={() => onAccept(selectedJob)}
+        showAudioControls={true}
       />
 
       {/* Publish dialog */}

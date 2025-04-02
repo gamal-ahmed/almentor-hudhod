@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, Play, Pause, Info, Volume2, VolumeX, FastForward, Rewind, Download, Save } from "lucide-react";
+import { Check, Copy, Play, Pause, Info, Volume2, VolumeX, FastForward, Rewind, Download, Save, Headphones } from "lucide-react";
 import { parseVTT } from "@/lib/vttParser";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -22,6 +22,7 @@ interface TranscriptionCardProps {
   className?: string;
   showPagination?: boolean;
   showExportOptions?: boolean;
+  showAudioControls?: boolean;
   onExport?: () => void;
   onAccept?: () => void;
 }
@@ -43,6 +44,7 @@ const TranscriptionCard = ({
   className = "",
   showPagination = false,
   showExportOptions = false,
+  showAudioControls = false,
   onExport = () => {},
   onAccept = () => {}
 }: TranscriptionCardProps) => {
@@ -385,6 +387,12 @@ const TranscriptionCard = ({
     ? vttContent.split(/\s+/).filter(word => word.trim().length > 0).length 
     : 0;
 
+  useEffect(() => {
+    if (showAudioControls && audioSrc) {
+      setShowAudioPlayer(true);
+    }
+  }, [showAudioControls, audioSrc]);
+
   return (
     <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'} ${className}`}>
       <CardHeader className={`pb-2 ${getModelColor()}`}>
@@ -572,12 +580,14 @@ const TranscriptionCard = ({
       <CardFooter className="flex flex-col border-t pt-4 gap-3">
         <div className="flex justify-between w-full">
           <div className="flex space-x-2">
-            {audioSrc && (
+            {audioSrc && !showAudioControls && (
               <Button 
                 size="sm" 
                 variant="outline" 
                 onClick={() => setShowAudioPlayer(!showAudioPlayer)}
+                className="flex items-center gap-1.5"
               >
+                <Headphones className="h-4 w-4" />
                 {showAudioPlayer ? "Hide Player" : "Show Player"}
               </Button>
             )}

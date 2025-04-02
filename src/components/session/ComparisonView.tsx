@@ -59,6 +59,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
                 onAccept={() => onAccept(job)}
                 showExportOptions={true}
                 className="h-full"
+                showAudioControls={true}
               />
             </div>
           ))}
