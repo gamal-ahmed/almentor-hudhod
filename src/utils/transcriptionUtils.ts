@@ -23,16 +23,21 @@ export const extractVttContent = (job: TranscriptionJob) => {
     if (typeof job.result === 'string') {
       try {
         const parsedResult = JSON.parse(job.result);
+        // Ensure we're returning the full VTT content
         return parsedResult.vttContent || "";
       } catch {
+        // If parsing fails, return empty string
+        console.error("Failed to parse job result as JSON");
         return "";
       }
     } else if (typeof job.result === 'object') {
       if (Array.isArray(job.result)) {
+        console.error("Job result is an array, expected object");
         return "";
       }
       
       const resultObj = job.result as { vttContent?: string };
+      // Make sure we return the complete VTT content
       return resultObj.vttContent || "";
     }
   } catch (error) {

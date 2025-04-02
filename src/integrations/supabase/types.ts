@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          image_url?: string | null
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       brightcove_publications: {
         Row: {
           brightcove_master_url: string | null
@@ -445,6 +475,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      program_stats: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          key: string
+          label: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          key: string
+          label: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          key?: string
+          label?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      success_stories: {
+        Row: {
+          cohort: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          name: string
+          story: string
+          updated_at: string
+        }
+        Insert: {
+          cohort?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          story: string
+          updated_at?: string
+        }
+        Update: {
+          cohort?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          story?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tags: {
         Row: {
