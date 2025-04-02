@@ -1,3 +1,4 @@
+
 import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -138,7 +139,7 @@ export async function addCaptionToBrightcove(
     const responseData = await response.json();
     console.log('Caption ingestion started:', responseData);
     
-    // Record this publication in our database
+    // Record this publication in our database using the raw query approach to avoid type issues
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from('transcription_sessions')
@@ -150,21 +151,51 @@ export async function addCaptionToBrightcove(
         console.error('Error fetching session data:', sessionError);
       }
       
-      // Insert a record of this publication
+      // Use rpc or raw query to insert into the brightcove_publications table
+      // This bypasses the TypeScript type checking until the types are regenerated
       const { error: insertError } = await supabase
-        .from('brightcove_publications')
-        .insert({
-          session_id: sessionId,
-          video_id: videoId,
-          model_id: modelId || null,
-          model_name: modelName || 'Unknown Model',
-          transcription_url: sessionData?.vtt_file_url || sessionData?.selected_transcription_url || null,
-          brightcove_response: responseData,
-          is_published: true
+        .rpc('insert_brightcove_publication', {
+          p_session_id: sessionId,
+          p_video_id: videoId,
+          p_model_id: modelId || null,
+          p_model_name: modelName || 'Unknown Model',
+          p_transcription_url: sessionData?.vtt_file_url || sessionData?.selected_transcription_url || null,
+          p_brightcove_response: responseData
         });
         
       if (insertError) {
         console.error('Error recording publication:', insertError);
+        
+        // Fallback using direct REST call if RPC fails
+        try {
+          const restResponse = await fetch(
+            `https://xbwnjfdzbnyvaxmqufrw.supabase.co/rest/v1/brightcove_publications`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({
+                session_id: sessionId,
+                video_id: videoId,
+                model_id: modelId || null,
+                model_name: modelName || 'Unknown Model',
+                transcription_url: sessionData?.vtt_file_url || sessionData?.selected_transcription_url || null,
+                brightcove_response: responseData,
+                is_published: true
+              })
+            }
+          );
+          
+          if (!restResponse.ok) {
+            console.error('Error saving publication via REST:', await restResponse.text());
+          }
+        } catch (restError) {
+          console.error('Error with REST fallback:', restError);
+        }
       }
     } catch (dbError) {
       console.error('Error saving publication record:', dbError);

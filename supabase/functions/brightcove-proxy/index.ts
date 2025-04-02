@@ -1,6 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { storePublicationRecord } from './helpers/publicationStorage.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -337,6 +337,18 @@ async function handleBrightcoveCaptions(req: Request) {
         console.log(`Updated session ${sessionId} with video ID ${videoId}`);
       }
     }
+    
+    // Store the publication record in our database
+    await storePublicationRecord(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+      sessionId,
+      videoId,
+      null, // model_id might not be available here
+      'API Caption Upload', // default model name
+      null, // transcription URL might not be available 
+      responseData
+    );
     
     return new Response(JSON.stringify({ 
       success: true,
