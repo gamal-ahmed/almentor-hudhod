@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,7 +10,6 @@ import Landing from "./pages/Landing";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SessionDetails from "./pages/SessionDetails";
-import BrightcoveCaptions from "./pages/BrightcoveCaptions";
 import BrightcoveCaptionsManager from "./pages/BrightcoveCaptionsManager";
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
@@ -60,11 +60,6 @@ const App = () => (
                 <Route path="/session/:sessionId" element={
                   <AuthGuard>
                     <SessionDetails />
-                  </AuthGuard>
-                } />
-                <Route path="/brightcove-captions" element={
-                  <AuthGuard>
-                    <BrightcoveCaptions />
                   </AuthGuard>
                 } />
                 <Route path="/brightcove-captions-manager" element={

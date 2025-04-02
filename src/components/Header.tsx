@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/AuthContext";
-import { Menu, X, Home, FileText, Video, Film } from "lucide-react";
+import { Menu, X, Home, FileText, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Header = () => {
@@ -19,8 +18,7 @@ const Header = () => {
   const navigation = [
     { name: 'Home', href: '/app', icon: Home, current: isActive('/app') },
     { name: 'Sessions', href: '/app', icon: FileText, current: isActive('/app') },
-    { name: 'Video Captions', href: '/brightcove-captions', icon: Video, current: isActive('/brightcove-captions') },
-    { name: 'Captions Manager', href: '/brightcove-captions-manager', icon: Film, current: isActive('/brightcove-captions-manager') },
+    { name: 'Brightcove Captions', href: '/brightcove-captions-manager', icon: Film, current: isActive('/brightcove-captions-manager') },
   ];
 
   return (
