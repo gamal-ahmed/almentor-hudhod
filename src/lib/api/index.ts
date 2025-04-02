@@ -1,5 +1,4 @@
 
-import { TranscriptionModel } from "@/components/ModelSelector";
 import { 
   transcribeAudio, 
   createTranscriptionJob, 

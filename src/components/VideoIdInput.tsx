@@ -18,6 +18,7 @@ const VideoIdInput = ({ videoId, onChange, disabled }: VideoIdInputProps) => {
         value={videoId}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
+        className="shadow-inner-soft focus:ring-2 focus:ring-primary/30"
       />
       <p className="text-xs text-muted-foreground">
         Enter the ID of the Brightcove video where you want to publish the caption.
