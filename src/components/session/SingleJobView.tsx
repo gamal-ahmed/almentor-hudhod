@@ -68,21 +68,15 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         brightcoveKeys.brightcove_client_secret
       );
 
-      // Fetch the selected transcription URL
-      const selectedTranscriptionUrl = selectedJob.selected_transcription_url;
-
-      if (!selectedTranscriptionUrl) {
-        throw new Error("Selected transcription URL is missing");
+      if (!selectedJob.session_id) {
+        throw new Error("Transcription job is not associated with a session");
       }
 
-      // Publish caption to Brightcove using Ingest API
+      // Use the simplified API with session ID
       publishLog.update(`Adding caption to Brightcove video ID: ${videoId} via Ingest API`);
       const result = await addCaptionToBrightcove(
         videoId,
-        selectedTranscriptionUrl,
-        'ar', // Language code (Arabic)
-        'Arabic', // Language label
-        brightcoveKeys.brightcove_account_id,
+        selectedJob.session_id,
         authToken
       );
       

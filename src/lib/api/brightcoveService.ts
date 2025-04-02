@@ -66,22 +66,25 @@ export async function getBrightcoveAuthToken(clientId: string, clientSecret: str
   }
 }
 
-// Add caption to Brightcove video using our proxy and Ingest API
+// Add caption to Brightcove video using our proxy and Ingest API with simplified parameters
 export async function addCaptionToBrightcove(
-  videoId: string, 
-  selectedTranscriptionUrl: string, 
-  language = 'ar', 
+  videoId: string,
+  sessionId: string,
+  accessToken: string,
+  language = 'ar',
   label = 'Arabic',
-  accountId: string,
-  accessToken: string
+  kind = 'captions',
+  status = 'published'
 ) {
   try {
     // Validate inputs
-    if (!videoId || !selectedTranscriptionUrl || !accountId || !accessToken) {
+    if (!videoId || !sessionId || !accessToken) {
       throw new Error('Missing required parameters for adding caption');
     }
     
     // First, check if the video exists to provide better error messages
+    const { brightcove_account_id } = await fetchBrightcoveKeys();
+    
     const checkResponse = await fetch(`${API_ENDPOINTS.BRIGHTCOVE_PROXY_URL}/check-video`, {
       method: 'POST',
       headers: {
@@ -91,7 +94,7 @@ export async function addCaptionToBrightcove(
       },
       body: JSON.stringify({
         videoId,
-        accountId,
+        accountId: brightcove_account_id,
         accessToken
       }),
     });
@@ -115,11 +118,12 @@ export async function addCaptionToBrightcove(
       },
       body: JSON.stringify({
         videoId,
-        selectedTranscriptionUrl,
+        accessToken,
+        sessionId,
         language,
         label,
-        accountId,
-        accessToken,
+        kind,
+        status
       }),
     });
     

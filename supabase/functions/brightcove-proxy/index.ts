@@ -1,11 +1,17 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// Initialize Supabase client
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || '';
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -182,14 +188,33 @@ async function handleCheckVideo(req: Request) {
 
 // Handle Brightcove Caption Addition using Ingest API
 async function handleBrightcoveCaptions(req: Request) {
-  const { videoId, vttContent, language, label, accountId, accessToken, selected_transcription_url } = await req.json();
+  // Get simplified parameters from request
+  const { 
+    videoId, 
+    accessToken, 
+    language = 'ar', 
+    label = 'Arabic', 
+    kind = 'captions',
+    status = 'published',
+    sessionId 
+  } = await req.json();
 
-  if (!videoId || !vttContent || !accountId || !accessToken) {
+  console.log('Received caption request params:', { 
+    videoId, 
+    language, 
+    label, 
+    kind, 
+    status, 
+    sessionId,
+    hasAccessToken: !!accessToken 
+  });
+
+  // Validate required parameters
+  if (!videoId || !accessToken || !sessionId) {
     const missingFields = {
       videoId: !videoId,
-      vttContent: !vttContent,
-      accountId: !accountId,
-      accessToken: !accessToken
+      accessToken: !accessToken,
+      sessionId: !sessionId
     };
     console.error('Caption request missing required fields:', missingFields);
     return new Response(JSON.stringify({ error: 'Missing required fields', details: missingFields }), {
@@ -199,21 +224,54 @@ async function handleBrightcoveCaptions(req: Request) {
   }
 
   try {
+    // Fetch transcription session to get the selected_transcription_url
+    console.log(`Fetching session data for ID: ${sessionId}`);
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('transcription_sessions')
+      .select('selected_transcription_url, video_id')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError || !sessionData) {
+      console.error('Error fetching session data:', sessionError);
+      throw new Error(`Failed to fetch session data: ${sessionError?.message || 'Session not found'}`);
+    }
+
+    if (!sessionData.selected_transcription_url) {
+      throw new Error('No transcription URL found in the session. Please ensure a transcription is selected.');
+    }
+
+    console.log(`Found transcription URL: ${sessionData.selected_transcription_url}`);
+
+    // Fetch account ID from Supabase
+    console.log('Fetching Brightcove account ID from database');
+    const { data: integrationData, error: integrationError } = await supabase
+      .from('transcription_integrations')
+      .select('key_value')
+      .eq('key_name', 'brightcove_account_id')
+      .single();
+
+    if (integrationError || !integrationData) {
+      console.error('Error fetching Brightcove account ID:', integrationError);
+      throw new Error(`Failed to fetch Brightcove account ID: ${integrationError?.message || 'Not found'}`);
+    }
+
+    const accountId = integrationData.key_value;
+    console.log(`Using Brightcove account ID: ${accountId}`);
+
+    // Use the Ingest API to add captions
     console.log(`Adding caption to Brightcove video ${videoId} using Ingest API...`);
-    
-    // Use the provided transcription URL instead of a data URL
-    const vttDataUrl = selected_transcription_url;
     
     // Request body for Brightcove Ingest API
     const requestBody = {
       text_tracks: [
         {
-          url: vttDataUrl,
-          srclang: language || 'ar',
-          kind: 'captions',
-          label: label || 'Arabic',
+          url: sessionData.selected_transcription_url,
+          srclang: language,
+          kind: kind,
+          label: label,
           default: true,
-          status: 'published',
+          status: status,
           embed_closed_caption: true
         }
       ]
@@ -228,10 +286,7 @@ async function handleBrightcoveCaptions(req: Request) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`
       },
-      body: {
-        ...requestBody,
-        vttContentLength: vttContent.length
-      }
+      body: requestBody
     });
 
     const response = await fetch(apiUrl, {
@@ -268,6 +323,20 @@ async function handleBrightcoveCaptions(req: Request) {
 
     const responseJson = JSON.parse(responseData);
     console.log('Successfully initiated caption ingestion for Brightcove video');
+    
+    // Update the video_id in the session if it's not already set
+    if (!sessionData.video_id) {
+      const { error: updateError } = await supabase
+        .from('transcription_sessions')
+        .update({ video_id: videoId })
+        .eq('id', sessionId);
+      
+      if (updateError) {
+        console.warn(`Warning: Failed to update session with video ID: ${updateError.message}`);
+      } else {
+        console.log(`Updated session ${sessionId} with video ID ${videoId}`);
+      }
+    }
     
     return new Response(JSON.stringify({ 
       success: true,
