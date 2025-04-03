@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Header from "@/components/Header";
@@ -36,10 +35,10 @@ const Landing = () => {
           <div className="container mx-auto max-w-7xl">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gradient">
-                All-in-One Transcription Solution
+                Hudhod: Transcription Reimagined
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Unlock advanced features to make transcription faster and more accurate
+                Transform your audio with cutting-edge AI transcription technology
               </p>
             </div>
             
@@ -152,7 +151,7 @@ const Landing = () => {
             <div className="flex flex-col md:flex-row justify-between items-center gap-8 p-8 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 backdrop-blur-sm border border-primary/10">
               <div className="text-center md:text-left">
                 <h2 className="text-2xl md:text-3xl font-bold mb-2">Ready to get started?</h2>
-                <p className="text-muted-foreground">Try VoiceScribe free for 14 days, no credit card required.</p>
+                <p className="text-muted-foreground">Try Hudhod free for 14 days, no credit card required.</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" variant="gradient" className="btn-glow">
@@ -174,19 +173,19 @@ const Landing = () => {
                 Trusted by Professionals
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                See what our users have to say about VoiceScribe
+                See what our users have to say about Hudhod
               </p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 {
-                  quote: "VoiceScribe has become an essential tool for my podcasting workflow. The transcription quality is outstanding.",
+                  quote: "Hudhod has become an essential tool for my podcasting workflow. The transcription quality is outstanding.",
                   author: "Sarah Johnson",
                   role: "Podcast Host"
                 },
                 {
-                  quote: "As a journalist, accurate transcriptions are critical to my work. VoiceScribe delivers consistently excellent results.",
+                  quote: "As a journalist, accurate transcriptions are critical to my work. Hudhod delivers consistently excellent results.",
                   author: "Michael Chen",
                   role: "Investigative Reporter"
                 },
@@ -219,13 +218,13 @@ const Landing = () => {
         <section className="py-16 px-4 bg-gradient-to-r from-primary/5 to-accent/5">
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-6 text-gradient">
-              Join Thousands of Satisfied Users Today
+              Elevate Your Audio with Hudhod
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Experience the power of advanced AI transcription with our user-friendly platform
+              Experience precision transcription powered by advanced AI technology
             </p>
             <Button asChild size="lg" variant="gradient" className="rounded-full px-8 py-6 h-auto text-base btn-glow">
-              <Link to="/signup">Get Started for Free</Link>
+              <Link to="/signup">Start Your Hudhod Journey</Link>
             </Button>
           </div>
         </section>

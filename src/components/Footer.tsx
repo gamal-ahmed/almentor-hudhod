@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  FileAudio, 
+  Zap, 
   Twitter, 
   Github, 
   Linkedin, 
@@ -19,12 +18,12 @@ const Footer = () => {
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="p-1 rounded-md bg-primary/10">
-                <FileAudio className="h-5 w-5 text-primary" />
+                <Zap className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-lg font-bold text-gradient">VoiceScribe</span>
+              <span className="text-lg font-bold text-gradient">Hudhod</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
-              Advanced AI-powered audio transcription for professionals and content creators.
+              AI-powered transcription and caption management for professionals and content creators.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
@@ -72,10 +71,10 @@ const Footer = () => {
         
         <div className="border-t mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            © {year} VoiceScribe. All rights reserved.
+            © {year} Hudhod. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground flex items-center mt-4 md:mt-0">
-            Made with <Heart className="h-3 w-3 mx-1 text-red-500" /> by the VoiceScribe Team
+            Made with <Heart className="h-3 w-3 mx-1 text-red-500" /> by the Hudhod Team
           </p>
         </div>
       </div>
