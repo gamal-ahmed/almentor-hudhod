@@ -73,6 +73,10 @@ export async function createTranscriptionJob(
       formData.append('sessionId', sessionId);
     }
     
+    // Get authorization token
+    const { data: sessionData } = await baseService.supabase.auth.getSession();
+    const authToken = sessionData.session?.access_token || baseService.supabaseKey;
+    
     // Start the transcription process on the server (doesn't wait for completion)
     const response = await fetch(
       `${baseService.apiEndpoints.TRANSCRIPTION_SERVICE}/start-job`, 
@@ -80,9 +84,8 @@ export async function createTranscriptionJob(
         method: 'POST',
         body: formData,
         headers: {
-          'Authorization': `Bearer ${baseService.supabase.auth.getSession() 
-            ? (await baseService.supabase.auth.getSession()).data.session?.access_token 
-            : baseService.supabaseKey}`,
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': baseService.supabaseKey
         }
       }
     );
