@@ -66,7 +66,8 @@ export async function clientTranscribeAudio(
           status: 'completed',
           result: mockResult,
           file_path: file.name,
-          status_message: 'Completed via client-side processing'
+          status_message: 'Completed via client-side processing',
+          user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
         })
         .select()
         .single();
@@ -77,7 +78,10 @@ export async function clientTranscribeAudio(
       
       logOperation.complete(`Completed ${model} client-side transcription`, `Generated ${mockResult.vttContent.length} characters of VTT content`);
       
-      return mockResult;
+      return {
+        jobId,
+        ...mockResult
+      };
     } else {
       // For browsers without SpeechRecognition, we'll explain the limitation
       addLog(`Browser does not support direct speech recognition`, "warning", { source: model });
@@ -91,7 +95,8 @@ export async function clientTranscribeAudio(
           status: 'failed',
           error: 'Browser does not support direct speech recognition',
           file_path: file.name,
-          status_message: 'Failed - browser limitations'
+          status_message: 'Failed - browser limitations',
+          user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
         })
         .select()
         .single();

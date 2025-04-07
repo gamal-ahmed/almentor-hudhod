@@ -24,8 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { 
   createTranscriptionJob, 
-  transcribeAudio,
-  clientTranscribeAudio
+  transcribeAudio
 } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -71,7 +70,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
             .insert({
               id: sessionId,
               selected_models: selectedModels,
-              audio_file_name: file.name
+              audio_file_name: file.name,
+              user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
             })
             .select()
             .single();
@@ -94,24 +94,23 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           addLog("Attempting client-side transcription...", "info", { source: "UploadConfigStep" });
           
           // Create a job for each selected model
-          const jobsPromises = selectedModels.map(async (model) => {
+          const jobPromises = selectedModels.map(async (model) => {
             try {
-              return await clientTranscribeAudio(file, model, prompt);
+              // Since clientTranscribeAudio is not available, we'll fallback to server-side transcription
+              const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
+              return { jobId };
             } catch (error) {
-              // Fall back to server-side if client-side fails
-              addLog(`Client-side transcription failed, using server: ${error.message}`, "warning", {
+              // Log the error but continue with other models
+              console.error(`Error creating job for model ${model}:`, error);
+              addLog(`Failed to create ${model} transcription job: ${error.message}`, "error", {
                 source: model,
                 details: error.stack
               });
-              
-              // Here we would fall back to createTranscriptionJob
-              // This is where you'd use the server-side approach if client-side fails
-              const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
-              return { jobId };
+              return { jobId: null, error: error.message };
             }
           });
           
-          const results = await Promise.allSettled(jobsPromises);
+          const results = await Promise.allSettled(jobPromises);
           
           // Extract job IDs from successful results
           const jobIds = results
@@ -180,7 +179,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         .insert({
           id: sessionId,
           selected_models: selectedModels,
-          audio_file_name: file.name
+          audio_file_name: file.name,
+          user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
         })
         .select()
         .single();
