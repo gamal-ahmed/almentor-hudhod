@@ -44,15 +44,15 @@ export interface TranscriptionJob {
 export interface TranscriptionSession {
   id: string;
   user_id: string;
-  created_at: string;
-  last_updated: string;
+  created_at?: string;
+  last_updated?: string;
   audio_file_name?: string;
-  selected_models: string[];
+  selected_models?: string[];
   selected_model?: string;
   accepted_model_id?: string | null;
   selected_transcription?: string | null;
   selected_transcription_url?: string | null;
   video_id?: string | null;
   vtt_file_url?: string | null;
-  transcriptions: Json;
+  transcriptions?: Json;
 }

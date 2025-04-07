@@ -8,7 +8,8 @@ import {
   resetStuckJobs,
   getSessionTranscriptionJobs,
   saveTranscriptionToVTT,
-  saveSelectedTranscription
+  saveSelectedTranscription,
+  clientTranscribeAudio
 } from "./api/transcriptionService";
 import { 
   getBrightcoveAuthToken, 
@@ -49,7 +50,9 @@ export {
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo,
   getVideoDetails,
-  listAudioTracksForBrightcoveVideo
+  listAudioTracksForBrightcoveVideo,
+  // Export the client-side transcription function
+  clientTranscribeAudio
 };
 
 // Fetch Brightcove keys from Supabase
