@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -24,7 +25,8 @@ import {
 } from "@/components/ui/tooltip";
 import { 
   createTranscriptionJob, 
-  transcribeAudio
+  transcribeAudio,
+  clientTranscribeAudio
 } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -40,6 +42,26 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { addLog } = useLogsStore();
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Get the current user's ID when component mounts
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUserId(session?.user?.id || null);
+    };
+    
+    checkAuth();
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUserId(session?.user?.id || null);
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files && e.target.files[0];
@@ -64,6 +86,10 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         try {
           const sessionId = crypto.randomUUID();
           
+          // Get current auth session
+          const { data: { session } } = await supabase.auth.getSession();
+          const currentUserId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Anonymous fallback
+          
           // Create a transcription session
           const { data: sessionData, error: sessionError } = await supabase
             .from('transcription_sessions')
@@ -71,7 +97,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
               id: sessionId,
               selected_models: selectedModels,
               audio_file_name: file.name,
-              user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
+              user_id: currentUserId
             })
             .select()
             .single();
@@ -96,17 +122,20 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           // Create a job for each selected model
           const jobPromises = selectedModels.map(async (model) => {
             try {
-              // Since clientTranscribeAudio is not available, we'll fallback to server-side transcription
-              const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
-              return { jobId };
+              // Try to use client-side transcription
+              const result = await clientTranscribeAudio(file, model, prompt);
+              return { jobId: result.jobId };
             } catch (error) {
-              // Log the error but continue with other models
-              console.error(`Error creating job for model ${model}:`, error);
-              addLog(`Failed to create ${model} transcription job: ${error.message}`, "error", {
+              // Log the error but continue with server-side transcription
+              console.error(`Client-side transcription failed for model ${model}:`, error);
+              addLog(`Client-side transcription failed, falling back to server: ${error.message}`, "warning", {
                 source: model,
                 details: error.stack
               });
-              return { jobId: null, error: error.message };
+              
+              // Fallback to server-side transcription
+              const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
+              return { jobId };
             }
           });
           
@@ -173,6 +202,10 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       const sessionId = crypto.randomUUID();
       
+      // Get current auth session
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Anonymous fallback
+      
       // Create a transcription session
       const { data: sessionData, error: sessionError } = await supabase
         .from('transcription_sessions')
@@ -180,7 +213,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           id: sessionId,
           selected_models: selectedModels,
           audio_file_name: file.name,
-          user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
+          user_id: currentUserId
         })
         .select()
         .single();

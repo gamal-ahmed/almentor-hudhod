@@ -57,23 +57,41 @@ export async function clientTranscribeAudio(
         prompt
       };
       
-      // Store the result in Supabase for tracking
-      const { data, error } = await supabase
-        .from('transcriptions')
-        .insert({
-          id: jobId,
-          model: model,
-          status: 'completed',
-          result: mockResult,
-          file_path: file.name,
-          status_message: 'Completed via client-side processing',
-          user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
-        })
-        .select()
-        .single();
+      // Get the current user's auth status
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Use anonymous ID as fallback
       
-      if (error) {
-        throw new Error(`Failed to store transcription result: ${error.message}`);
+      try {
+        // Store the result in Supabase for tracking
+        const { data, error } = await supabase
+          .from('transcriptions')
+          .insert({
+            id: jobId,
+            model: model,
+            status: 'completed',
+            result: mockResult,
+            file_path: file.name,
+            status_message: 'Completed via client-side processing',
+            user_id: userId
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          console.error("Error storing transcription:", error);
+          addLog(`Failed to store transcription result: ${error.message}`, "error", { 
+            source: model,
+            details: JSON.stringify(error) 
+          });
+          
+          // Even if storage fails, return the mock result so the UI can still show something
+        }
+      } catch (storageError) {
+        console.error("Error in Supabase operation:", storageError);
+        addLog(`Database operation failed: ${storageError.message}`, "error", { 
+          source: model,
+          details: storageError.stack 
+        });
       }
       
       logOperation.complete(`Completed ${model} client-side transcription`, `Generated ${mockResult.vttContent.length} characters of VTT content`);
@@ -86,20 +104,40 @@ export async function clientTranscribeAudio(
       // For browsers without SpeechRecognition, we'll explain the limitation
       addLog(`Browser does not support direct speech recognition`, "warning", { source: model });
       
-      // Create a record of the attempt
-      const { data, error } = await supabase
-        .from('transcriptions')
-        .insert({
-          id: jobId,
-          model: model,
-          status: 'failed',
-          error: 'Browser does not support direct speech recognition',
-          file_path: file.name,
-          status_message: 'Failed - browser limitations',
-          user_id: "00000000-0000-0000-0000-000000000000" // Anonymous user ID as fallback
-        })
-        .select()
-        .single();
+      // Get the current user's auth status
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Use anonymous ID as fallback
+      
+      try {
+        // Create a record of the attempt
+        const { data, error } = await supabase
+          .from('transcriptions')
+          .insert({
+            id: jobId,
+            model: model,
+            status: 'failed',
+            error: 'Browser does not support direct speech recognition',
+            file_path: file.name,
+            status_message: 'Failed - browser limitations',
+            user_id: userId
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          console.error("Error storing transcription failure:", error);
+          addLog(`Failed to store transcription failure: ${error.message}`, "error", { 
+            source: model,
+            details: JSON.stringify(error) 
+          });
+        }
+      } catch (storageError) {
+        console.error("Error in Supabase operation:", storageError);
+        addLog(`Database operation failed: ${storageError.message}`, "error", { 
+          source: model,
+          details: storageError.stack 
+        });
+      }
       
       throw new Error(`Your browser doesn't support direct speech recognition. For advanced transcription, we recommend using our server-based transcription service.`);
     }
