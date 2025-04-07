@@ -4,9 +4,12 @@ import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
 
 // Re-export all the individual services
 export { 
-  createTranscriptionJob, 
+  createTranscriptionJob 
+} from "./services/transcription/jobCreation";
+
+export { 
   transcribeAudio 
-} from "./services/jobCreationService";
+} from "./services/transcription/directTranscription";
 
 export { 
   checkTranscriptionJobStatus,
