@@ -76,12 +76,15 @@ const SessionHistory = () => {
       
       if (!currentGroup || 
           Math.abs(jobTime.getTime() - currentGroup.timestamp.getTime()) > 30000) {
+        // Find a session ID in this job
+        const sessionId = job.session_id;
+        
         currentGroup = {
           timestamp: jobTime,
           jobs: [job],
           models: new Set([job.model]),
           hasCompleted: job.status === 'completed',
-          sessionId: job.session_id
+          sessionId: sessionId
         };
         groups.push({
           timestamp: currentGroup.timestamp,
@@ -97,7 +100,8 @@ const SessionHistory = () => {
           currentGroup.hasCompleted = true;
         }
         
-        if (job.session_id && !currentGroup.sessionId) {
+        // Prioritize finding a session ID if we don't have one yet
+        if (!currentGroup.sessionId && job.session_id) {
           currentGroup.sessionId = job.session_id;
         }
         
@@ -117,7 +121,9 @@ const SessionHistory = () => {
       try {
         setLoading(true);
         const jobs = await getUserTranscriptionJobs();
+        console.log("Fetched jobs:", jobs);
         const groups = groupJobsBySession(jobs as TranscriptionJob[]);
+        console.log("Grouped sessions:", groups);
         setSessionGroups(groups);
       } catch (error) {
         console.error('Error fetching session history:', error);
@@ -207,12 +213,12 @@ const SessionHistory = () => {
               >
                 {session.sessionId ? (
                   <Link to={`/session/${session.sessionId}`}>
-                    <span>Details</span>
+                    <span className="mr-1">Details</span>
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
                 ) : (
-                  <Link to={`/app`}>
-                    <span>Dashboard</span>
+                  <Link to="/app">
+                    <span className="mr-1">Dashboard</span>
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
                 )}

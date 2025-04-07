@@ -24,7 +24,6 @@ import { fetchAudioFromUrl } from "./audioDownloadService";
 // Re-export all API functions for easy access
 export {
   transcribeAudio,
-  clientTranscribeAudio,
   createTranscriptionJob,
   checkTranscriptionJobStatus,
   getUserTranscriptionJobs,
@@ -39,5 +38,6 @@ export {
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo,
   getVideoDetails,
-  listAudioTracksForBrightcoveVideo
+  listAudioTracksForBrightcoveVideo,
+  clientTranscribeAudio
 };
