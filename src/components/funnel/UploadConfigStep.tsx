@@ -1,19 +1,33 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { TranscriptionModel } from '@/components/ModelSelector';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Upload, FileAudio, Pause, Play, Link } from 'lucide-react';
-import FileUpload from '@/components/FileUpload';
-import ModelSelector from '@/components/ModelSelector';
-import PromptOptions from '@/components/PromptOptions';
-import UrlTranscription from '@/components/UrlTranscription';
-import { createTranscriptionJob } from '@/lib/api';
-import { toast } from 'sonner';
-import { useLogsStore } from '@/lib/useLogsStore';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/lib/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { TranscriptionModel } from "@/components/ModelSelector";
+import { useLogsStore } from "@/lib/useLogsStore";
+import { FileAudio, UploadCloud, Sliders, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
+import { 
+  HoverCard, 
+  HoverCardContent, 
+  HoverCardTrigger 
+} from "@/components/ui/hover-card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { 
+  createTranscriptionJob, 
+  transcribeAudio,
+  clientTranscribeAudio
+} from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UploadConfigStepProps {
   onTranscriptionsCreated: (jobIdsArray: string[], sessionId?: string) => void;
@@ -21,137 +35,173 @@ interface UploadConfigStepProps {
 }
 
 const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCreated, onStepComplete }) => {
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(['openai', 'gemini-2.0-flash', 'phi4']);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(['openai']);
   const [prompt, setPrompt] = useState("Please preserve all English words exactly as spoken");
-  const [uploadTab, setUploadTab] = useState('direct');
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [preserveEnglish, setPreserveEnglish] = useState(true);
-  const [outputFormat, setOutputFormat] = useState<"vtt" | "plain">("vtt");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { addLog, startTimedLog } = useLogsStore();
-  const { user } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { addLog } = useLogsStore();
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    setSelectedFile(file || null);
+  };
+  
+  const handleModelChange = (model: TranscriptionModel) => {
+    setSelectedModels([model]);
+  };
+  
+  const handleUploadTranscription = async (file: File) => {
+    if (!file) return;
 
-  const handleFileUpload = async (file: File) => {
-    console.log("File uploaded in UploadConfigStep:", file.name);
-    setUploadedFile(file);
-    addLog(`File uploaded: ${file.name}`, "info", {
-      source: "FileUpload",
-      details: `Type: ${file.type}`
-    });
-    
-    // Automatically start transcription after file upload
-    await startTranscription(file);
-  };
-  
-  const toggleAudioPlayback = () => {
-    if (!audioRef.current) return;
-    
-    if (isAudioPlaying) {
-      audioRef.current.pause();
-      setIsAudioPlaying(false);
-    } else {
-      audioRef.current.play()
-        .then(() => {
-          setIsAudioPlaying(true);
-        })
-        .catch(error => {
-          console.error("Error playing audio:", error);
-          setIsAudioPlaying(false);
-        });
-    }
-  };
-  
-  const handleAudioEnded = () => {
-    setIsAudioPlaying(false);
-  };
-
-  useEffect(() => {
-    let newPrompt = "";
-    
-    if (preserveEnglish) {
-      newPrompt += "Please preserve all English words exactly as spoken. ";
-    }
-    
-    if (outputFormat === "vtt") {
-      newPrompt += "Generate output with timestamps in VTT format.";
-    } else {
-      newPrompt += "Generate output as plain text without timestamps.";
-    }
-    
-    setPrompt(newPrompt.trim());
-  }, [preserveEnglish, outputFormat]);
-  
-  // Create a session in Supabase and return the session ID
-  const createTranscriptionSession = async (fileName: string) => {
     try {
-      if (!user) {
-        throw new Error("User must be logged in to create a transcription session");
+      setIsProcessing(true);
+      addLog(`Processing file: ${file.name}`, "info", { source: "UploadConfigStep" });
+
+      // Try to use client-side transcription first
+      const useClientTranscription = true; // You can toggle this based on user preference
+
+      if (useClientTranscription) {
+        try {
+          const sessionId = crypto.randomUUID();
+          
+          // Create a transcription session
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('transcription_sessions')
+            .insert({
+              id: sessionId,
+              selected_models: selectedModels,
+              audio_file_name: file.name
+            })
+            .select()
+            .single();
+          
+          if (sessionError) throw sessionError;
+          
+          // Upload the audio file to Supabase storage
+          const filePath = `sessions/${sessionId}/${file.name}`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('transcriptions')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: true
+            });
+          
+          if (uploadError) throw uploadError;
+          
+          // Try client-side transcription
+          addLog("Attempting client-side transcription...", "info", { source: "UploadConfigStep" });
+          
+          // Create a job for each selected model
+          const jobsPromises = selectedModels.map(async (model) => {
+            try {
+              return await clientTranscribeAudio(file, model, prompt);
+            } catch (error) {
+              // Fall back to server-side if client-side fails
+              addLog(`Client-side transcription failed, using server: ${error.message}`, "warning", {
+                source: model,
+                details: error.stack
+              });
+              
+              // Here we would fall back to createTranscriptionJob
+              // This is where you'd use the server-side approach if client-side fails
+              const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
+              return { jobId };
+            }
+          });
+          
+          const results = await Promise.allSettled(jobsPromises);
+          
+          // Extract job IDs from successful results
+          const jobIds = results
+            .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+            .map(result => result.value.jobId)
+            .filter(Boolean);
+          
+          addLog(`Created ${jobIds.length} transcription jobs`, "success", {
+            source: "UploadConfigStep",
+            details: `Job IDs: ${jobIds.join(', ')}`
+          });
+          
+          if (jobIds.length > 0) {
+            toast.success("Transcription started", {
+              description: `Processing ${jobIds.length} transcription jobs`
+            });
+            
+            // Notify parent components
+            onTranscriptionsCreated(jobIds, sessionId);
+            onStepComplete();
+          } else {
+            toast.error("Transcription failed", {
+              description: "Failed to create any transcription jobs"
+            });
+          }
+        } catch (error) {
+          console.error("Error in client-side transcription:", error);
+          toast.error("Client-side transcription failed", {
+            description: "Falling back to server-side processing..."
+          });
+          
+          // Fall back to regular transcription process
+          handleRegularTranscription(file);
+        }
+      } else {
+        // Use regular server-side transcription
+        handleRegularTranscription(file);
       }
+    } catch (error) {
+      console.error("Error processing file:", error);
+      addLog(`Error processing file: ${error instanceof Error ? error.message : String(error)}`, "error", {
+        source: "UploadConfigStep",
+        details: error instanceof Error ? error.stack : ""
+      });
       
-      const { data, error } = await supabase
+      setError(error instanceof Error ? error.message : String(error));
+      toast.error("Processing failed", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Helper function to handle regular server-side transcription
+  const handleRegularTranscription = async (file: File) => {
+    try {
+      setIsProcessing(true);
+      addLog(`Processing file: ${file.name}`, "info", { source: "UploadConfigStep" });
+      
+      const sessionId = crypto.randomUUID();
+      
+      // Create a transcription session
+      const { data: sessionData, error: sessionError } = await supabase
         .from('transcription_sessions')
         .insert({
-          audio_file_name: fileName,
+          id: sessionId,
           selected_models: selectedModels,
-          user_id: user.id,
+          audio_file_name: file.name
         })
         .select()
         .single();
+        
+      if (sessionError) throw sessionError;
       
-      if (error) throw error;
+      // Upload the audio file to Supabase storage
+      const filePath = `sessions/${sessionId}/${file.name}`;
       
-      addLog(`Created transcription session: ${data.id}`, "success", {
-        source: "UploadConfigStep",
-        details: `File: ${fileName}, Models: ${selectedModels.join(', ')}`
-      });
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('transcriptions')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (uploadError) throw uploadError;
       
-      return data.id;
-    } catch (error) {
-      console.error("Error creating transcription session:", error);
-      addLog(`Failed to create transcription session: ${error.message}`, "error", {
-        source: "UploadConfigStep",
-        details: error.stack
-      });
-      throw error;
-    }
-  };
-  
-  const startTranscription = async (fileToProcess = uploadedFile) => {
-    if (!fileToProcess) {
-      toast.error("No file selected", {
-        description: "Please upload an audio file before starting transcription"
-      });
-      return;
-    }
-    
-    if (selectedModels.length === 0) {
-      toast.error("No transcription models selected", {
-        description: "Please select at least one transcription model"
-      });
-      return;
-    }
-    
-    try {
-      setIsProcessing(true);
-      
-      const timedLogOperation = startTimedLog(`Starting transcription for ${fileToProcess.name}`, "info");
-      
-      console.log("Starting transcription with file:", {
-        name: fileToProcess.name,
-        size: fileToProcess.size,
-        type: fileToProcess.type,
-        lastModified: fileToProcess.lastModified
-      });
-      
-      // Create a session for this transcription batch
-      const sessionId = await createTranscriptionSession(fileToProcess.name);
-      
-      // Create transcription jobs for each selected model
-      const jobPromises = selectedModels.map(model => 
-        createTranscriptionJob(fileToProcess, model, prompt, sessionId)
+      // Create a job for each selected model
+      const jobsPromises = selectedModels.map(model => 
+        createTranscriptionJob(file, model, prompt, sessionId)
           .catch(error => {
             console.error(`Error creating job for model ${model}:`, error);
             addLog(`Failed to create ${model} transcription job: ${error.message}`, "error", {
@@ -162,7 +212,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           })
       );
       
-      const results = await Promise.all(jobPromises);
+      const results = await Promise.all(jobsPromises);
       
       // Filter out failed jobs
       const successfulJobs = results.filter(result => result && result.jobId);
@@ -175,9 +225,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           description: `Started ${jobIds.length} transcription jobs`
         });
         
-        timedLogOperation.complete("Transcription jobs created", `Created ${jobIds.length} jobs`);
-        
-        // Pass both jobIds and sessionId to the parent component
         onTranscriptionsCreated(jobIds, sessionId);
         onStepComplete();
       } else {
@@ -185,156 +232,94 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           description: "Failed to create any transcription jobs"
         });
         
-        timedLogOperation.error("Failed to create any transcription jobs", "All job creation attempts failed");
+        setError("Failed to create any transcription jobs");
       }
-      
     } catch (error) {
-      console.error("Error starting transcription:", error);
-      
-      toast.error("Transcription failed", {
-        description: error instanceof Error ? error.message : "An unknown error occurred"
+      console.error("Error processing file:", error);
+      addLog(`Error processing file: ${error instanceof Error ? error.message : String(error)}`, "error", {
+        source: "UploadConfigStep",
+        details: error instanceof Error ? error.stack : ""
       });
       
-      const timedLogOperation = startTimedLog(`Error in transcription`, "error");
-      timedLogOperation.error(`${error.message}`, error.stack);
-      
+      setError(error instanceof Error ? error.message : String(error));
+      toast.error("Processing failed", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
     } finally {
       setIsProcessing(false);
     }
   };
-
+  
   return (
     <Card className="w-full shadow-md border-primary/10">
       <CardHeader>
-        <CardTitle className="text-2xl">Upload & Configure</CardTitle>
+        <CardTitle className="text-lg">Upload Audio File</CardTitle>
         <CardDescription>
-          Upload your audio file and configure transcription options
+          Select an audio file to transcribe using AI
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-6">
-        <Tabs defaultValue={uploadTab} onValueChange={setUploadTab} className="w-full">
-          <TabsList className="grid grid-cols-2 mb-4">
-            <TabsTrigger value="direct" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              <span>Direct Upload</span>
-            </TabsTrigger>
-            <TabsTrigger value="url" className="flex items-center gap-2">
-              <Link className="h-4 w-4" />
-              <span>URL</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="direct" className="space-y-4">
-            <FileUpload 
-              onFileUpload={handleFileUpload} 
-              isUploading={isProcessing}
-            />
-          </TabsContent>
-          
-          <TabsContent value="url" className="space-y-4">
-            <UrlTranscription
-              selectedModels={selectedModels}
-              prompt={prompt}
-              isProcessing={isProcessing}
-              setIsProcessing={setIsProcessing}
-              onTranscriptionsCreated={onTranscriptionsCreated}
-              onStepComplete={onStepComplete}
-            />
-          </TabsContent>
-        </Tabs>
-        
-        {uploadedFile && uploadTab === 'direct' && (
-          <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <FileAudio className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-sm">{uploadedFile.name}</h4>
-                  <p className="text-xs text-muted-foreground">
-                    {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={toggleAudioPlayback}
-              >
-                {isAudioPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            
-            <audio
-              ref={audioRef}
-              src={URL.createObjectURL(uploadedFile)}
-              className="w-full"
-              controls={false}
-              onEnded={handleAudioEnded}
-            />
-          </div>
-        )}
-        
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-medium mb-2">Transcription Models</h3>
-            <ModelSelector 
-              selectedModels={selectedModels} 
-              onModelChange={setSelectedModels} 
-              disabled={isProcessing}
-            />
-            
-            {selectedModels.length === 0 && (
-              <Alert variant="destructive" className="mt-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Please select at least one transcription model
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-medium mb-2">Transcription Prompt</h3>
-            <PromptOptions
-              preserveEnglish={preserveEnglish}
-              onPreserveEnglishChange={setPreserveEnglish}
-              outputFormat={outputFormat}
-              onOutputFormatChange={setOutputFormat}
-              notificationsEnabled={notificationsEnabled}
-              onNotificationsChange={setNotificationsEnabled}
-              disabled={isProcessing}
-            />
-          </div>
-        </div>
-      </CardContent>
-      
-      {uploadTab === 'direct' && (
-        <CardFooter className="flex justify-between border-t p-6">
-          <Button
-            variant="default"
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="audio-file">Audio File</Label>
+          <Input
+            type="file"
+            id="audio-file"
+            accept="audio/*"
+            onChange={handleFileChange}
+            disabled={isProcessing}
             className="w-full"
-            onClick={() => startTranscription()}
-            disabled={!uploadedFile || selectedModels.length === 0 || isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <span className="animate-pulse">Processing...</span>
-              </>
-            ) : (
-              <>Start Transcription</>
-            )}
-          </Button>
-        </CardFooter>
-      )}
+          />
+          {selectedFile && (
+            <p className="text-xs text-muted-foreground">
+              Selected file: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+            </p>
+          )}
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="model-select">Transcription Model</Label>
+          <Select onValueChange={(value) => handleModelChange(value as TranscriptionModel)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="openai">OpenAI Whisper</SelectItem>
+              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+              <SelectItem value="phi4">Phi-4 (Experimental)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="prompt">Transcription Prompt</Label>
+          <Textarea
+            id="prompt"
+            placeholder="Customize the transcription with a prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            disabled={isProcessing}
+            className="w-full"
+          />
+        </div>
+        
+        <Button
+          variant="default"
+          className="w-full"
+          onClick={() => selectedFile && handleUploadTranscription(selectedFile)}
+          disabled={!selectedFile || isProcessing}
+        >
+          {isProcessing ? (
+            <span className="animate-pulse">Processing...</span>
+          ) : (
+            <>Transcribe Audio</>
+          )}
+        </Button>
+        
+        {error && (
+          <p className="text-sm text-red-500">{error}</p>
+        )}
+      </CardContent>
     </Card>
   );
 };

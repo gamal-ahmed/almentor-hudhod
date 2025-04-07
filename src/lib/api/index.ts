@@ -7,7 +7,8 @@ import {
   resetStuckJobs,
   saveTranscriptionToVTT,
   saveSelectedTranscription,
-  getSessionTranscriptionJobs
+  getSessionTranscriptionJobs,
+  clientTranscribeAudio
 } from "./transcriptionService";
 import { 
   getBrightcoveAuthToken, 
@@ -23,6 +24,7 @@ import { fetchAudioFromUrl } from "./audioDownloadService";
 // Re-export all API functions for easy access
 export {
   transcribeAudio,
+  clientTranscribeAudio,
   createTranscriptionJob,
   checkTranscriptionJobStatus,
   getUserTranscriptionJobs,

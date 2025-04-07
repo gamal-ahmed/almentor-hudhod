@@ -11,6 +11,10 @@ export {
   transcribeAudio 
 } from "./services/transcription/directTranscription";
 
+export {
+  clientTranscribeAudio
+} from "./services/transcription/clientTranscription";
+
 export { 
   checkTranscriptionJobStatus,
   getUserTranscriptionJobs
