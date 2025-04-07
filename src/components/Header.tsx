@@ -1,9 +1,10 @@
+
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/AuthContext";
-import { Menu, X, Home, FileText, Film } from "lucide-react";
+import { Menu, X, Home, FileText, Film, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Header = () => {
@@ -26,11 +27,7 @@ const Header = () => {
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1">
           <Link to="/" className="-m-1.5 p-1.5 flex items-center gap-2">
-            <img 
-              src="/lovable-uploads/552fe796-5139-4c5e-ba41-b20330a85df7.png" 
-              alt="Hudhod Logo" 
-              className="h-8 w-auto" 
-            />
+            <Zap className="h-8 w-8 text-primary" />
             <span className="font-semibold tracking-tight">Hudhod</span>
           </Link>
         </div>
@@ -93,12 +90,8 @@ const Header = () => {
             <div className="w-full">
               <div className="flex h-16 items-center justify-between px-6">
                 <Link to="/" className="-m-1.5 p-1.5 flex items-center gap-2">
-                  <img 
-                    src="/lovable-uploads/552fe796-5139-4c5e-ba41-b20330a85df7.png" 
-                    alt="Hudhod Logo" 
-                    className="h-8 w-auto" 
-                  />
-                  <span className="font-semibold tracking-tight">Hudhod</span>
+                  <img className="h-8 w-auto" src="/placeholder.svg" alt="Logo" />
+                  <span className="font-semibold tracking-tight">Transcription Service</span>
                 </Link>
                 <button
                   type="button"

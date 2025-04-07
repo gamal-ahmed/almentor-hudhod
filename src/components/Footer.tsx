@@ -1,6 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Twitter, Github, Linkedin, Heart } from 'lucide-react';
+import { 
+  Zap, 
+  Twitter, 
+  Github, 
+  Linkedin, 
+  Heart 
+} from 'lucide-react';
 
 const Footer = () => {
   const year = new Date().getFullYear();
@@ -11,11 +17,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <img 
-                src="/lovable-uploads/552fe796-5139-4c5e-ba41-b20330a85df7.png" 
-                alt="Hudhod Logo" 
-                className="h-5 w-auto" 
-              />
+              <div className="p-1 rounded-md bg-primary/10">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
               <span className="text-lg font-bold text-gradient">Hudhod</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
