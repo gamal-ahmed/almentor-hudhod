@@ -19,7 +19,6 @@ import {
   listAudioTracksForBrightcoveVideo
 } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
-import { fetchSharePointFiles, downloadSharePointFile } from "./sharePointService";
 
 // Re-export all API functions for easy access
 export {
@@ -32,8 +31,6 @@ export {
   resetStuckJobs,
   fetchAudioFromUrl,
   fetchBrightcoveKeys,
-  fetchSharePointFiles,
-  downloadSharePointFile,
   saveTranscriptionToVTT,
   saveSelectedTranscription,
   getSessionTranscriptionJobs,
