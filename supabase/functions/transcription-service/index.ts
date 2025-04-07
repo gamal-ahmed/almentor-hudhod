@@ -6,6 +6,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.4.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Max-Age": "86400"
 };
 
 // Initialize Supabase client
@@ -16,7 +18,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204, 
+      headers: corsHeaders 
+    });
   }
 
   const url = new URL(req.url);
@@ -25,20 +30,23 @@ serve(async (req) => {
   try {
     console.log(`Received request for endpoint: ${endpoint}`);
     
+    // Add CORS headers to all responses
+    const headers = { ...corsHeaders, "Content-Type": "application/json" };
+    
     if (endpoint === 'start-job') {
-      return await handleStartJob(req);
+      return await handleStartJob(req, headers);
     } else if (endpoint === 'job-status') {
-      return await handleJobStatus(req);
+      return await handleJobStatus(req, headers);
     } else if (endpoint === 'reset-stuck-jobs') {
-      return await handleResetStuckJobs(req);
+      return await handleResetStuckJobs(req, headers);
     } else if (endpoint === 'download-audio') {
-      return await handleDownloadAudio(req);
+      return await handleDownloadAudio(req, headers);
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid endpoint" }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers
         }
       );
     }
@@ -48,14 +56,14 @@ serve(async (req) => {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   }
 });
 
 // Handle downloading audio from URL
-async function handleDownloadAudio(req: Request) {
+async function handleDownloadAudio(req: Request, headers: HeadersInit) {
   try {
     const { url } = await req.json();
     
@@ -121,7 +129,6 @@ async function handleDownloadAudio(req: Request) {
     }
     
     const arrayBuffer = await response.arrayBuffer();
-    //console.log(`Successfully downloaded audio: ${arrayBuffer.byteLength} bytes`);
     
     return new Response(
       arrayBuffer,
@@ -139,14 +146,14 @@ async function handleDownloadAudio(req: Request) {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers
       }
     );
   }
 }
 
 // Handle starting a new transcription job
-async function handleStartJob(req: Request) {
+async function handleStartJob(req: Request, headers: HeadersInit) {
   try {
     const formData = await req.formData();
     const audioFile = formData.get("audio");
@@ -183,10 +190,7 @@ async function handleStartJob(req: Request) {
         sessionId: sessionId || null
       }),
       {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
   } catch (error) {
@@ -195,17 +199,14 @@ async function handleStartJob(req: Request) {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
   }
 }
 
 // Handle checking job status
-async function handleJobStatus(req: Request) {
+async function handleJobStatus(req: Request, headers: HeadersInit) {
   try {
     const url = new URL(req.url);
     const jobId = url.searchParams.get('jobId');
@@ -228,10 +229,7 @@ async function handleJobStatus(req: Request) {
     return new Response(
       JSON.stringify(job),
       {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
   } catch (error) {
@@ -240,17 +238,14 @@ async function handleJobStatus(req: Request) {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
   }
 }
 
 // Handle resetting stuck jobs
-async function handleResetStuckJobs(req: Request) {
+async function handleResetStuckJobs(req: Request, headers: HeadersInit) {
   try {
     console.log("Resetting all stuck transcription jobs");
     
@@ -283,10 +278,7 @@ async function handleResetStuckJobs(req: Request) {
         updatedCount 
       }),
       {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
   } catch (error) {
@@ -295,10 +287,7 @@ async function handleResetStuckJobs(req: Request) {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
   }

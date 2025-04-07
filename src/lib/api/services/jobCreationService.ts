@@ -74,11 +74,16 @@ export async function createTranscriptionJob(
     }
     
     // Start the transcription process on the server (doesn't wait for completion)
-    const response = await baseService.createAuthorizedRequest(
+    const response = await fetch(
       `${baseService.apiEndpoints.TRANSCRIPTION_SERVICE}/start-job`, 
       {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${baseService.supabase.auth.getSession() 
+            ? (await baseService.supabase.auth.getSession()).data.session?.access_token 
+            : baseService.supabaseKey}`,
+        }
       }
     );
     
