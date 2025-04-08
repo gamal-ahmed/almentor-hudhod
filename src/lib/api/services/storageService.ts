@@ -1,3 +1,4 @@
+
 import { baseService, getLogsStore } from "./baseService";
 import { parseVTT } from "@/lib/vttParser";
 
@@ -27,8 +28,10 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
     const blob = new Blob([finalVttContent], { type: 'text/vtt' });
     const file = new File([blob], fileName, { type: 'text/vtt' });
     
-    // Ensure the transcriptions bucket exists, create if not
-    await ensureBucketExists('transcriptions', addLog);
+    // Function to get current timestamp to ensure unique filenames
+    const getTimestampString = () => {
+      return new Date().toISOString().replace(/[:.]/g, '-');
+    };
     
     // Ensure the path exists for this session
     const filePath = `${sessionId}/${fileName}`;
@@ -75,12 +78,15 @@ export async function saveTranscriptionToVTT(sessionId: string, vttContent: stri
       vttUrl: publicUrl
     };
   } catch (error) {
-    addLog(`Error saving VTT file: ${error.message}`, "error", {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : '';
+    
+    addLog(`Error saving VTT file: ${errorMessage}`, "error", {
       source: "VTT Export",
-      details: error.stack
+      details: stack
     });
     
-    logOperation.error(`${error.message}`, error.stack);
+    logOperation.error(`${errorMessage}`, stack);
     throw error;
   }
 }
@@ -108,33 +114,36 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
     const blob = new Blob([finalVttContent], { type: 'text/vtt' });
     const file = new File([blob], fileName, { type: 'text/vtt' });
     
-    // Ensure the transcription_files bucket exists, create if not
-    await ensureBucketExists('transcription_files', addLog);
+    // Generate a timestamped path to avoid conflicts
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const uniqueFilePath = `${timestamp}_${fileName}`;
     
+    // Upload to the transcription_files bucket
     const { data: uploadData, error: uploadError } = await baseService.supabase.storage
       .from('transcription_files')
-      .upload(fileName, file, {
+      .upload(uniqueFilePath, file, {
         contentType: 'text/vtt',
         upsert: true
       });
 
     if (uploadError) throw new Error(`Failed to upload VTT file: ${uploadError.message}`);
 
+    // Get the public URL
     const { data: publicUrlData } = baseService.supabase.storage
       .from('transcription_files')
-      .getPublicUrl(fileName);
+      .getPublicUrl(uniqueFilePath);
 
     if (!publicUrlData) throw new Error("Failed to get public URL");
 
-    // Only update session if sessionId doesn't look like a timestamp
-    if (!sessionId.includes('T') && !sessionId.includes('Z')) {
+    // Only update session if sessionId looks valid
+    if (sessionId && sessionId.length > 10 && !sessionId.includes('T') && !sessionId.includes('Z')) {
       const { error: sessionUpdateError } = await baseService.supabase
         .from('transcription_sessions')
         .update({ 
           selected_transcription_url: publicUrlData.publicUrl,
-          selected_transcription: finalVttContent, // Use the full VTT content
+          selected_transcription: finalVttContent,
           selected_model: modelName,
-          accepted_model_id: null // Add this line to clear any previous selection
+          accepted_model_id: null
         })
         .eq('id', sessionId);
 
@@ -148,7 +157,7 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
 
     addLog(`Saved selected transcription`, "success", {
       source: "Storage Service",
-      details: `File: ${fileName}, URL: ${publicUrlData.publicUrl}, Segments: ${segments.length}`
+      details: `File: ${uniqueFilePath}, URL: ${publicUrlData.publicUrl}, Segments: ${segments.length}`
     });
 
     return {
@@ -156,9 +165,12 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
       transcriptionUrl: publicUrlData.publicUrl
     };
   } catch (error) {
-    addLog(`Error saving selected transcription: ${error.message}`, "error", {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : '';
+    
+    addLog(`Error saving selected transcription: ${errorMessage}`, "error", {
       source: "Storage Service",
-      details: error.stack
+      details: stack
     });
     
     throw error;
@@ -166,31 +178,40 @@ export async function saveSelectedTranscription(sessionId: string, vttContent: s
 }
 
 async function ensureBucketExists(bucketName: string, addLog: Function) {
-  const { data: buckets, error: bucketsError } = await baseService.supabase.storage.listBuckets();
-  
-  if (bucketsError) {
-    throw new Error(`Failed to list storage buckets: ${bucketsError.message}`);
-  }
-  
-  const bucketExists = buckets.some(bucket => bucket.name === bucketName);
-  
-  if (!bucketExists) {
-    addLog(`Creating ${bucketName} bucket`, "info", {
-      source: "Storage Service",
-      details: "Bucket doesn't exist, creating it"
-    });
+  try {
+    const { data: buckets, error: bucketsError } = await baseService.supabase.storage.listBuckets();
     
-    const { error: createBucketError } = await baseService.supabase.storage.createBucket(bucketName, {
-      public: true,
-      fileSizeLimit: 52428800 // 50MB limit
-    });
-    
-    if (createBucketError) {
-      throw new Error(`Failed to create ${bucketName} bucket: ${createBucketError.message}`);
+    if (bucketsError) {
+      throw new Error(`Failed to list storage buckets: ${bucketsError.message}`);
     }
     
-    addLog(`Created ${bucketName} bucket`, "success", {
-      source: "Storage Service"
+    const bucketExists = buckets.some(bucket => bucket.name === bucketName);
+    
+    if (!bucketExists) {
+      addLog(`Creating ${bucketName} bucket`, "info", {
+        source: "Storage Service",
+        details: "Bucket doesn't exist, creating it"
+      });
+      
+      const { error: createBucketError } = await baseService.supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 52428800 // 50MB limit
+      });
+      
+      if (createBucketError) {
+        throw new Error(`Failed to create ${bucketName} bucket: ${createBucketError.message}`);
+      }
+      
+      addLog(`Created ${bucketName} bucket`, "success", {
+        source: "Storage Service"
+      });
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    addLog(`Error ensuring bucket exists: ${errorMessage}`, "error", {
+      source: "Storage Service",
+      details: error instanceof Error ? error.stack : ''
     });
+    throw error;
   }
 }

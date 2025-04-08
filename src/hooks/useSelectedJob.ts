@@ -5,6 +5,7 @@ import { JobUpdateStatus } from "@/components/transcription/types";
 import { saveSelectedTranscription } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
+import { toast as sonnerToast } from "sonner";
 
 export function useSelectedJob(
   sessionJobs: TranscriptionJob[],
@@ -64,10 +65,8 @@ export function useSelectedJob(
     }
 
     try {
-      toast({
-        title: "Saving changes",
-        description: "Updating transcription..."
-      });
+      // Use Sonner toast for better visibility
+      sonnerToast.loading("Saving transcription changes...");
 
       const fileName = `edited_${job.model}_${uuidv4()}.vtt`;
       
@@ -91,12 +90,7 @@ export function useSelectedJob(
         };
         setSelectedJob(updatedJob);
         
-        toast({
-          title: "Changes saved",
-          description: "Transcription has been updated successfully",
-          // Change from "success" to "default"
-          variant: "default"
-        });
+        sonnerToast.success("Transcription changes saved successfully");
         
         return result.transcriptionUrl;
       }
@@ -104,11 +98,12 @@ export function useSelectedJob(
       return null;
     } catch (error) {
       console.error("Error saving edited transcription:", error);
-      toast({
-        title: "Error saving changes",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive"
-      });
+      
+      sonnerToast.error(
+        "Error saving changes", 
+        { description: error instanceof Error ? error.message : "Unknown error occurred" }
+      );
+      
       return null;
     }
   };
