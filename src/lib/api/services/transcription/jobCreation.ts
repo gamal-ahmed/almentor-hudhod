@@ -73,7 +73,7 @@ export async function createTranscriptionJob(
       formData.append('sessionId', sessionId);
     }
     
-    // Get authorization token
+    // Get authorization token using the baseService's createAuthorizedRequest method
     const { data: sessionData } = await baseService.supabase.auth.getSession();
     const authToken = sessionData.session?.access_token || baseService.supabaseKey;
     
