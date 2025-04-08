@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, ArrowLeft, Send, AlertCircle, Download } from "lucide-react";
-import TranscriptionCard from "@/components/TranscriptionCard";
+import { TranscriptionCard } from "@/components/transcription";
 import TranscriptionJobs from "@/components/TranscriptionJobs";
 import VideoIdInput from "@/components/VideoIdInput";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +27,7 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ExportFormat } from "@/components/transcription";
 
 interface ResultsPublishStepProps {
   selectedTranscription: string | null;
@@ -45,9 +45,6 @@ interface ResultsPublishStepProps {
   transcriptions: Record<string, { vtt: string; prompt: string; loading: boolean; }>;
   sessionId?: string;
 }
-
-// Define export format options
-type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
   selectedTranscription,
@@ -75,39 +72,31 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
   });
   const [currentJobs, setCurrentJobs] = useState<string[]>([]);
   
-  // New state for export functionality
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
-  // Fetch completed jobs to display in the results tab
   useEffect(() => {
     const fetchCompletedJobs = async () => {
       try {
         const jobs = await getUserTranscriptionJobs();
         
-        // Filter for completed jobs only
         const completed = jobs.filter(job => job.status === 'completed');
         setCompletedJobs(completed);
         
-        // Get the current ongoing jobs (pending or processing)
         const ongoing = jobs.filter(job => job.status === 'pending' || job.status === 'processing');
         setCurrentJobs(ongoing.map(job => job.model));
         
-        // Extract only jobs for selected models
         const latestForSelectedModels: Record<string, any> = {
           openai: null,
           "gemini-2.0-flash": null,
           phi4: null
         };
         
-        // Sort completed jobs by created_at in descending order (newest first)
         const sortedJobs = [...completed].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         
-        // Get the latest job for each selected model
         for (const job of sortedJobs) {
-          // Check if this model was selected in the current session
           if (selectedModels.includes(job.model) && !latestForSelectedModels[job.model] && job.result) {
             latestForSelectedModels[job.model] = job;
           }
@@ -115,7 +104,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         
         setLatestResults(latestForSelectedModels);
         
-        // Log for debugging
         addLog(`Found latest results for selected models: ${Object.keys(latestForSelectedModels).filter(k => latestForSelectedModels[k]).join(', ')}`, "debug", {
           source: "ResultsPublishStep",
           details: `Selected models: ${selectedModels.join(', ')}, Total completed jobs: ${completed.length}`
@@ -128,16 +116,13 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     fetchCompletedJobs();
   }, [refreshJobsTrigger, addLog, selectedModels]);
 
-  // Save selected transcription to VTT when selected
   useEffect(() => {
     const saveSelectedVtt = async () => {
       if (selectedTranscription && selectedModel && sessionId) {
         try {
-          // Save selected transcription to database
           const fileName = `transcription_${selectedModel}_${new Date().toISOString().slice(0, 10)}.vtt`;
           await saveSelectedTranscription(sessionId, selectedTranscription, fileName, selectedModel);
           
-          // Save as VTT file for Brightcove
           await saveTranscriptionToVTT(sessionId, selectedTranscription, fileName);
           
           addLog(`Saved selected transcription (${selectedModel}) to session`, "info", {
@@ -157,7 +142,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     saveSelectedVtt();
   }, [selectedTranscription, selectedModel, sessionId, addLog]);
 
-  // Publish caption to Brightcove
   const publishCaption = async () => {
     if (!selectedTranscription || !videoId || !sessionId || !selectedModel) {
       toast({
@@ -191,11 +175,9 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
         
         publishLog.update(`Adding caption to Brightcove video ID: ${videoId}`);
         
-        // Find the job ID for the selected model
         const selectedModelJob = latestResults[selectedModel];
         const modelId = selectedModelJob?.id || null;
         
-        // Use the updated API with model information
         const result = await addCaptionToBrightcove(
           videoId,
           sessionId,
@@ -237,11 +219,9 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     }
   };
 
-  // Extract VTT content from job result safely
   const extractVttContent = (job: any) => {
     if (!job || !job.result) return "";
     
-    // Handle different result shapes
     try {
       if (typeof job.result === 'string') {
         try {
@@ -261,58 +241,45 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     return "";
   };
 
-  // Check if a model has an ongoing job (pending or processing)
   const isModelProcessing = (model: string) => {
     return currentJobs.includes(model);
   };
 
-  // Convert VTT to SRT format
   const convertVttToSrt = (vtt: string): string => {
     if (!vtt) return "";
     
-    // Remove WEBVTT header
     let content = vtt.replace(/^WEBVTT\s*/, '');
     
-    // Split into cues
     const cues = content.trim().split(/\n\s*\n/);
     
-    // Process each cue
     return cues.map((cue, index) => {
       const lines = cue.split('\n').filter(line => line.trim());
       
-      if (lines.length < 2) return ''; // Skip malformed cues
+      if (lines.length < 2) return '';
       
-      // Extract timestamp line
       const timestampLine = lines.find(line => line.includes('-->'));
       if (!timestampLine) return '';
       
-      // Convert timestamp format from HH:MM:SS.mmm to HH:MM:SS,mmm
       const timestamps = timestampLine.split('-->').map(ts => ts.trim().replace('.', ','));
       
-      // Extract text (all lines after the timestamp)
       const textIndex = lines.indexOf(timestampLine) + 1;
       const text = lines.slice(textIndex).join('\n');
       
-      // Format as SRT
       return `${index + 1}\n${timestamps[0]} --> ${timestamps[1]}\n${text}`;
     }).filter(cue => cue).join('\n\n');
   };
 
-  // Convert VTT to plain text
   const convertVttToText = (vtt: string): string => {
     if (!vtt) return "";
     
-    // Remove WEBVTT header
     let content = vtt.replace(/^WEBVTT\s*/, '');
     
-    // Split into cues and extract only the text
     const cues = content.trim().split(/\n\s*\n/);
     const textLines: string[] = [];
     
     cues.forEach(cue => {
       const lines = cue.split('\n').filter(line => line.trim());
       
-      // Skip timestamps and cue IDs
       const textOnlyLines = lines.filter(line => !line.includes('-->') && !/^\d+$/.test(line));
       
       if (textOnlyLines.length) {
@@ -323,7 +290,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     return textLines.join('\n');
   };
 
-  // Export transcription in selected format
   const exportTranscription = () => {
     if (!selectedTranscription || !selectedModel) {
       toast({
@@ -418,7 +384,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Publishing Panel - Left */}
         <Card className={`md:col-span-1 p-5 border-l-4 ${selectedTranscription ? 'border-l-amber-500' : 'border-l-gray-300'} shadow-md transition-colors duration-300 ${!selectedTranscription ? 'opacity-90' : ''}`}>
           <h2 className="text-lg font-semibold mb-4 flex items-center">
             <Send className={`mr-2 h-5 w-5 ${selectedTranscription ? 'text-amber-500' : 'text-gray-400'}`} />
@@ -541,7 +506,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
           </div>
         </Card>
         
-        {/* Transcription Results - Right */}
         <div className="md:col-span-3">
           <Tabs defaultValue="results" className="w-full">
             <TabsList className="mb-2">
@@ -561,7 +525,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
               <h2 className="text-xl font-semibold mb-4">Transcription Results</h2>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Only show cards for the selected models */}
                 {selectedModels.map((model) => {
                   const latestJob = latestResults[model];
                   const vttContent = latestJob ? extractVttContent(latestJob) : "";

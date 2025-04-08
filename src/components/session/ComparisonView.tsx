@@ -1,9 +1,8 @@
-
 import React from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Columns, ArrowLeft } from "lucide-react";
-import TranscriptionCard from "@/components/TranscriptionCard";
+import { TranscriptionCard } from "@/components/transcription";
 
 interface TranscriptionJob {
   id: string;
