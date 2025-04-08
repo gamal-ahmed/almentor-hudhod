@@ -94,7 +94,8 @@ export function useSelectedJob(
         toast({
           title: "Changes saved",
           description: "Transcription has been updated successfully",
-          variant: "success"
+          // Change from "success" to "default"
+          variant: "default"
         });
         
         return result.transcriptionUrl;

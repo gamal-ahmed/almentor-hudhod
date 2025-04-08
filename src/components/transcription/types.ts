@@ -11,7 +11,7 @@ export interface TranscriptionCardProps {
   showPagination?: boolean;
   showExportOptions?: boolean;
   showAudioControls?: boolean;
-  onExport?: (format?: ExportFormat) => void;
+  onExport?: (format: ExportFormat) => void;
   onAccept?: () => void;
   onTextEdit?: (editedVttContent: string) => void;
   isEditable?: boolean;

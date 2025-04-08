@@ -13,7 +13,7 @@ export function useTranscriptionExport() {
   const { toast } = useToast();
   const { addLog } = useLogsStore();
   
-  const exportTranscription = (job: TranscriptionJob) => {
+  const exportTranscription = (format: ExportFormat, job: TranscriptionJob) => {
     if (!job) return;
     
     // Extract VTT content from the job
@@ -49,7 +49,7 @@ export function useTranscriptionExport() {
     let content = '';
     let mimeType = '';
     
-    switch (exportFormat) {
+    switch (format) {
       case 'vtt':
         // Ensure proper VTT format with header
         content = vttContent.trim().startsWith("WEBVTT") ? vttContent : `WEBVTT\n\n${vttContent}`;
@@ -94,7 +94,7 @@ export function useTranscriptionExport() {
       URL.revokeObjectURL(url);
     }, 100);
     
-    addLog(`Exported transcription as ${exportFormat.toUpperCase()}`, "info", {
+    addLog(`Exported transcription as ${format.toUpperCase()}`, "info", {
       source: "SessionDetails",
       details: `Model: ${getModelDisplayName(job.model)}, File: ${fileName}, Segments: ${segments.length}`
     });
