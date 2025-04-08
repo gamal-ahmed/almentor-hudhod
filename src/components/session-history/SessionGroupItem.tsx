@@ -1,57 +1,80 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
+import { Badge } from "@/components/ui/badge";
 import { Button } from '@/components/ui/button';
-import { Clock, ExternalLink } from 'lucide-react';
+import { Clock, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface SessionGroupItemProps {
-  timestamp: Date;
-  jobCount: number;
-  models: string[];
-  hasCompleted: boolean;
-  sessionId?: string;
+  session: {
+    id: string;
+    created_at: string;
+    audio_file_name?: string;
+    selected_models?: string[];
+    selected_model?: string;
+    accepted_model_id?: string | null;
+    transcriptions?: any[];
+  };
+  onViewDetails: () => void;
 }
 
 const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
-  timestamp,
-  jobCount,
-  models,
-  sessionId
+  session,
+  onViewDetails
 }) => {
+  const timestamp = new Date(session.created_at);
+  const modelCount = session.transcriptions ? Object.keys(session.transcriptions).length : 0;
+  
+  // Get models from transcriptions if available
+  const models = session.selected_models || [];
+  
+  // Check if any transcription is completed
+  const hasCompleted = session.transcriptions ? 
+    Object.values(session.transcriptions).some((t: any) => t.status === 'completed') : 
+    false;
+    
   return (
-    <div className="flex items-center justify-between p-4 bg-white shadow rounded-lg hover:shadow-md transition-shadow">
+    <div className="flex items-center justify-between p-4 bg-card border rounded-lg hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3">
-        <Clock className="h-5 w-5 text-muted-foreground" />
+        <div className="flex-shrink-0">
+          {hasCompleted ? (
+            <CheckCircle className="h-5 w-5 text-green-500" />
+          ) : (
+            <Clock className="h-5 w-5 text-amber-500" />
+          )}
+        </div>
         <div>
-          <div className="text-sm font-medium">{formatDistanceToNow(timestamp, { addSuffix: true })}</div>
-          <div className="text-xs text-muted-foreground">{jobCount} {jobCount === 1 ? 'model' : 'models'}</div>
+          <div className="text-sm font-medium">
+            {session.audio_file_name || 'Transcription Session'}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {formatDistanceToNow(timestamp, { addSuffix: true })}
+          </div>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {models.map((model, i) => (
-          <span key={i} className="text-xs px-3 py-1 bg-secondary rounded-full">
-            {model}
-          </span>
-        ))}
+      
+      <div className="flex flex-wrap gap-2 mx-2">
+        {modelCount > 0 ? (
+          <Badge variant="secondary" className="text-xs">
+            {modelCount} {modelCount === 1 ? 'model' : 'models'}
+          </Badge>
+        ) : (
+          models.map((model, i) => (
+            <Badge key={i} variant="secondary" className="text-xs">
+              {model}
+            </Badge>
+          ))
+        )}
       </div>
+      
       <Button 
         variant="ghost" 
         size="sm" 
-        asChild
+        onClick={onViewDetails}
         className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
       >
-        {sessionId ? (
-          <Link to={`/session/${sessionId}`}>
-            <span className="mr-1">Details</span>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        ) : (
-          <Link to="/app">
-            <span className="mr-1">Dashboard</span>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        )}
+        <span className="mr-1">Details</span>
+        <ExternalLink className="h-3.5 w-3.5" />
       </Button>
     </div>
   );

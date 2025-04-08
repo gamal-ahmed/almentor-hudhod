@@ -3,12 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Clock, CheckCircle, AlertCircle, PlusCircle, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, PlusCircle } from "lucide-react";
 import { toast } from 'sonner';
-import { formatDistanceToNow, format } from 'date-fns';
 import SessionHistoryLoading from './SessionHistoryLoading';
 import SessionHistoryEmpty from './SessionHistoryEmpty';
 import SessionGroupItem from './SessionGroupItem';
@@ -130,7 +128,7 @@ const SessionHistory: React.FC = () => {
                   {dateGroup}
                 </h3>
                 <div className="space-y-3">
-                  {dateSessions.map(session => (
+                  {dateSessions.map((session) => (
                     <SessionGroupItem
                       key={session.id}
                       session={session}

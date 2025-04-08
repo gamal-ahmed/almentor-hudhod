@@ -1,5 +1,6 @@
 
 import { TranscriptionJob } from '@/lib/api/types/transcription';
+import { format } from 'date-fns';
 
 export interface SessionGroup {
   timestamp: Date;
@@ -81,4 +82,22 @@ export const groupJobsBySession = (jobs: TranscriptionJob[]): SessionGroup[] => 
   });
   
   return groups.slice(0, 5);
+};
+
+// Add the missing groupSessionsByDate function
+export const groupSessionsByDate = (sessions: any[]) => {
+  const grouped: Record<string, any[]> = {};
+  
+  sessions.forEach(session => {
+    const date = new Date(session.created_at);
+    const dateKey = format(date, 'MMMM d, yyyy');
+    
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+    
+    grouped[dateKey].push(session);
+  });
+  
+  return grouped;
 };
