@@ -4,15 +4,15 @@ import { Card } from "@/components/ui/card";
 import { TranscriptionCard } from "@/components/transcription";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
 import { useToast } from "@/hooks/use-toast";
-import { ExportFormat } from "@/components/transcription/types";
+import { ExportFormat } from "@/hooks/useTranscriptionExport";
 
 interface SingleJobViewProps {
   selectedJob: TranscriptionJob;
   audioUrl: string | null;
   extractVttContent: (job: TranscriptionJob) => string | undefined;
   getModelDisplayName: (model: string) => string;
-  onExport?: (format: ExportFormat, job: TranscriptionJob) => void;
-  onAccept?: (job: TranscriptionJob) => void;
+  onExport?: (format: ExportFormat) => void;
+  onAccept?: () => void;
   onTextEdit?: (job: TranscriptionJob, editedContent: string) => Promise<string | null>;
 }
 
@@ -33,13 +33,13 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   
   const handleExport = (format: ExportFormat) => {
     if (onExport) {
-      onExport(format, selectedJob);
+      onExport(format);
     }
   };
   
   const handleAccept = () => {
     if (onAccept) {
-      onAccept(selectedJob);
+      onAccept();
     }
   };
 

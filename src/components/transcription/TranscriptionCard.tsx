@@ -22,7 +22,7 @@ const TranscriptionCard = ({
   showPagination = false,
   showExportOptions = false,
   showAudioControls = false,
-  onExport = () => {},
+  onExport = (format: ExportFormat) => {},
   onAccept = () => {},
   onTextEdit,
   isEditable = false
@@ -151,7 +151,7 @@ const TranscriptionCard = ({
           showExportOptions={showExportOptions}
           exportFormat={exportFormat}
           setExportFormat={setExportFormat}
-          onExport={onExport}
+          onExport={() => onExport(exportFormat)}
           onAccept={onAccept}
           onSelect={onSelect}
           isSelected={isSelected}

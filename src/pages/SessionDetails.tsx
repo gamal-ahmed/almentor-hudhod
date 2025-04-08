@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FileSymlink, RefreshCw } from "lucide-react";
 import { useSessionDetails } from "@/hooks/useSessionDetails";
 import { useComparisonMode } from "@/hooks/useComparisonMode";
-import { useTranscriptionExport } from "@/hooks/useTranscriptionExport";
+import { useTranscriptionExport, ExportFormat } from "@/hooks/useTranscriptionExport";
 import { useJobOperations } from "@/hooks/useJobOperations";
 import { useBrightcovePublishing } from "@/hooks/useBrightcovePublishing";
 import { extractVttContent, getModelDisplayName } from "@/utils/transcriptionUtils";
@@ -85,6 +85,13 @@ const SessionDetails = () => {
   const handleTextEdit = async (job: TranscriptionJob, editedContent: string) => {
     if (!displaySessionId) return null;
     return await saveEditedTranscription(displaySessionId, job, editedContent);
+  };
+
+  // Create a wrapper function to handle the exportTranscription parameter order
+  const handleExportTranscription = (format: ExportFormat) => {
+    if (selectedJob) {
+      exportTranscription(format, selectedJob);
+    }
   };
 
   return (
@@ -173,8 +180,8 @@ const SessionDetails = () => {
                         audioUrl={audioUrl}
                         extractVttContent={extractVttContent}
                         getModelDisplayName={getModelDisplayName}
-                        onExport={exportTranscription}
-                        onAccept={handleMarkAsAccepted}
+                        onExport={handleExportTranscription}
+                        onAccept={() => handleMarkAsAccepted(selectedJob)}
                         onTextEdit={handleTextEdit}
                       />
                     ) : (
@@ -190,7 +197,7 @@ const SessionDetails = () => {
                       extractVttContent={extractVttContent}
                       getModelDisplayName={getModelDisplayName}
                       setViewMode={setViewMode}
-                      onExport={exportTranscription}
+                      onExport={(format, job) => exportTranscription(format, job)}
                       onAccept={handleMarkAsAccepted}
                       audioUrl={audioUrl}
                     />
