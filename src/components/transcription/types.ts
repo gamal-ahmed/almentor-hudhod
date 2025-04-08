@@ -22,3 +22,10 @@ export interface VTTSegment {
   endTime: string;
   text: string;
 }
+
+export interface JobUpdateStatus {
+  id: string;
+  status: string;
+  previousStatus: string;
+  model: string;
+}

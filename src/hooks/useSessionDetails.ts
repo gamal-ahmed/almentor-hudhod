@@ -7,6 +7,7 @@ import { useSessionJobs } from "@/hooks/useSessionJobs";
 import { useSelectedJob } from "@/hooks/useSelectedJob";
 import { useSessionModelIds } from "@/hooks/useSessionModelIds";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
+import { JobUpdateStatus } from "@/components/transcription/types";
 
 export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
@@ -23,7 +24,9 @@ export function useSessionDetails(sessionId?: string) {
     loadedSessionId,
     setLoadedSessionId,
     refreshJobs,
-    addLog
+    addLog,
+    isPolling,
+    jobsUpdated
   } = useSessionJobs(sessionId);
   
   const {
@@ -31,7 +34,7 @@ export function useSessionDetails(sessionId?: string) {
     setSelectedJob,
     selectedTranscriptionUrl,
     setSelectedTranscriptionUrl
-  } = useSelectedJob(sessionJobs);
+  } = useSelectedJob(sessionJobs, jobsUpdated);
   
   const {
     selectedModelId,
@@ -102,6 +105,8 @@ export function useSessionDetails(sessionId?: string) {
     acceptedModelId,
     setAcceptedModelId,
     refreshJobs: fetchSessionDetails,
-    addLog
+    addLog,
+    isPolling,
+    jobsUpdated
   };
 }

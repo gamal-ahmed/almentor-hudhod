@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSymlink } from "lucide-react";
+import { FileSymlink, RefreshCw } from "lucide-react";
 import { useSessionDetails } from "@/hooks/useSessionDetails";
 import { useComparisonMode } from "@/hooks/useComparisonMode";
 import { useTranscriptionExport } from "@/hooks/useTranscriptionExport";
@@ -36,7 +36,8 @@ const SessionDetails = () => {
     acceptedModelId,
     setAcceptedModelId,
     refreshJobs,
-    addLog
+    addLog,
+    isPolling
   } = useSessionDetails(sessionId);
   
   const {
@@ -98,6 +99,12 @@ const SessionDetails = () => {
               {displaySessionId && displaySessionId !== 'null' && displaySessionId !== 'undefined' && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <p className="font-mono text-sm">Session ID: {displaySessionId}</p>
+                  {isPolling && (
+                    <div className="flex items-center gap-1 text-sm px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 animate-pulse">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Auto-updating</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -144,6 +151,7 @@ const SessionDetails = () => {
                         selectedModelId={selectedModelId}
                         acceptedModelId={acceptedModelId}
                         onMarkAsAccepted={handleMarkAsAccepted}
+                        isPolling={isPolling}
                       />
                     </CardContent>
                   </Card>
