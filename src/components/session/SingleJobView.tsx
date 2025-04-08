@@ -112,6 +112,11 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
     }
   };
 
+  // Safely extract VTT content from the job
+  const vttContent = extractVttContent(selectedJob);
+  const prompt = selectedJob?.result?.prompt || "";
+  const modelName = getModelDisplayName(selectedJob?.model || "");
+
   return (
     <div className="space-y-4">
       {/* Audio player section */}
@@ -128,9 +133,9 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
       
       {/* Transcription card */}
       <TranscriptionCard
-        modelName={getModelDisplayName(selectedJob.model)}
-        vttContent={extractVttContent(selectedJob)}
-        prompt={selectedJob.result?.prompt || ""}
+        modelName={modelName}
+        vttContent={vttContent}
+        prompt={prompt}
         isSelected={true}
         audioSrc={audioUrl}
         showExportOptions={true}
