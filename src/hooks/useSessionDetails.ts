@@ -2,29 +2,48 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useLogsStore } from "@/lib/useLogsStore";
-import { supabase } from "@/integrations/supabase/client";
+import { useAudioUrl } from "@/hooks/useAudioUrl";
+import { useSessionJobs } from "@/hooks/useSessionJobs";
+import { useSelectedJob } from "@/hooks/useSelectedJob";
+import { useSessionModelIds } from "@/hooks/useSessionModelIds";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
-import { getSessionTranscriptionJobs } from "@/lib/api";
 
 export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
 
 export function useSessionDetails(sessionId?: string) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [sessionJobs, setSessionJobs] = useState<TranscriptionJob[]>([]);
-  const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedTranscriptionUrl, setSelectedTranscriptionUrl] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [acceptedModelId, setAcceptedModelId] = useState<string | null>(null);
-  
   const { toast } = useToast();
-  const { addLog } = useLogsStore();
   
-  const fetchSessionJobs = async () => {
+  // Use the extracted hooks
+  const { 
+    sessionJobs, 
+    setSessionJobs, 
+    loadedSessionId,
+    setLoadedSessionId,
+    refreshJobs,
+    addLog
+  } = useSessionJobs(sessionId);
+  
+  const {
+    selectedJob,
+    setSelectedJob,
+    selectedTranscriptionUrl,
+    setSelectedTranscriptionUrl
+  } = useSelectedJob(sessionJobs);
+  
+  const {
+    selectedModelId,
+    setSelectedModelId,
+    acceptedModelId,
+    setAcceptedModelId
+  } = useSessionModelIds(sessionId, loadedSessionId, sessionJobs, selectedJob, setSelectedJob);
+  
+  const { audioUrl } = useAudioUrl(sessionId, loadedSessionId, addLog);
+
+  // Centralized fetch process
+  const fetchSessionDetails = async () => {
     try {
       setLoading(true);
       setFetchError(null);
@@ -51,124 +70,9 @@ export function useSessionDetails(sessionId?: string) {
         return;
       }
       
-      console.log(`Using session identifier: ${identifier}`);
-      
-      setLoadedSessionId(identifier);
-      
-      try {
-        // Fetch jobs specifically for this session
-        const jobs = await getSessionTranscriptionJobs(identifier);
-        
-        if (jobs && jobs.length > 0) {
-          console.log(`Found ${jobs.length} jobs for session ${identifier}`);
-          setSessionJobs(jobs);
-          
-          try {
-            // Get session details to determine selected and accepted models
-            const { data: sessionData, error: sessionDataError } = await supabase
-              .from('transcription_sessions')
-              .select('selected_model, accepted_model_id, selected_transcription_url')
-              .eq('id', identifier)
-              .single();
-              
-            if (!sessionDataError && sessionData) {
-              if (sessionData && 
-                  'accepted_model_id' in sessionData && 
-                  sessionData.accepted_model_id !== null && 
-                  typeof sessionData.accepted_model_id === 'string') {
-                  
-                const modelId = sessionData.accepted_model_id;
-                setSelectedModelId(modelId);
-                setSelectedTranscriptionUrl(sessionData.selected_transcription_url);
-                const selectedJob = jobs.find(job => job.id === modelId);
-                if (selectedJob) {
-                  setSelectedJob(selectedJob);
-                } else {
-                  const completedJobs = jobs.filter(job => job.status === 'completed');
-                  if (completedJobs.length > 0) {
-                    setSelectedJob(completedJobs[0]);
-                  } else if (jobs.length > 0) {
-                    setSelectedJob(jobs[0]);
-                  }
-                }
-              } else {
-                const completedJobs = jobs.filter(job => job.status === 'completed');
-                if (completedJobs.length > 0) {
-                  setSelectedJob(completedJobs[0]);
-                } else if (jobs.length > 0) {
-                  setSelectedJob(jobs[0]);
-                }
-              }
-              
-              if (sessionData && 
-                  'accepted_model_id' in sessionData && 
-                  sessionData.accepted_model_id !== null && 
-                  typeof sessionData.accepted_model_id === 'string') {
-                
-                setAcceptedModelId(sessionData.accepted_model_id);
-              }
-            } else {
-              console.error("Error fetching session data:", sessionDataError);
-              
-              const completedJobs = jobs.filter(job => job.status === 'completed');
-              if (completedJobs.length > 0) {
-                setSelectedJob(completedJobs[0]);
-              } else if (jobs.length > 0) {
-                setSelectedJob(jobs[0]);
-              }
-            }
-          } catch (error) {
-            console.error("Error handling session data:", error);
-            
-            const completedJobs = jobs.filter(job => job.status === 'completed');
-            if (completedJobs.length > 0) {
-              setSelectedJob(completedJobs[0]);
-            } else if (jobs.length > 0) {
-              setSelectedJob(jobs[0]);
-            }
-          }
-        } else {
-          console.log(`No jobs found for session ${identifier}`);
-          setSessionJobs([]);
-          setSelectedJob(null);
-        }
-      } catch (error) {
-        console.error(`Error fetching jobs for session ${identifier}:`, error);
-        setFetchError(`Error fetching session jobs: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      
-      // Fetch audio file for the session
-      if (identifier) {
-        try {
-          const { data: sessionData, error: sessionError } = await supabase
-            .from('transcription_sessions')
-            .select('audio_file_name')
-            .eq('id', identifier)
-            .single();
-            
-          if (!sessionError && sessionData?.audio_file_name) {
-            // Create signed URL for audio access
-            const { data, error } = await supabase.storage
-              .from('transcriptions')
-              .createSignedUrl(`sessions/${identifier}/${sessionData.audio_file_name}`, 3600);
-              
-            if (!error && data) {
-              setAudioUrl(data.signedUrl);
-            } else {
-              console.error("Error creating signed URL:", error);
-              addLog(`Error creating signed URL for audio: ${error?.message || "Unknown error"}`, "error");
-            }
-          } else {
-            console.error("Error fetching session audio details:", sessionError);
-            addLog(`Error fetching audio details: ${sessionError?.message || "Unknown error"}`, "error");
-          }
-        } catch (error) {
-          console.error("Error fetching audio URL:", error);
-          addLog(`Error in audio URL fetch: ${error instanceof Error ? error.message : String(error)}`, "error");
-        }
-      }
+      await refreshJobs();
     } catch (error) {
-      console.error("Error fetching session jobs:", error);
+      console.error("Error fetching session details:", error);
       setFetchError(`Failed to load session data: ${error instanceof Error ? error.message : String(error)}`);
       toast({
         title: "Error loading session",
@@ -181,7 +85,7 @@ export function useSessionDetails(sessionId?: string) {
   };
 
   useEffect(() => {
-    fetchSessionJobs();
+    fetchSessionDetails();
   }, [sessionId]);
 
   return {
@@ -197,7 +101,7 @@ export function useSessionDetails(sessionId?: string) {
     setSelectedModelId,
     acceptedModelId,
     setAcceptedModelId,
-    refreshJobs: fetchSessionJobs,
+    refreshJobs: fetchSessionDetails,
     addLog
   };
 }
