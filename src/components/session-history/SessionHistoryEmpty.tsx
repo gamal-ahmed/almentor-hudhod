@@ -3,12 +3,25 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, History, PlusCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SessionHistoryEmptyProps {
   onNewTranscription: () => void;
 }
 
 const SessionHistoryEmpty: React.FC<SessionHistoryEmptyProps> = ({ onNewTranscription }) => {
+  const navigate = useNavigate();
+  
+  const handleNewTranscription = () => {
+    // Navigate to the transcribe tab or trigger the new transcription function
+    onNewTranscription();
+    
+    // If we're on a different page, navigate to the main app page with the transcribe tab active
+    if (window.location.pathname !== '/app') {
+      navigate('/app');
+    }
+  };
+  
   return (
     <Card className="w-full">
       <CardHeader>
@@ -24,7 +37,7 @@ const SessionHistoryEmpty: React.FC<SessionHistoryEmptyProps> = ({ onNewTranscri
         <p className="text-muted-foreground mb-4">
           Start by uploading an audio file to create your first transcription session.
         </p>
-        <Button onClick={onNewTranscription} variant="outline" size="sm">
+        <Button onClick={handleNewTranscription} variant="outline" size="sm">
           <PlusCircle className="h-4 w-4 mr-2" />
           New Transcription
         </Button>

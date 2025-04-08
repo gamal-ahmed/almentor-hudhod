@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from '@/components/ui/button';
 import { Clock, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 interface SessionGroupItemProps {
   session: {
@@ -22,6 +23,7 @@ const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
   session,
   onViewDetails
 }) => {
+  const navigate = useNavigate();
   const timestamp = new Date(session.created_at);
   const modelCount = session.transcriptions ? Object.keys(session.transcriptions).length : 0;
   
@@ -32,6 +34,14 @@ const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
   const hasCompleted = session.transcriptions ? 
     Object.values(session.transcriptions).some((t: any) => t.status === 'completed') : 
     false;
+    
+  const handleViewDetails = () => {
+    // Navigate to session details page
+    navigate(`/session/${session.id}`);
+    
+    // Also call the original onViewDetails handler if needed
+    onViewDetails();
+  };
     
   return (
     <div className="flex items-center justify-between p-4 bg-card border rounded-lg hover:shadow-md transition-shadow">
@@ -70,7 +80,7 @@ const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
       <Button 
         variant="ghost" 
         size="sm" 
-        onClick={onViewDetails}
+        onClick={handleViewDetails}
         className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
       >
         <span className="mr-1">Details</span>

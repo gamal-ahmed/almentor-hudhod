@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector from "@/components/ModelSelector";
@@ -34,6 +35,7 @@ import UploadConfigStep from "@/components/funnel/UploadConfigStep";
 import SessionHistory from "@/components/SessionHistory";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
   const [selectedTranscriptionModel, setSelectedTranscriptionModel] = useState<string | null>(null);
   const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
@@ -46,6 +48,16 @@ const Index = () => {
     setActiveJobIds(jobIdsArray);
     if (sessionId) {
       setCurrentSessionId(sessionId);
+      
+      // Redirect to session details page
+      toast.success("Redirecting to session details...", {
+        description: "You'll be able to see the progress of your transcription"
+      });
+      
+      // Short delay to allow toast to be seen
+      setTimeout(() => {
+        navigate(`/session/${sessionId}`);
+      }, 1000);
     }
     setRefreshTrigger(prev => prev + 1);
     toast.success("Transcription started", {
