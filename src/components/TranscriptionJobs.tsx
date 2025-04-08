@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
@@ -12,7 +11,6 @@ import { Json } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-// Define a union type for all possible job statuses
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 interface TranscriptionJob {
@@ -34,7 +32,7 @@ interface TranscriptionJob {
 interface JobGroup {
   timestamp: Date;
   jobs: TranscriptionJob[];
-  session_id?: string; // Add session_id to JobGroup
+  session_id?: string;
 }
 
 interface TranscriptionJobsProps {
@@ -70,7 +68,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       
       if (!currentGroup || 
           Math.abs(jobTime.getTime() - currentGroup.timestamp.getTime()) > 30000 ||
-          job.session_id !== currentGroup.session_id) { // Consider session_id in grouping
+          job.session_id !== currentGroup.session_id) {
         currentGroup = {
           timestamp: jobTime,
           jobs: [job],
@@ -399,7 +397,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
       <Accordion type="single" collapsible className="space-y-4">
         {jobGroups.map((group, index) => {
           const groupStatus = getGroupStatus(group);
-          // Ensure we have a valid session_id for the link
           const sessionIdForLink = group.session_id || group.jobs[0]?.session_id;
           
           return (
@@ -456,7 +453,6 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                     </div>
                   </div>
                 </AccordionTrigger>
-                {/* Only render the link if we have a valid session ID */}
                 {sessionIdForLink && (
                   <Link 
                     to={`/session/${sessionIdForLink}`}
