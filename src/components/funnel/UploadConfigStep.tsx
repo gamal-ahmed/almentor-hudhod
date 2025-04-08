@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TranscriptionModel } from "@/components/ModelSelector";
+import ModelSelector from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { FileAudio, UploadCloud, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { 
   HoverCard, 
@@ -68,12 +66,20 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     setSelectedFile(file || null);
   };
   
-  const handleModelChange = (model: TranscriptionModel) => {
-    setSelectedModels([model]);
+  const handleModelsChange = (models: TranscriptionModel[]) => {
+    setSelectedModels(models);
+    if (models.length > 0) {
+      setError(null);
+    }
   };
   
   const handleUploadTranscription = async (file: File) => {
     if (!file) return;
+    
+    if (selectedModels.length === 0) {
+      setError("Please select at least one transcription model");
+      return;
+    }
 
     try {
       setIsProcessing(true);
@@ -311,17 +317,19 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="model-select">Transcription Model</Label>
-          <Select onValueChange={(value) => handleModelChange(value as TranscriptionModel)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="openai">OpenAI Whisper</SelectItem>
-              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-              <SelectItem value="phi4">Phi-4 (Experimental)</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label htmlFor="model-select">Transcription Models</Label>
+          <div className="mt-1">
+            <ModelSelector 
+              selectedModels={selectedModels}
+              onModelChange={handleModelsChange}
+              disabled={isProcessing}
+            />
+            {selectedModels.length === 0 && (
+              <p className="text-xs text-red-500 mt-1">
+                Please select at least one transcription model
+              </p>
+            )}
+          </div>
         </div>
         
         <div className="space-y-2">
@@ -340,7 +348,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           variant="default"
           className="w-full"
           onClick={() => selectedFile && handleUploadTranscription(selectedFile)}
-          disabled={!selectedFile || isProcessing}
+          disabled={!selectedFile || isProcessing || selectedModels.length === 0}
         >
           {isProcessing ? (
             <span className="animate-pulse">Processing...</span>

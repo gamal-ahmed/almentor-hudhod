@@ -9,9 +9,9 @@ import { useLogsStore } from '@/lib/useLogsStore';
 import { toast } from 'sonner';
 import { fetchAudioFromUrl, createTranscriptionJob } from '@/lib/api';
 import { TranscriptionModel } from '@/components/ModelSelector';
+import ModelSelector from '@/components/ModelSelector';
 
 interface UrlTranscriptionProps {
-  selectedModels: TranscriptionModel[];
   prompt: string;
   isProcessing: boolean;
   setIsProcessing: (isProcessing: boolean) => void;
@@ -20,7 +20,6 @@ interface UrlTranscriptionProps {
 }
 
 const UrlTranscription: React.FC<UrlTranscriptionProps> = ({ 
-  selectedModels, 
   prompt, 
   isProcessing, 
   setIsProcessing,
@@ -29,7 +28,15 @@ const UrlTranscription: React.FC<UrlTranscriptionProps> = ({
 }) => {
   const [audioUrl, setAudioUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(['openai']);
   const { addLog, startTimedLog } = useLogsStore();
+  
+  const handleModelsChange = (models: TranscriptionModel[]) => {
+    setSelectedModels(models);
+    if (models.length > 0) {
+      setError(null);
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,6 +145,15 @@ const UrlTranscription: React.FC<UrlTranscriptionProps> = ({
             <p className="text-xs text-muted-foreground">
               Supports direct links to MP3, WAV, and M4A files from Dropbox, Google Drive, and other services
             </p>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Transcription Models</label>
+            <ModelSelector
+              selectedModels={selectedModels}
+              onModelChange={handleModelsChange}
+              disabled={isProcessing}
+            />
           </div>
           
           {error && (

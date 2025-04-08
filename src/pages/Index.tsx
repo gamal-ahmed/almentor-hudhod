@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import UploadConfigStep from "@/components/funnel/UploadConfigStep";
+import SessionHistory from "@/components/SessionHistory";
 
 const Index = () => {
   const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
@@ -81,10 +82,14 @@ const Index = () => {
           </div>
           
           <Tabs defaultValue="transcribe" className="w-full animate-slide-up">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-1 mb-8 p-1 shadow-soft">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 p-1 shadow-soft">
               <TabsTrigger value="transcribe" className="text-base py-3 data-[state=active]:shadow-soft">
                 <FileAudio className="mr-2 h-4 w-4" />
                 Transcribe Audio
+              </TabsTrigger>
+              <TabsTrigger value="history" className="text-base py-3 data-[state=active]:shadow-soft">
+                <Clock className="mr-2 h-4 w-4" />
+                Previous Sessions
               </TabsTrigger>
             </TabsList>
             
@@ -106,6 +111,12 @@ const Index = () => {
                     sessionId={currentSessionId}
                   />
                 </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="history" className="mt-0">
+              <div className="grid grid-cols-1 gap-8">
+                <SessionHistory />
               </div>
             </TabsContent>
           </Tabs>
