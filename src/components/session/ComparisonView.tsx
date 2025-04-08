@@ -60,6 +60,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
                 showExportOptions={true}
                 className="h-full"
                 showAudioControls={true}
+                prompt={job.result?.prompt || ""}
               />
             </div>
           ))}

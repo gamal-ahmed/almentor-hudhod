@@ -114,7 +114,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
 
   // Safely extract VTT content from the job
   const vttContent = extractVttContent(selectedJob);
-  const prompt = selectedJob?.result?.prompt || "";
+  const prompt = selectedJob?.result?.prompt || selectedJob?.prompt || "";
   const modelName = getModelDisplayName(selectedJob?.model || "");
 
   return (

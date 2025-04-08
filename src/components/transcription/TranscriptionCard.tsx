@@ -58,16 +58,10 @@ const TranscriptionCard = ({
       contentLength: vttContent?.length || 0,
       isLoading, 
       isSelected,
-      hasAudio: !!audioSrc
+      hasAudio: !!audioSrc,
+      segments: vttSegments.length
     });
-    
-    if (modelName && modelName.includes("Gemini")) {
-      addLog(`Gemini card rendering with content: ${!!vttContent}`, "debug", {
-        source: "TranscriptionCard",
-        details: `Content length: ${vttContent?.length || 0}, Loading: ${isLoading}, Content sample: ${vttContent?.substring(0, 100) || 'empty'}`
-      });
-    }
-  }, [vttContent, isLoading, modelName, addLog, audioSrc]);
+  }, [vttContent, isLoading, modelName, audioSrc, vttSegments.length, isSelected]);
   
   const handleCopy = () => {
     if (vttContent) {
@@ -86,7 +80,7 @@ const TranscriptionCard = ({
     if (showAudioControls && audioSrc) {
       setShowAudioPlayer(true);
     }
-  }, [showAudioControls, audioSrc]);
+  }, [showAudioControls, audioSrc, setShowAudioPlayer]);
 
   return (
     <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'} ${className}`}>

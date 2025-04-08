@@ -44,7 +44,6 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
             isActive={activeSegment === index}
             audioSrc={audioSrc}
             onSegmentClick={() => {
-              console.log(`Segment clicked: ${index}, Has audio: ${!!audioSrc}`);
               if (audioSrc) onSegmentClick(index);
             }}
             onPlaySegment={() => onPlaySegment(index)}
@@ -55,6 +54,7 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
   }
 
   if (vttContent && vttContent.length > 0) {
+    // If there's content but no segments, show raw VTT content
     return (
       <div className="p-2">
         <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-md mb-4 text-xs">
