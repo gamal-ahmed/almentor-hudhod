@@ -23,7 +23,9 @@ const TranscriptionCard = ({
   showExportOptions = false,
   showAudioControls = false,
   onExport = () => {},
-  onAccept = () => {}
+  onAccept = () => {},
+  onTextEdit,
+  isEditable = false
 }: TranscriptionCardProps) => {
   const [copied, setCopied] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
@@ -76,6 +78,12 @@ const TranscriptionCard = ({
     }
   };
 
+  const handleTextEdit = (editedVttContent: string) => {
+    if (onTextEdit) {
+      onTextEdit(editedVttContent);
+    }
+  };
+
   useEffect(() => {
     if (showAudioControls && audioSrc) {
       setShowAudioPlayer(true);
@@ -106,6 +114,8 @@ const TranscriptionCard = ({
           modelName={modelName}
           onSegmentClick={jumpToSegment}
           onPlaySegment={playSegment}
+          isEditable={isEditable}
+          onTextEdit={handleTextEdit}
         />
       </CardContent>
       

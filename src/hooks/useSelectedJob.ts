@@ -2,6 +2,9 @@
 import { useState, useEffect } from "react";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
 import { JobUpdateStatus } from "@/components/transcription/types";
+import { saveSelectedTranscription } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from 'uuid';
 
 export function useSelectedJob(
   sessionJobs: TranscriptionJob[],
@@ -9,6 +12,7 @@ export function useSelectedJob(
 ) {
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
   const [selectedTranscriptionUrl, setSelectedTranscriptionUrl] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Update selected job when jobs change
   useEffect(() => {
@@ -44,10 +48,75 @@ export function useSelectedJob(
     }
   }, [jobsUpdated, sessionJobs]);
 
+  // Function to save edited transcription
+  const saveEditedTranscription = async (
+    sessionId: string | undefined, 
+    job: TranscriptionJob, 
+    editedVttContent: string
+  ) => {
+    if (!job || !sessionId) {
+      toast({
+        title: "Cannot save changes",
+        description: "Missing job or session information",
+        variant: "destructive"
+      });
+      return null;
+    }
+
+    try {
+      toast({
+        title: "Saving changes",
+        description: "Updating transcription..."
+      });
+
+      const fileName = `edited_${job.model}_${uuidv4()}.vtt`;
+      
+      const result = await saveSelectedTranscription(
+        sessionId,
+        editedVttContent,
+        fileName,
+        job.model
+      );
+
+      if (result && result.transcriptionUrl) {
+        setSelectedTranscriptionUrl(result.transcriptionUrl);
+        
+        // Update the local job with edited content
+        const updatedJob = {
+          ...job,
+          result: {
+            ...job.result,
+            vttContent: editedVttContent
+          }
+        };
+        setSelectedJob(updatedJob);
+        
+        toast({
+          title: "Changes saved",
+          description: "Transcription has been updated successfully",
+          variant: "success"
+        });
+        
+        return result.transcriptionUrl;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error saving edited transcription:", error);
+      toast({
+        title: "Error saving changes",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
   return {
     selectedJob,
     setSelectedJob,
     selectedTranscriptionUrl,
-    setSelectedTranscriptionUrl
+    setSelectedTranscriptionUrl,
+    saveEditedTranscription
   };
 }

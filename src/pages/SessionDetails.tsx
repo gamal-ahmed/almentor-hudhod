@@ -19,6 +19,7 @@ import ComparisonView from "@/components/session/ComparisonView";
 import SingleJobView from "@/components/session/SingleJobView";
 import PublishDialog from "@/components/session/PublishDialog";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
+import { TranscriptionJob } from "@/lib/api/types/transcription";
 
 const SessionDetails = () => {
   const { sessionId } = useParams<{ sessionId?: string }>();
@@ -29,6 +30,7 @@ const SessionDetails = () => {
     selectedJob,
     setSelectedJob,
     audioUrl,
+    selectedTranscriptionUrl,
     fetchError,
     loadedSessionId,
     selectedModelId,
@@ -37,7 +39,8 @@ const SessionDetails = () => {
     setAcceptedModelId,
     refreshJobs,
     addLog,
-    isPolling
+    isPolling,
+    saveEditedTranscription
   } = useSessionDetails(sessionId);
   
   const {
@@ -78,6 +81,11 @@ const SessionDetails = () => {
   } = useBrightcovePublishing(sessionId, selectedJob, selectedModelId, sessionJobs);
   
   const displaySessionId = loadedSessionId || sessionId;
+
+  const handleTextEdit = async (job: TranscriptionJob, editedContent: string) => {
+    if (!displaySessionId) return null;
+    return await saveEditedTranscription(displaySessionId, job, editedContent);
+  };
 
   return (
     <>
@@ -167,6 +175,7 @@ const SessionDetails = () => {
                         getModelDisplayName={getModelDisplayName}
                         onExport={exportTranscription}
                         onAccept={handleMarkAsAccepted}
+                        onTextEdit={handleTextEdit}
                       />
                     ) : (
                       <Card className="shadow-soft border-2 h-full flex items-center justify-center">

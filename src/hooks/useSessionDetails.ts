@@ -33,7 +33,8 @@ export function useSessionDetails(sessionId?: string) {
     selectedJob,
     setSelectedJob,
     selectedTranscriptionUrl,
-    setSelectedTranscriptionUrl
+    setSelectedTranscriptionUrl,
+    saveEditedTranscription
   } = useSelectedJob(sessionJobs, jobsUpdated);
   
   const {
@@ -107,6 +108,7 @@ export function useSessionDetails(sessionId?: string) {
     refreshJobs: fetchSessionDetails,
     addLog,
     isPolling,
-    jobsUpdated
+    jobsUpdated,
+    saveEditedTranscription
   };
 }
