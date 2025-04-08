@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useParams } from "react-router-dom";
 import Header from "@/components/Header";
@@ -87,11 +86,16 @@ const SessionDetails = () => {
     return await saveEditedTranscription(displaySessionId, job, editedContent);
   };
 
-  // Create a wrapper function to handle the exportTranscription parameter order
   const handleExportTranscription = (format: ExportFormat) => {
     if (selectedJob) {
       exportTranscription(format, selectedJob);
     }
+  };
+
+  const handleComparisonExport = (job: TranscriptionJob) => {
+    return (format: ExportFormat) => {
+      exportTranscription(format, job);
+    };
   };
 
   return (
@@ -197,7 +201,7 @@ const SessionDetails = () => {
                       extractVttContent={extractVttContent}
                       getModelDisplayName={getModelDisplayName}
                       setViewMode={setViewMode}
-                      onExport={(format, job) => exportTranscription(format, job)}
+                      onExport={handleComparisonExport}
                       onAccept={handleMarkAsAccepted}
                       audioUrl={audioUrl}
                     />
