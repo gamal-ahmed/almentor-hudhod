@@ -1,6 +1,4 @@
 
-export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
-
 export interface TranscriptionCardProps {
   modelName?: string;
   vttContent?: string;
@@ -13,6 +11,14 @@ export interface TranscriptionCardProps {
   showPagination?: boolean;
   showExportOptions?: boolean;
   showAudioControls?: boolean;
-  onExport?: () => void;
+  onExport?: (format?: ExportFormat) => void;
   onAccept?: () => void;
+}
+
+export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';
+
+export interface VTTSegment {
+  startTime: string;
+  endTime: string;
+  text: string;
 }
