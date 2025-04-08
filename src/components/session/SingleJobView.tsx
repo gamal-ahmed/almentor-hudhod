@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { FileSymlink } from "lucide-react";
-import TranscriptionCard from "@/components/TranscriptionCard";
+import { TranscriptionCard } from "@/components/transcription";
 import AudioPlayer from "@/components/AudioPlayer";
 import PublishDialog from "@/components/session/PublishDialog";
 import { useToast } from "@/hooks/use-toast";
