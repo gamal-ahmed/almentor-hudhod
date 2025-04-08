@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TranscriptionModel } from "@/components/ModelSelector";
 import ModelSelector from "@/components/ModelSelector";
@@ -22,9 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { 
-  createTranscriptionJob, 
-  transcribeAudio,
-  clientTranscribeAudio
+  createTranscriptionJob
 } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -85,127 +82,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       setIsProcessing(true);
       addLog(`Processing file: ${file.name}`, "info", { source: "UploadConfigStep" });
 
-      // Try to use client-side transcription first
-      const useClientTranscription = true; // You can toggle this based on user preference
-
-      if (useClientTranscription) {
-        try {
-          const sessionId = crypto.randomUUID();
-          
-          // Get current auth session
-          const { data: { session } } = await supabase.auth.getSession();
-          const currentUserId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Anonymous fallback
-          
-          // Create a transcription session
-          const { data: sessionData, error: sessionError } = await supabase
-            .from('transcription_sessions')
-            .insert({
-              id: sessionId,
-              selected_models: selectedModels,
-              audio_file_name: file.name,
-              user_id: currentUserId
-            })
-            .select()
-            .single();
-          
-          if (sessionError) throw sessionError;
-          
-          // Upload the audio file to Supabase storage
-          const filePath = `sessions/${sessionId}/${file.name}`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('transcriptions')
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: true
-            });
-          
-          if (uploadError) throw uploadError;
-          
-          // Try client-side transcription
-          addLog("Attempting client-side transcription...", "info", { source: "UploadConfigStep" });
-          
-          // Create a job for each selected model
-          const jobPromises = selectedModels.map(async (model) => {
-            try {
-              // Try to use client-side transcription
-              const result = await clientTranscribeAudio(file, model, prompt);
-              return { jobId: result.jobId };
-            } catch (error) {
-              // Log the error but continue with server-side transcription
-              console.error(`Client-side transcription failed for model ${model}:`, error);
-              addLog(`Client-side transcription failed, falling back to server: ${error.message}`, "warning", {
-                source: model,
-                details: error.stack
-              });
-              
-              // Fallback to server-side transcription
-              const { jobId } = await createTranscriptionJob(file, model, prompt, sessionId);
-              return { jobId };
-            }
-          });
-          
-          const results = await Promise.allSettled(jobPromises);
-          
-          // Extract job IDs from successful results
-          const jobIds = results
-            .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
-            .map(result => result.value.jobId)
-            .filter(Boolean);
-          
-          addLog(`Created ${jobIds.length} transcription jobs`, "success", {
-            source: "UploadConfigStep",
-            details: `Job IDs: ${jobIds.join(', ')}`
-          });
-          
-          if (jobIds.length > 0) {
-            toast.success("Transcription started", {
-              description: `Processing ${jobIds.length} transcription jobs`
-            });
-            
-            // Notify parent components
-            onTranscriptionsCreated(jobIds, sessionId);
-            onStepComplete();
-          } else {
-            toast.error("Transcription failed", {
-              description: "Failed to create any transcription jobs"
-            });
-          }
-        } catch (error) {
-          console.error("Error in client-side transcription:", error);
-          toast.error("Client-side transcription failed", {
-            description: "Falling back to server-side processing..."
-          });
-          
-          // Fall back to regular transcription process
-          handleRegularTranscription(file);
-        }
-      } else {
-        // Use regular server-side transcription
-        handleRegularTranscription(file);
-      }
-    } catch (error) {
-      console.error("Error processing file:", error);
-      addLog(`Error processing file: ${error instanceof Error ? error.message : String(error)}`, "error", {
-        source: "UploadConfigStep",
-        details: error instanceof Error ? error.stack : ""
-      });
-      
-      setError(error instanceof Error ? error.message : String(error));
-      toast.error("Processing failed", {
-        description: error instanceof Error ? error.message : "An unknown error occurred"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Helper function to handle regular server-side transcription
-  const handleRegularTranscription = async (file: File) => {
-    try {
-      setIsProcessing(true);
-      addLog(`Processing file: ${file.name}`, "info", { source: "UploadConfigStep" });
-      
+      // Create session ID and start server-side transcription
       const sessionId = crypto.randomUUID();
       
       // Get current auth session
@@ -223,7 +100,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
         })
         .select()
         .single();
-        
+      
       if (sessionError) throw sessionError;
       
       // Upload the audio file to Supabase storage
@@ -235,7 +112,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           cacheControl: '3600',
           upsert: true
         });
-        
+      
       if (uploadError) throw uploadError;
       
       // Create a job for each selected model

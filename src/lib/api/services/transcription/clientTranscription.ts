@@ -1,9 +1,9 @@
 
 import { TranscriptionModel } from "@/components/ModelSelector";
-import { getLogsStore } from "../baseService";
+import { baseService, getLogsStore } from "../baseService";
 import { supabase } from "@/integrations/supabase/client";
 
-// Direct client-side transcription that doesn't use edge functions
+// Client-side implementation of transcribeAudio, for when we can't rely on edge functions
 export async function clientTranscribeAudio(
   file: File, 
   model: TranscriptionModel, 
@@ -15,166 +15,103 @@ export async function clientTranscribeAudio(
   const logOperation = startTimedLog(`Client-side transcription with ${model}`, "info", model);
   
   try {
-    // Validate the file
-    if (!file || !file.name || !file.size || !file.type) {
-      throw new Error("Invalid file object. File is missing required properties.");
-    }
-    
-    addLog(`Processing audio file: ${file.name}, size: ${file.size} bytes, type: ${file.type}`, "info", {
-      source: model,
-      details: `Starting direct client transcription with ${model}`
-    });
-    
-    // Convert file to audio element and extract audio data
-    const audioUrl = URL.createObjectURL(file);
-    
-    // For client-side processing, we need to create a unique ID for tracking
+    // Create a unique ID for this transcription
     const jobId = crypto.randomUUID();
     
-    addLog(`Created client transcription job ${jobId}`, "info", {
+    // Prepare the form data for direct API call
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('prompt', prompt);
+    
+    let apiUrl = '';
+    
+    // Select appropriate endpoint based on model
+    switch(model) {
+      case 'openai':
+        apiUrl = baseService.apiEndpoints.OPENAI_TRANSCRIBE_URL;
+        break;
+      case 'gemini-2.0-flash':
+        apiUrl = baseService.apiEndpoints.GEMINI_TRANSCRIBE_URL;
+        break;
+      case 'phi4':
+        apiUrl = baseService.apiEndpoints.PHI4_TRANSCRIBE_URL;
+        break;
+      default:
+        apiUrl = baseService.apiEndpoints.OPENAI_TRANSCRIBE_URL;
+    }
+    
+    addLog(`Making direct API call to ${model} endpoint`, "info", {
       source: model,
-      details: `File: ${file.name}`
+      details: `URL: ${apiUrl}`
     });
     
-    // Use browser's SpeechRecognition API if available (for simple cases)
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      // Note: This is a basic implementation and has limitations
-      // It works best for short recordings and simple transcriptions
-      
-      addLog(`Using browser's speech recognition API`, "info", { source: model });
-      
-      // Here we would use the Web Speech API
-      // However, it can't directly process audio files, so this is more of a placeholder
-      // In a real implementation, you would need to:
-      // 1. Play the audio
-      // 2. Capture it with microphone
-      // 3. Feed it to SpeechRecognition
-      
-      // For demo purposes, we'll simulate a successful transcription
-      const mockResult = {
-        vttContent: generateSimpleVtt(`This is a simulated transcription for ${file.name}. The actual implementation would require audio processing which is beyond the scope of a direct browser implementation without additional libraries.`),
-        text: `This is a simulated transcription for ${file.name}. The actual implementation would require audio processing which is beyond the scope of a direct browser implementation without additional libraries.`,
-        prompt
-      };
-      
-      // Get the current user's auth status
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Use anonymous ID as fallback
-      
+    // Get authentication token
+    const { data: authData } = await supabase.auth.getSession();
+    const authToken = authData.session?.access_token || baseService.supabaseKey;
+    
+    // Call the API endpoint directly
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'apikey': baseService.supabaseKey
+      },
+      body: formData
+    });
+    
+    if (!response.ok) {
+      let errorMessage = `Failed direct API call to ${model}: ${response.status}`;
       try {
-        // Store the result in Supabase for tracking
-        const { data, error } = await supabase
-          .from('transcriptions')
-          .insert({
-            id: jobId,
-            model: model,
-            status: 'completed',
-            result: mockResult,
-            file_path: file.name,
-            status_message: 'Completed via client-side processing',
-            user_id: userId
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          console.error("Error storing transcription:", error);
-          addLog(`Failed to store transcription result: ${error.message}`, "error", { 
-            source: model,
-            details: JSON.stringify(error) 
-          });
-          
-          // Even if storage fails, return the mock result so the UI can still show something
-        }
-      } catch (storageError) {
-        console.error("Error in Supabase operation:", storageError);
-        addLog(`Database operation failed: ${storageError.message}`, "error", { 
-          source: model,
-          details: storageError.stack 
-        });
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || JSON.stringify(errorData)}`;
+      } catch (e) {
+        const errorText = await response.text();
+        errorMessage += ` - ${errorText || 'Unknown error'}`;
       }
-      
-      logOperation.complete(`Completed ${model} client-side transcription`, `Generated ${mockResult.vttContent.length} characters of VTT content`);
-      
-      return {
-        jobId,
-        ...mockResult
-      };
-    } else {
-      // For browsers without SpeechRecognition, we'll explain the limitation
-      addLog(`Browser does not support direct speech recognition`, "warning", { source: model });
-      
-      // Get the current user's auth status
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Use anonymous ID as fallback
-      
-      try {
-        // Create a record of the attempt
-        const { data, error } = await supabase
-          .from('transcriptions')
-          .insert({
-            id: jobId,
-            model: model,
-            status: 'failed',
-            error: 'Browser does not support direct speech recognition',
-            file_path: file.name,
-            status_message: 'Failed - browser limitations',
-            user_id: userId
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          console.error("Error storing transcription failure:", error);
-          addLog(`Failed to store transcription failure: ${error.message}`, "error", { 
-            source: model,
-            details: JSON.stringify(error) 
-          });
-        }
-      } catch (storageError) {
-        console.error("Error in Supabase operation:", storageError);
-        addLog(`Database operation failed: ${storageError.message}`, "error", { 
-          source: model,
-          details: storageError.stack 
-        });
-      }
-      
-      throw new Error(`Your browser doesn't support direct speech recognition. For advanced transcription, we recommend using our server-based transcription service.`);
+      throw new Error(errorMessage);
     }
+    
+    // Parse the response
+    const result = await response.json();
+    
+    // Create a job record in the database to match the interface of the regular flow
+    const insertData = {
+      id: jobId,
+      model: model,
+      status: 'completed',
+      result: {
+        vttContent: result.vttContent,
+        text: result.text || "",
+        prompt: prompt
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // Save the result to the database
+    const { error: insertError } = await baseService.supabase
+      .from('transcriptions')
+      .insert(insertData);
+    
+    if (insertError) {
+      console.warn(`Warning: Failed to save client-side transcription result to database: ${insertError.message}`);
+    }
+    
+    logOperation.complete(`Completed ${model} transcription (client-side)`, `Generated ${result.vttContent.length} characters of VTT content`);
+    
+    return {
+      jobId,
+      vttContent: result.vttContent,
+      text: result.text || "",
+      prompt
+    };
   } catch (error) {
-    addLog(`Error in ${model} client-side transcription: ${error.message}`, "error", {
+    addLog(`Error in client-side ${model} transcription: ${error.message}`, "error", {
       source: model,
       details: error.stack
     });
-    console.error(`Error in ${model} client-side transcription:`, error);
+    console.error(`Error in client-side ${model} transcription:`, error);
     logOperation.error(`${error.message}`, error.stack);
     throw error;
   }
-}
-
-// Helper function to generate a simple VTT file from text
-function generateSimpleVtt(text: string): string {
-  let vttContent = 'WEBVTT\n\n';
-  
-  // Split text into sentences or chunks
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  
-  // Create a VTT cue for each sentence with appropriate timestamps
-  sentences.forEach((sentence, index) => {
-    const startTime = formatVTTTime(index * 5);
-    const endTime = formatVTTTime((index + 1) * 5);
-    vttContent += `${startTime} --> ${endTime}\n${sentence.trim()}\n\n`;
-  });
-  
-  return vttContent;
-}
-
-// Helper function to format time in seconds to VTT timestamp format (HH:MM:SS.mmm)
-function formatVTTTime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const milliseconds = Math.floor((seconds % 1) * 1000);
-  
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
 }
