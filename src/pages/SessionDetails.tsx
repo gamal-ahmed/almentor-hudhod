@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useParams } from "react-router-dom";
 import Header from "@/components/Header";
@@ -19,6 +20,7 @@ import SingleJobView from "@/components/session/SingleJobView";
 import PublishDialog from "@/components/session/PublishDialog";
 import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "@/components/session/SessionStatusStates";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
+import { AudioPreview } from "@/components/session/components";
 
 const SessionDetails = () => {
   const { sessionId } = useParams<{ sessionId?: string }>();
@@ -140,6 +142,13 @@ const SessionDetails = () => {
                 {selectedModelId ? 'Publish Selected to Brightcove' : 'Publish to Brightcove'}
               </Button>
             </div>
+            
+            {/* Add Audio Preview component */}
+            {audioUrl && (
+              <div className="mb-4">
+                <AudioPreview audioUrl={audioUrl} />
+              </div>
+            )}
             
             {loading ? (
               <LoadingState />
