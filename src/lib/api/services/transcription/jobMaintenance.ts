@@ -9,7 +9,7 @@ export async function resetStuckJobs() {
   const logOperation = startTimedLog(`Resetting stuck jobs`, "info", "System");
   
   try {
-    // Call the Supabase Function to reset stuck jobs
+    // Call the Supabase Function to reset stuck jobs using the createAuthorizedRequest method
     const response = await baseService.createAuthorizedRequest(
       `${baseService.apiEndpoints.TRANSCRIPTION_SERVICE}/reset-stuck-jobs`, 
       { method: 'POST' }
@@ -21,11 +21,6 @@ export async function resetStuckJobs() {
     }
     
     const data = await response.json();
-    
-    // addLog(`Successfully reset ${data.updatedCount} stuck jobs`, "success", {
-    //   source: "System",
-    //   details: `Jobs were updated from 'pending' or 'processing' to 'failed'`
-    // });
     
     logOperation.complete(`Reset stuck jobs`, `${data.updatedCount} jobs updated`);
     
