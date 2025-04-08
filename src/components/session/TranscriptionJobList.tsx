@@ -119,7 +119,7 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
         </div>
       )}
       
-      <ScrollArea className="h-[340px] pr-4 -mr-4">
+      <ScrollArea className="h-[500px] pr-4 -mr-4">
         <div className="space-y-3">
           {jobs.map((job) => {
             const isSelected = selectedModelId === job.id;
