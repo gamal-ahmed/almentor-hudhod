@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from "@/components/Header";
 import FileUpload from "@/components/FileUpload";
 import ModelSelector from "@/components/ModelSelector";
-import TranscriptionJobs from "@/components/TranscriptionJobs";
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { 
@@ -35,10 +35,6 @@ import SessionHistory from "@/components/SessionHistory";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [selectedTranscription, setSelectedTranscription] = useState<string | null>(null);
-  const [selectedTranscriptionModel, setSelectedTranscriptionModel] = useState<string | null>(null);
-  const [audioFileUrl, setAudioFileUrl] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   
@@ -58,18 +54,9 @@ const Index = () => {
         navigate(`/session/${sessionId}`);
       }, 1000);
     }
-    setRefreshTrigger(prev => prev + 1);
+    
     toast.success("Transcription started", {
       description: `Processing ${jobIdsArray.length} transcription jobs`
-    });
-  };
-  
-  const handleTranscriptionSelect = (vtt: string, model: string) => {
-    setSelectedTranscription(vtt);
-    setSelectedTranscriptionModel(model);
-    
-    toast.success("Transcription selected", {
-      description: `Viewing transcription from ${model}`
     });
   };
 
@@ -96,7 +83,7 @@ const Index = () => {
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 p-1 shadow-soft">
               <TabsTrigger value="transcribe" className="text-base py-3 data-[state=active]:shadow-soft">
                 <FileAudio className="mr-2 h-4 w-4" />
-                Transcribe Audio
+                New Transcription
               </TabsTrigger>
               <TabsTrigger value="history" className="text-base py-3 data-[state=active]:shadow-soft">
                 <Clock className="mr-2 h-4 w-4" />
@@ -106,20 +93,12 @@ const Index = () => {
             
             <TabsContent value="transcribe" className="mt-0">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-5 space-y-6">
+                <div className="lg:col-span-12 space-y-6">
                   <UploadConfigStep
                     onTranscriptionsCreated={(jobIdsArray, sessionId) => handleTranscriptionsCreated(jobIdsArray, sessionId)}
                     onStepComplete={() => {
                       // This is now handled immediately on file upload
                     }}
-                  />
-                </div>
-                
-                <div className="lg:col-span-7 space-y-6">
-                  <TranscriptionJobs
-                    onSelectTranscription={handleTranscriptionSelect}
-                    refreshTrigger={refreshTrigger}
-                    sessionId={currentSessionId}
                   />
                 </div>
               </div>
