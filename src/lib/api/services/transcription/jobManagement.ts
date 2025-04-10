@@ -2,10 +2,13 @@
 // This file serves as a central point to import and re-export job management functions
 
 import { 
-  createTranscriptionJob,
   checkTranscriptionJobStatus,
   getUserTranscriptionJobs
 } from './jobStatus';
+
+import {
+  createTranscriptionJob
+} from './jobCreation';
 
 import {
   resetStuckJobs

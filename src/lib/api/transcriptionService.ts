@@ -1,9 +1,12 @@
 
 import { 
-  createTranscriptionJob as createJob,
   getUserTranscriptionJobs as getJobs,
-  checkTranscriptionJobStatus as checkStatus,
+  checkTranscriptionJobStatus as checkStatus
 } from './services/transcription/jobStatus';
+
+import {
+  createTranscriptionJob as createJob
+} from './services/transcription/jobCreation';
 
 import { 
   resetStuckJobs as resetJobs,
