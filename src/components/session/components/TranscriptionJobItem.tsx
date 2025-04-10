@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Star, StarIcon } from "lucide-react";
+import { Star, StarIcon, RefreshCw } from "lucide-react";
 import { 
   getStatusIcon, 
   getStatusColor, 
@@ -22,6 +22,7 @@ interface TranscriptionJobItemProps {
   isPolling: boolean;
   onSelectJob: (job: TranscriptionJob) => void;
   onMarkAsAccepted?: (job: TranscriptionJob) => void;
+  onRetryJob?: (job: TranscriptionJob) => void;
 }
 
 const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
@@ -31,7 +32,8 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
   isComparisonSelected,
   isPolling,
   onSelectJob,
-  onMarkAsAccepted
+  onMarkAsAccepted,
+  onRetryJob
 }) => {
   const { relative: relativeDateFormatted, formatted: formattedDate } = formatJobDate(job.created_at);
   
@@ -43,7 +45,8 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
         isComparisonSelected ? 'border-primary bg-primary/5' : '',
         isAccepted ? 'border-green-500 border-2 bg-green-500/10 shadow-md' : '',
         isSelected && !isAccepted ? 'border-primary border-2 bg-primary/10 shadow-md' : '',
-        (job.status === 'processing' || job.status === 'pending') && isPolling ? 'border-blue-300 dark:border-blue-700 animate-pulse' : ''
+        (job.status === 'processing' || job.status === 'pending') && isPolling ? 'border-blue-300 dark:border-blue-700 animate-pulse' : '',
+        job.status === 'failed' ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10' : ''
       )}
       onClick={() => onSelectJob(job)}
     >
@@ -75,7 +78,8 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
           value={getProgressValue(job.status)} 
           className={cn(
             "h-1 mb-1",
-            (job.status === 'processing' || job.status === 'pending') && isPolling ? 'animate-pulse' : ''
+            (job.status === 'processing' || job.status === 'pending') && isPolling ? 'animate-pulse' : '',
+            job.status === 'failed' ? 'bg-red-100 dark:bg-red-900/20' : ''
           )} 
         />
         <div className="flex justify-between text-xs">
@@ -86,8 +90,31 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
         </div>
       </div>
       
-      {job.status === 'completed' && onMarkAsAccepted && (
-        <div className="mt-3 flex justify-end">
+      {job.status === 'failed' && job.error && (
+        <div className="mt-2 mb-2">
+          <p className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded truncate" title={job.error}>
+            {job.error.length > 60 ? `${job.error.substring(0, 60)}...` : job.error}
+          </p>
+        </div>
+      )}
+      
+      <div className="mt-3 flex justify-end gap-2">
+        {job.status === 'failed' && onRetryJob && (
+          <Button 
+            size="sm" 
+            variant="outline"
+            className="text-xs border-red-200 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRetryJob(job);
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+            Retry
+          </Button>
+        )}
+        
+        {job.status === 'completed' && onMarkAsAccepted && (
           <Button 
             size="sm" 
             variant={isAccepted ? "default" : "outline"}
@@ -114,8 +141,8 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
               </>
             )}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

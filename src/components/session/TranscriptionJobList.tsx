@@ -16,7 +16,8 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
   selectedModelId,
   acceptedModelId,
   onMarkAsAccepted,
-  isPolling = false
+  isPolling = false,
+  onRetryJob
 }) => {
   if (!jobs || jobs.length === 0) {
     return <EmptyJobList />;
@@ -43,6 +44,7 @@ const TranscriptionJobList: React.FC<TranscriptionJobListProps> = ({
                 isPolling={isPolling}
                 onSelectJob={onSelectJob}
                 onMarkAsAccepted={onMarkAsAccepted}
+                onRetryJob={onRetryJob}
               />
             );
           })}

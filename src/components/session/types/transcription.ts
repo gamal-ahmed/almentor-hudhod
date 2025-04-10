@@ -27,4 +27,12 @@ export interface TranscriptionJobListProps {
   acceptedModelId?: string | null;
   onMarkAsAccepted?: (job: TranscriptionJob) => void;
   isPolling?: boolean;
+  onRetryJob?: (job: TranscriptionJob) => void;
+}
+
+export interface JobUpdateStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  previousStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  model: string;
 }

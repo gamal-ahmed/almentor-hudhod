@@ -60,7 +60,9 @@ const SessionDetails = () => {
   } = useTranscriptionExport();
   
   const {
-    handleMarkAsAccepted
+    handleMarkAsAccepted,
+    handleRetryJob,
+    isRetrying
   } = useJobOperations(
     loadedSessionId || sessionId,
     selectedModelId,
@@ -100,6 +102,9 @@ const SessionDetails = () => {
     };
   };
 
+  // Count failed jobs
+  const failedJobsCount = sessionJobs.filter(job => job.status === 'failed').length;
+
   return (
     <>
       <Header />
@@ -124,6 +129,11 @@ const SessionDetails = () => {
                     <div className="flex items-center gap-1 text-sm px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 animate-pulse">
                       <RefreshCw className="h-3 w-3 animate-spin" />
                       <span>Auto-updating</span>
+                    </div>
+                  )}
+                  {failedJobsCount > 0 && (
+                    <div className="flex items-center gap-1 text-sm px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <span>{failedJobsCount} failed job{failedJobsCount > 1 ? 's' : ''}</span>
                     </div>
                   )}
                 </div>
@@ -179,6 +189,7 @@ const SessionDetails = () => {
                         selectedModelId={selectedModelId}
                         acceptedModelId={acceptedModelId}
                         onMarkAsAccepted={handleMarkAsAccepted}
+                        onRetryJob={handleRetryJob}
                         isPolling={isPolling}
                       />
                     </CardContent>

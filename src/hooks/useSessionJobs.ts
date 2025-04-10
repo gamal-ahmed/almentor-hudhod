@@ -99,6 +99,16 @@ export function useSessionJobs(sessionId?: string) {
                 description: `${getModelDisplayName(change.model)} model has finished processing`,
               });
             } else if (change.status === 'failed' && change.previousStatus !== 'failed') {
+              // Log the error for failed transcription jobs
+              const failedJob = updatedJobs.find(job => job.id === change.id);
+              const errorMessage = failedJob?.error || 'Unknown error';
+              
+              addLog(`${getModelDisplayName(change.model)} transcription failed: ${errorMessage}`, "error", {
+                source: change.model,
+                jobId: change.id,
+                details: errorMessage
+              });
+              
               toast({
                 title: "Transcription failed",
                 description: `${getModelDisplayName(change.model)} model encountered an error`,
@@ -124,7 +134,7 @@ export function useSessionJobs(sessionId?: string) {
         setIsPolling(false);
       };
     }
-  }, [sessionJobs, sessionId, toast]);
+  }, [sessionJobs, sessionId, toast, addLog]);
 
   // Helper function for model display names
   const getModelDisplayName = (model: string) => {
