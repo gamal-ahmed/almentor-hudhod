@@ -9,8 +9,9 @@ interface LogsState {
     details?: string;
     source?: string;
     duration?: number;
-    model?: string;  // Add model property
-    segments?: number;  // Add segments property
+    model?: string;  
+    segments?: number;
+    jobId?: string;  // Add jobId property to allow tracking of specific jobs
   }) => void;
   clearLogs: () => void;
   startTimedLog: (initialMessage: string, level: LogLevel, source?: string) => {
