@@ -13,7 +13,22 @@ export async function deleteTranscriptionSession(sessionId: string): Promise<{ s
       throw new Error("No session ID provided");
     }
 
-    // Delete the session from the transcription_sessions table
+    console.log(`Attempting to delete session ${sessionId}`);
+
+    // First, delete all transcriptions associated with this session
+    const { error: transcriptionsError } = await baseService.supabase
+      .from('transcriptions')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (transcriptionsError) {
+      console.error("Error deleting associated transcriptions:", transcriptionsError);
+      throw transcriptionsError;
+    }
+
+    console.log(`Successfully deleted transcriptions for session ${sessionId}`);
+
+    // Now, delete the session from the transcription_sessions table
     const { error } = await baseService.supabase
       .from('transcription_sessions')
       .delete()
@@ -23,9 +38,11 @@ export async function deleteTranscriptionSession(sessionId: string): Promise<{ s
       throw error;
     }
 
+    console.log(`Successfully deleted session ${sessionId}`);
+
     return {
       success: true,
-      message: "Session deleted successfully"
+      message: "Session and associated transcriptions deleted successfully"
     };
   } catch (error) {
     console.error("Error deleting session:", error);
