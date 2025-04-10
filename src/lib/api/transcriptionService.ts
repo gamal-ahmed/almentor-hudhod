@@ -3,8 +3,11 @@ import {
   createTranscriptionJob as createJob,
   getUserTranscriptionJobs as getJobs,
   checkTranscriptionJobStatus as checkStatus,
+} from './services/transcription/jobStatus';
+
+import { 
   resetStuckJobs as resetJobs,
-} from './services/transcription/jobManagement';
+} from './services/transcription/jobMaintenance';
 
 import { 
   transcribeAudio as directTranscribe 
@@ -22,10 +25,11 @@ import {
   deleteTranscriptionSession as deleteSession
 } from './services/transcription/sessionManagement';
 
+// Import from storageService instead of transcriptionStorage
 import { 
   saveTranscriptionToVTT as saveVTT,
   saveSelectedTranscription as saveSelected
-} from './services/transcription/transcriptionStorage';
+} from '../api/services/storageService';
 
 // Re-export all functions
 export const createTranscriptionJob = createJob;

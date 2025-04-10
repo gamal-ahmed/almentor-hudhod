@@ -8,7 +8,8 @@ import {
   saveTranscriptionToVTT,
   saveSelectedTranscription,
   getSessionTranscriptionJobs,
-  clientTranscribeAudio
+  clientTranscribeAudio,
+  deleteTranscriptionSession
 } from "./transcriptionService";
 import { 
   getBrightcoveAuthToken, 
@@ -20,7 +21,6 @@ import {
   listAudioTracksForBrightcoveVideo
 } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
-import { deleteTranscriptionSession } from "./services/transcription/sessionManagement";
 
 // Re-export all API functions for easy access
 export {
