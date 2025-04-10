@@ -1,10 +1,30 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from '@/components/ui/button';
-import { Clock, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
+import { 
+  Clock, 
+  ExternalLink, 
+  CheckCircle, 
+  AlertCircle, 
+  Trash2, 
+  Loader2 
+} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { deleteTranscriptionSession } from '@/lib/api';
 
 interface SessionGroupItemProps {
   session: {
@@ -17,15 +37,18 @@ interface SessionGroupItemProps {
     transcriptions?: any[];
   };
   onViewDetails: () => void;
+  onDelete: (sessionId: string) => void;
 }
 
 const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
   session,
-  onViewDetails
+  onViewDetails,
+  onDelete
 }) => {
   const navigate = useNavigate();
   const timestamp = new Date(session.created_at);
   const modelCount = session.transcriptions ? Object.keys(session.transcriptions).length : 0;
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Get models from transcriptions if available
   const models = session.selected_models || [];
@@ -41,6 +64,31 @@ const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
     
     // Also call the original onViewDetails handler if needed
     onViewDetails();
+  };
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      const result = await deleteTranscriptionSession(session.id);
+      
+      if (result.success) {
+        toast.success("Session deleted", {
+          description: "The transcription session has been removed"
+        });
+        // Call parent's onDelete to update the UI
+        onDelete(session.id);
+      } else {
+        toast.error("Failed to delete session", {
+          description: result.message
+        });
+      }
+    } catch (error) {
+      toast.error("Error deleting session", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
     
   return (
@@ -77,15 +125,48 @@ const SessionGroupItem: React.FC<SessionGroupItemProps> = ({
         )}
       </div>
       
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={handleViewDetails}
-        className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
-      >
-        <span className="mr-1">Details</span>
-        <ExternalLink className="h-3.5 w-3.5" />
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleViewDetails}
+          className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
+        >
+          <span className="mr-1">Details</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Button>
+        
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-500 hover:text-red-600"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Transcription Session</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this transcription session? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 };

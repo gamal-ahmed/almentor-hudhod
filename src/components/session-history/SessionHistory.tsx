@@ -19,56 +19,56 @@ const SessionHistory: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Get current authenticated user
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.user) {
-          setSessions([]);
-          setLoading(false);
-          return;
-        }
-        
-        // Fetch sessions for current user
-        const { data, error } = await supabase
-          .from('transcription_sessions')
-          .select(`
-            id,
-            created_at,
-            audio_file_name,
-            selected_models,
-            selected_model,
-            accepted_model_id,
-            transcriptions (
-              id,
-              model,
-              status,
-              created_at,
-              updated_at
-            )
-          `)
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        // Transform data for display
-        setSessions(data || []);
-      } catch (err) {
-        console.error('Error fetching sessions:', err);
-        setError(err instanceof Error ? err.message : String(err));
-        toast.error('Failed to load session history');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchSessions();
   }, []);
+  
+  const fetchSessions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get current authenticated user
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        setSessions([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Fetch sessions for current user
+      const { data, error } = await supabase
+        .from('transcription_sessions')
+        .select(`
+          id,
+          created_at,
+          audio_file_name,
+          selected_models,
+          selected_model,
+          accepted_model_id,
+          transcriptions (
+            id,
+            model,
+            status,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      // Transform data for display
+      setSessions(data || []);
+    } catch (err) {
+      console.error('Error fetching sessions:', err);
+      setError(err instanceof Error ? err.message : String(err));
+      toast.error('Failed to load session history');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleNewTranscription = () => {
     navigate('/app');
@@ -76,6 +76,11 @@ const SessionHistory: React.FC = () => {
   
   const handleViewSessionDetails = (sessionId: string) => {
     navigate(`/session/${sessionId}`);
+  };
+  
+  const handleDeleteSession = (sessionId: string) => {
+    // Update the local state to remove the deleted session
+    setSessions(prevSessions => prevSessions.filter(session => session.id !== sessionId));
   };
   
   if (loading) {
@@ -133,6 +138,7 @@ const SessionHistory: React.FC = () => {
                       key={session.id}
                       session={session}
                       onViewDetails={() => handleViewSessionDetails(session.id)}
+                      onDelete={handleDeleteSession}
                     />
                   ))}
                 </div>

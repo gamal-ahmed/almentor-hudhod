@@ -20,6 +20,7 @@ import {
   listAudioTracksForBrightcoveVideo
 } from "./brightcoveService";
 import { fetchAudioFromUrl } from "./audioDownloadService";
+import { deleteTranscriptionSession } from "./services/transcription/sessionManagement";
 
 // Re-export all API functions for easy access
 export {
@@ -39,5 +40,6 @@ export {
   listCaptionsForBrightcoveVideo,
   getVideoDetails,
   listAudioTracksForBrightcoveVideo,
-  clientTranscribeAudio
+  clientTranscribeAudio,
+  deleteTranscriptionSession
 };

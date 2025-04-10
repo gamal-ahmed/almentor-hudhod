@@ -1,4 +1,3 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { 
   transcribeAudio as serverTranscribeAudio,
@@ -9,7 +8,8 @@ import {
   getSessionTranscriptionJobs,
   saveTranscriptionToVTT,
   saveSelectedTranscription,
-  clientTranscribeAudio
+  clientTranscribeAudio,
+  deleteTranscriptionSession
 } from "./api/transcriptionService";
 import { 
   getBrightcoveAuthToken, 
@@ -46,12 +46,11 @@ export {
   getSessionTranscriptionJobs,
   saveTranscriptionToVTT,
   saveSelectedTranscription,
-  // Export the Brightcove functions that were missing
+  deleteTranscriptionSession,
   deleteCaptionFromBrightcove,
   listCaptionsForBrightcoveVideo,
   getVideoDetails,
   listAudioTracksForBrightcoveVideo,
-  // Export the client-side transcription function
   clientTranscribeAudio
 };
 

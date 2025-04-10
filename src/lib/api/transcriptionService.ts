@@ -1,37 +1,40 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { API_ENDPOINTS, SUPABASE_KEY } from "./utils";
+import { 
+  createTranscriptionJob as createJob,
+  getUserTranscriptionJobs as getJobs,
+  checkTranscriptionJobStatus as checkStatus,
+  resetStuckJobs as resetJobs,
+} from './services/transcription/jobManagement';
 
-// Re-export all the individual services
-export { 
-  createTranscriptionJob 
-} from "./services/transcription/jobCreation";
+import { 
+  transcribeAudio as directTranscribe 
+} from './services/transcription/directTranscription';
 
-export { 
-  transcribeAudio 
-} from "./services/transcription/directTranscription";
+import { 
+  getSessionTranscriptionJobs as getSessionJobs 
+} from './services/transcription/sessionJobs';
 
-export {
-  clientTranscribeAudio
-} from "./services/transcription/clientTranscription";
+import { 
+  clientTranscribeAudio as clientTranscribe 
+} from './services/transcription/clientTranscription';
 
-export { 
-  checkTranscriptionJobStatus,
-  getUserTranscriptionJobs
-} from "./services/transcription/jobStatus";
+import {
+  deleteTranscriptionSession as deleteSession
+} from './services/transcription/sessionManagement';
 
-export {
-  getSessionTranscriptionJobs
-} from "./services/transcription/sessionJobs";
+import { 
+  saveTranscriptionToVTT as saveVTT,
+  saveSelectedTranscription as saveSelected
+} from './services/transcription/transcriptionStorage';
 
-export {
-  resetStuckJobs
-} from "./services/transcription/jobMaintenance";
-
-export { 
-  saveTranscriptionToVTT,
-  saveSelectedTranscription
-} from "./services/storageService";
-
-// Also provide the baseService for direct use if needed
-export { baseService, getLogsStore } from "./services/baseService";
+// Re-export all functions
+export const createTranscriptionJob = createJob;
+export const getUserTranscriptionJobs = getJobs;
+export const checkTranscriptionJobStatus = checkStatus;
+export const resetStuckJobs = resetJobs;
+export const transcribeAudio = directTranscribe;
+export const getSessionTranscriptionJobs = getSessionJobs;
+export const saveTranscriptionToVTT = saveVTT;
+export const saveSelectedTranscription = saveSelected;
+export const clientTranscribeAudio = clientTranscribe;
+export const deleteTranscriptionSession = deleteSession;
