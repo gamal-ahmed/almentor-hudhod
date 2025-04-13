@@ -6,34 +6,41 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { VideoIdInput } from '@/components/VideoIdInput';
-import { VideoDetails } from '@/components/VideoDetails';
+import VideoIdInput from '@/components/VideoIdInput';
+import VideoDetails from '@/components/VideoDetails';
 import CaptionsList from '@/components/CaptionsList';
 import DirectCaptionIngestion from '@/components/DirectCaptionIngestion';
 import { toast } from '@/hooks/use-toast';
-import { AuthGuard } from '@/components/AuthGuard';
+import AuthGuard from '@/components/AuthGuard';
 import { useBrightcovePublishing } from '@/hooks/useBrightcovePublishing';
 import { Toaster } from '@/components/ui/toaster';
+import { fetchBrightcoveKeys, getBrightcoveAuthToken, getVideoDetails, listCaptionsForBrightcoveVideo } from '@/lib/api';
 
 export default function BrightcoveCaptionsManager() {
   const [videoId, setVideoId] = useState<string>('');
   const [videoDetails, setVideoDetails] = useState<any>(null);
   const [captions, setCaptions] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>('lookup');
-  const { 
-    publishCaptions, 
-    fetchVideoDetails, 
-    fetchCaptions, 
-    processingState, 
-    clearState 
-  } = useBrightcovePublishing();
+  const [accountId, setAccountId] = useState<string>('');
+  const [authToken, setAuthToken] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  const { publishToBrightcove } = useBrightcovePublishing();
 
   // Clear states when component unmounts or tab changes
   useEffect(() => {
     return () => {
-      clearState();
+      clearStates();
     };
-  }, [clearState, activeTab]);
+  }, [activeTab]);
+
+  const clearStates = () => {
+    // Reset state values
+    setVideoId('');
+    setVideoDetails(null);
+    setCaptions([]);
+    setIsLoading(false);
+  };
 
   // Handle video ID input change
   const handleVideoIdChange = (value: string) => {
@@ -41,6 +48,27 @@ export default function BrightcoveCaptionsManager() {
     if (videoDetails) {
       setVideoDetails(null);
       setCaptions([]);
+    }
+  };
+
+  // Initialize auth tokens
+  const initializeAuth = async () => {
+    try {
+      const keys = await fetchBrightcoveKeys();
+      const token = await getBrightcoveAuthToken(
+        keys.brightcove_client_id, 
+        keys.brightcove_client_secret
+      );
+      setAccountId(keys.brightcove_account_id);
+      setAuthToken(token);
+      return { accountId: keys.brightcove_account_id, token };
+    } catch (error: any) {
+      toast({
+        title: "Authentication Error",
+        description: error.message || "Could not authenticate with Brightcove",
+        variant: "destructive"
+      });
+      return null;
     }
   };
 
@@ -55,13 +83,17 @@ export default function BrightcoveCaptionsManager() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      const details = await fetchVideoDetails(videoId);
+      const auth = await initializeAuth();
+      if (!auth) return;
+      
+      const details = await getVideoDetails(videoId, auth.token);
       setVideoDetails(details);
       
       // Also fetch captions if video details are found
       if (details) {
-        handleFetchCaptions();
+        await handleFetchCaptions(auth.accountId, auth.token);
       }
     } catch (error: any) {
       toast({
@@ -69,11 +101,13 @@ export default function BrightcoveCaptionsManager() {
         description: error.message || "Could not retrieve video details. Please check the ID and try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Handle fetching captions for a video
-  const handleFetchCaptions = async () => {
+  const handleFetchCaptions = async (acctId?: string, token?: string) => {
     if (!videoId) {
       toast({
         title: "Video ID Required",
@@ -83,8 +117,16 @@ export default function BrightcoveCaptionsManager() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      const captionsData = await fetchCaptions(videoId);
+      const auth = !acctId || !token ? await initializeAuth() : { accountId: acctId, token };
+      if (!auth) return;
+      
+      const captionsData = await listCaptionsForBrightcoveVideo(
+        videoId, 
+        auth.accountId, 
+        auth.token
+      );
       setCaptions(captionsData || []);
     } catch (error: any) {
       toast({
@@ -92,6 +134,8 @@ export default function BrightcoveCaptionsManager() {
         description: error.message || "Could not retrieve captions. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -106,8 +150,9 @@ export default function BrightcoveCaptionsManager() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      await publishCaptions(videoId, captionId, language);
+      await publishToBrightcove(videoId, captionId, language);
       toast({
         title: "Captions Published",
         description: `Captions for ${label || language} have been published successfully.`,
@@ -115,13 +160,15 @@ export default function BrightcoveCaptionsManager() {
       });
       
       // Refresh captions list after publishing
-      handleFetchCaptions();
+      await handleFetchCaptions();
     } catch (error: any) {
       toast({
         title: "Error Publishing Captions",
         description: error.message || "Failed to publish captions. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -130,10 +177,18 @@ export default function BrightcoveCaptionsManager() {
     setActiveTab(value);
     
     // Reset states when changing tabs
-    setVideoId('');
-    setVideoDetails(null);
-    setCaptions([]);
-    clearState();
+    clearStates();
+  };
+
+  // Handle delete caption
+  const handleDeleteCaption = async (captionId: string) => {
+    // Implementation would go here
+    console.log('Delete caption:', captionId);
+  };
+
+  // Handle caption refresh
+  const handleRefreshCaptions = async () => {
+    await handleFetchCaptions();
   };
 
   return (
@@ -159,24 +214,30 @@ export default function BrightcoveCaptionsManager() {
                   <div className="space-y-2">
                     <Label htmlFor="videoId">Video ID</Label>
                     <div className="flex items-center gap-2">
-                      <VideoIdInput videoId={videoId} onChange={handleVideoIdChange} />
-                      <Button onClick={handleSearchVideo} disabled={processingState.isLoading}>
-                        {processingState.isLoading ? "Loading..." : "Search"}
+                      <Input 
+                        id="videoId"
+                        value={videoId}
+                        onChange={(e) => handleVideoIdChange(e.target.value)}
+                        placeholder="Enter Brightcove video ID"
+                        className="shadow-inner-soft focus:ring-2 focus:ring-primary/30"
+                      />
+                      <Button onClick={handleSearchVideo} disabled={isLoading}>
+                        {isLoading ? "Loading..." : "Search"}
                       </Button>
                     </div>
                   </div>
                   
                   {videoDetails && (
                     <>
-                      <VideoDetails video={videoDetails} />
+                      <VideoDetails details={videoDetails} />
                       
                       <div className="space-y-2 pt-4">
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-medium">Captions</h3>
                           <Button 
                             variant="outline" 
-                            onClick={handleFetchCaptions}
-                            disabled={processingState.isLoading}
+                            onClick={handleRefreshCaptions}
+                            disabled={isLoading}
                           >
                             Refresh Captions
                           </Button>
@@ -184,9 +245,8 @@ export default function BrightcoveCaptionsManager() {
                         
                         <CaptionsList 
                           captions={captions} 
-                          videoId={videoId} 
-                          onPublish={handlePublishCaptions} 
-                          isLoading={processingState.isLoading}
+                          onDelete={handleDeleteCaption} 
+                          onRefresh={handleRefreshCaptions}
                         />
                       </div>
                     </>
@@ -195,7 +255,16 @@ export default function BrightcoveCaptionsManager() {
               </TabsContent>
               
               <TabsContent value="direct">
-                <DirectCaptionIngestion />
+                {authToken && accountId ? (
+                  <DirectCaptionIngestion 
+                    videoId={videoId}
+                    accountId={accountId}
+                    authToken={authToken}
+                    onSuccess={handleRefreshCaptions}
+                  />
+                ) : (
+                  <Button onClick={initializeAuth}>Connect to Brightcove</Button>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>

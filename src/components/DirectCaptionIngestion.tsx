@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addCaptionToBrightcove } from "@/lib/api";
 
-interface DirectCaptionIngestionProps {
+export interface DirectCaptionIngestionProps {
   videoId: string;
   accountId: string;
   authToken: string;

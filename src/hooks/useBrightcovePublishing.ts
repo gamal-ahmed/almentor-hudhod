@@ -1,80 +1,61 @@
 
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useLogsStore } from "@/lib/useLogsStore";
-import { TranscriptionJob } from "@/lib/api/types/transcription";
-import { getBrightcoveAuthToken, addCaptionToBrightcove, fetchBrightcoveKeys } from "@/lib/api";
-import { getModelDisplayName } from "@/utils/transcriptionUtils";
+import { useState } from 'react';
+import { toast } from '@/hooks/use-toast';
+import { addCaptionToBrightcove, getBrightcoveAuthToken, fetchBrightcoveKeys } from '@/lib/api';
 
-export function useBrightcovePublishing(sessionId: string | undefined, selectedJob: TranscriptionJob | null, selectedModelId: string | null, sessionJobs: TranscriptionJob[]) {
-  const [videoId, setVideoId] = useState('');
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  
-  const { toast } = useToast();
-  const { addLog } = useLogsStore();
-  
+export function useBrightcovePublishing() {
+  const [videoId, setVideoId] = useState<string>('');
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState<boolean>(false);
+
   const handlePublishDialogOpen = () => {
     setPublishDialogOpen(true);
   };
 
-  const publishToBrightcove = async () => {
-    const jobToPublish = selectedModelId
-      ? sessionJobs.find(job => job.id === selectedModelId) || selectedJob
-      : selectedJob;
-      
-    if (!jobToPublish) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a transcription to publish.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const publishToBrightcove = async (
+    videoId: string, 
+    sessionId: string, 
+    language: string = 'ar'
+  ) => {
+    setIsPublishing(true);
+
     try {
-      setIsPublishing(true);
-      
-      const brightcoveKeys = await fetchBrightcoveKeys();
-      
-      const authToken = await getBrightcoveAuthToken(
-        brightcoveKeys.brightcove_client_id,
-        brightcoveKeys.brightcove_client_secret
+      // Get Brightcove credentials
+      const keys = await fetchBrightcoveKeys();
+      const token = await getBrightcoveAuthToken(
+        keys.brightcove_client_id,
+        keys.brightcove_client_secret
       );
-      
+
+      // Publish captions
       await addCaptionToBrightcove(
         videoId,
-        String(sessionId),
-        authToken,
-        jobToPublish.id,
-        jobToPublish.model
+        sessionId,
+        token,
+        undefined,
+        undefined,
+        language
       );
-      
-      addLog(`Published caption to Brightcove video ID: ${videoId}`, "info", {
-        source: "SessionDetails",
-        details: `Model: ${getModelDisplayName(jobToPublish.model)}`
-      });
-      
+
       toast({
-        title: "Publishing Successful",
-        description: "Caption has been published to Brightcove",
+        title: "Caption Published",
+        description: `Caption successfully published to Brightcove video ${videoId}`,
       });
-      
-      setPublishDialogOpen(false);
-      setVideoId('');
-    } catch (error) {
-      console.error("Error publishing to Brightcove:", error);
-      
+
+      return true;
+    } catch (error: any) {
       toast({
-        title: "Publishing Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: "Publishing Error",
+        description: error.message || "Failed to publish caption to Brightcove",
         variant: "destructive",
       });
+      throw error;
     } finally {
       setIsPublishing(false);
+      setPublishDialogOpen(false);
     }
   };
-  
+
   return {
     videoId,
     setVideoId,
@@ -82,6 +63,6 @@ export function useBrightcovePublishing(sessionId: string | undefined, selectedJ
     publishDialogOpen,
     setPublishDialogOpen,
     handlePublishDialogOpen,
-    publishToBrightcove
+    publishToBrightcove,
   };
 }

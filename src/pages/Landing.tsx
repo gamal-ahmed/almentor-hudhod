@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Header } from '@/components/Header'; // Import as named export
-import { HeroSection } from '@/components/HeroSection';
-import { FeatureCard } from '@/components/FeatureCard';
+import { Header } from '@/components/Header';
+import HeroSection from '@/components/HeroSection';
+import FeatureCard from '@/components/FeatureCard';
 import { Button } from '@/components/ui/button';
-import { Footer } from '@/components/Footer';
+import Footer from '@/components/Footer';
 
 const Landing = () => {
   return (
