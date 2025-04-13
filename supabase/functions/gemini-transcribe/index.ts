@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // CORS headers for browser access
@@ -84,13 +83,16 @@ serve(async (req) => {
         }
       ],
       generation_config: {
-        temperature: 0.1, // Reduced from 0.2 to 0.1 for more deterministic output
+        temperature: 0.1,
         top_p: 0.95,
         top_k: 40,
         max_output_tokens: 8192
       }
     };
 
+    // Log the full request body for debugging
+    console.log('Full Gemini Request Body:', JSON.stringify(geminiRequestBody, null, 2));
+    
     console.log('Sending request to Gemini API');
     
     // Make the request to the Gemini API with the updated model
