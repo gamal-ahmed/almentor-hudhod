@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Default prompt to preserve English words
-const DEFAULT_PROMPT = "Please preserve all English words exactly as spoken";
+// Enhanced default prompt with more explicit instructions
+const DEFAULT_PROMPT = "IMPORTANT: Transcribe the exact words as spoken. Do not translate, paraphrase, or modify any English words, names, acronyms, or technical terms. Preserve all English words exactly as they are spoken.";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -40,7 +40,12 @@ serve(async (req) => {
     // Get the form data from the request
     const formData = await req.formData();
     const audioFile = formData.get('audio');
-    const prompt = formData.get('prompt') || DEFAULT_PROMPT;
+    let prompt = formData.get('prompt') || DEFAULT_PROMPT;
+    
+    // Enhance user prompt if it doesn't already have strong preservation instructions
+    if (!prompt.toLowerCase().includes('preserve') && !prompt.toLowerCase().includes('exact')) {
+      prompt = `${DEFAULT_PROMPT}\n\nAdditional context: ${prompt}`;
+    }
     
     if (!audioFile || !(audioFile instanceof File)) {
       return new Response(
@@ -67,7 +72,7 @@ serve(async (req) => {
           role: "user",
           parts: [
             {
-              text: `${prompt}\n\nTranscribe the following audio file and return the transcript with timestamps in WebVTT format.`
+              text: `${prompt}\n\nTranscribe the following audio file and return the transcript with timestamps in WebVTT format. Do not translate any words - preserve ALL English words exactly as spoken, including names, technical terms, and acronyms.`
             },
             {
               inline_data: {
@@ -79,7 +84,7 @@ serve(async (req) => {
         }
       ],
       generation_config: {
-        temperature: 0.2,
+        temperature: 0.1, // Reduced from 0.2 to 0.1 for more deterministic output
         top_p: 0.95,
         top_k: 40,
         max_output_tokens: 8192
