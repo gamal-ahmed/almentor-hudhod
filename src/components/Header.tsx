@@ -1,3 +1,4 @@
+
 import {
   Home,
   Film,
@@ -20,12 +21,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useMobile } from "@/hooks/useMobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function Header() {
   const { isAuthenticated, user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const path = useLocation().pathname;
   
   const handleSignOut = async () => {
@@ -113,3 +114,6 @@ export function Header() {
     </header>
   );
 }
+
+// Add default export to maintain backward compatibility
+export default Header;

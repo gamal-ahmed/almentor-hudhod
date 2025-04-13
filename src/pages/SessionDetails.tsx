@@ -1,7 +1,6 @@
-
 import React from "react";
 import { useParams } from "react-router-dom";
-import Header from "@/components/Header";
+import { Header } from "@/components/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileSymlink, RefreshCw } from "lucide-react";

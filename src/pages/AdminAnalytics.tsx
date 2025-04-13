@@ -43,6 +43,17 @@ import TranscriptionTimeChart from "@/components/admin/TranscriptionTimeChart";
 // Define color palette for charts
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
+// Define model statistics type
+interface ModelStat {
+  name: string;
+  total: number;
+  completed: number;
+  failed: number;
+  accepted: number;
+  successRate: string;
+  acceptanceRate: string;
+}
+
 export default function AdminAnalytics() {
   const { isAuthenticated, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -249,7 +260,7 @@ function TranscriptionMinutesValue() {
 
 // Detailed Model Analytics
 function ModelDetailedAnalytics() {
-  const [modelStats, setModelStats] = useState([]);
+  const [modelStats, setModelStats] = useState<ModelStat[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -281,7 +292,7 @@ function ModelDetailedAnalytics() {
       }
 
       // Process the data
-      const models = {};
+      const models: Record<string, ModelStat> = {};
       
       // Count usage by model
       if (usageData) {
@@ -293,7 +304,8 @@ function ModelDetailedAnalytics() {
               completed: 0,
               failed: 0,
               accepted: 0,
-              successRate: 0
+              successRate: '0%',
+              acceptanceRate: '0%'
             };
           }
           
@@ -315,8 +327,9 @@ function ModelDetailedAnalytics() {
           // Find which model this ID belongs to
           Object.keys(models).forEach(modelName => {
             // This is a simplified way to match - ideally we'd have a direct ID to model name mapping
-            const matchesFromTranscriptions = session.transcriptions && 
-              Object.entries(session.transcriptions).some(
+            const transcriptionsObj = session.transcriptions as Record<string, any> | null;
+            const matchesFromTranscriptions = transcriptionsObj && 
+              Object.entries(transcriptionsObj).some(
                 ([key, value]) => value?.id === modelId && key.includes(modelName)
               );
             
@@ -331,11 +344,11 @@ function ModelDetailedAnalytics() {
       const statsArray = Object.values(models).map(model => {
         const successRate = model.total > 0 
           ? ((model.completed / model.total) * 100).toFixed(1) 
-          : 0;
+          : '0';
         
         const acceptanceRate = model.completed > 0 
           ? ((model.accepted / model.completed) * 100).toFixed(1) 
-          : 0;
+          : '0';
         
         return {
           ...model,
