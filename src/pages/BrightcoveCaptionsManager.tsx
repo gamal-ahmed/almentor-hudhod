@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ export default function BrightcoveCaptionsManager() {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedCaption, setSelectedCaption] = useState<any>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   // Fetch Brightcove keys on component mount
   useEffect(() => {
@@ -47,6 +49,15 @@ export default function BrightcoveCaptionsManager() {
       try {
         const keys = await fetchBrightcoveKeys();
         setBrightcoveKeys(keys);
+        
+        // Get auth token after keys are loaded
+        if (keys.brightcove_client_id && keys.brightcove_client_secret) {
+          const token = await getBrightcoveAuthToken(
+            keys.brightcove_client_id,
+            keys.brightcove_client_secret
+          );
+          setAuthToken(token);
+        }
       } catch (error) {
         console.error("Error fetching Brightcove keys:", error);
         toast({
@@ -72,17 +83,17 @@ export default function BrightcoveCaptionsManager() {
   }, [isAuthenticated, loading, isAdmin, navigate]);
 
   const handleFetchVideoDetails = async () => {
-    if (!videoId) {
+    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
       toast({
         title: "Error",
-        description: "Please enter a video ID.",
+        description: "Missing video ID, authorization token or account ID.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const video = await getVideoDetails(videoId);
+      const video = await getVideoDetails(videoId, authToken);
       setVideoDetails(video);
       toast({
         title: "Video Details",
@@ -99,17 +110,21 @@ export default function BrightcoveCaptionsManager() {
   };
 
   const handleListCaptions = async () => {
-    if (!videoId) {
+    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
       toast({
         title: "Error",
-        description: "Please enter a video ID.",
+        description: "Missing video ID, authorization token or account ID.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const captions = await listCaptionsForBrightcoveVideo(videoId);
+      const captions = await listCaptionsForBrightcoveVideo(
+        videoId, 
+        brightcoveKeys.brightcove_account_id,
+        authToken
+      );
       setCaptionsList(captions);
       toast({
         title: "Captions List",
@@ -126,17 +141,21 @@ export default function BrightcoveCaptionsManager() {
   };
 
   const handleListAudioTracks = async () => {
-    if (!videoId) {
+    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
       toast({
         title: "Error",
-        description: "Please enter a video ID.",
+        description: "Missing video ID, authorization token or account ID.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const tracks = await listAudioTracksForBrightcoveVideo(videoId);
+      const tracks = await listAudioTracksForBrightcoveVideo(
+        videoId,
+        brightcoveKeys.brightcove_account_id,
+        authToken
+      );
       setAudioTracks(tracks);
       toast({
         title: "Audio Tracks List",
@@ -153,10 +172,10 @@ export default function BrightcoveCaptionsManager() {
   };
 
   const handleUploadCaption = async () => {
-    if (!videoId) {
+    if (!videoId || !authToken) {
       toast({
         title: "Error",
-        description: "Please enter a video ID.",
+        description: "Please enter a video ID and ensure you're authorized.",
         variant: "destructive",
       });
       return;
@@ -182,7 +201,20 @@ export default function BrightcoveCaptionsManager() {
 
     setUploading(true);
     try {
-      const newCaption = await addCaptionToBrightcove(videoId, selectedTrackId, captionText, isDefault);
+      // Convert boolean to string for the isDefault parameter
+      const isDefaultStr = isDefault ? "true" : "false";
+      
+      const newCaption = await addCaptionToBrightcove(
+        videoId,
+        selectedTrackId,
+        authToken,
+        undefined, // modelId
+        undefined, // modelName
+        "en", // Default language
+        "English", // Default label
+        captionText // Using captionText as the URL for simplicity
+      );
+      
       setCaptionsList([...captionsList, newCaption]);
       setCaptionText("");
       toast({
@@ -202,10 +234,10 @@ export default function BrightcoveCaptionsManager() {
   };
 
   const handleDeleteCaption = async () => {
-    if (!videoId) {
+    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
       toast({
         title: "Error",
-        description: "Please enter a video ID.",
+        description: "Missing video ID, authorization token or account ID.",
         variant: "destructive",
       });
       return;
@@ -222,7 +254,13 @@ export default function BrightcoveCaptionsManager() {
 
     setDeleting(true);
     try {
-      await deleteCaptionFromBrightcove(videoId, selectedCaption.id);
+      await deleteCaptionFromBrightcove(
+        videoId,
+        selectedCaption.id,
+        brightcoveKeys.brightcove_account_id,
+        authToken
+      );
+      
       setCaptionsList(captionsList.filter(caption => caption.id !== selectedCaption.id));
       toast({
         title: "Caption Deleted",

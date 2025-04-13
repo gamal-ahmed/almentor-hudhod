@@ -1,13 +1,8 @@
-
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, User, AuthResponse } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
-
-interface AuthResult {
-  error: Error | null;
-}
 
 interface AuthContextType {
   session: Session | null;
@@ -15,8 +10,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<AuthResult>;
-  signUp: (email: string, password: string) => Promise<AuthResult>;
+  signIn: (email: string, password: string) => Promise<AuthResponse>;
+  signUp: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
 }
 
@@ -79,12 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAdminStatus();
   }, [user]);
 
-  const signUp = async (email: string, password: string): Promise<AuthResult> => {
+  const signUp = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const response = await supabase.auth.signUp({ email, password });
       
-      if (error) {
-        throw error;
+      if (response.error) {
+        throw response.error;
       }
       
       toast({
@@ -92,23 +87,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "Please check your email to verify your account",
       });
       
-      return { error: null };
+      return response;
     } catch (error: any) {
       toast({
         title: "Error creating account",
         description: error.message,
         variant: "destructive",
       });
-      return { error };
+      throw error;
     }
   };
 
-  const signIn = async (email: string, password: string): Promise<AuthResult> => {
+  const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const response = await supabase.auth.signInWithPassword({ email, password });
       
-      if (error) {
-        throw error;
+      if (response.error) {
+        throw response.error;
       }
       
       toast({
@@ -117,14 +112,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       navigate('/app');
-      return { error: null };
+      return response;
     } catch (error: any) {
       toast({
         title: "Error signing in",
         description: error.message,
         variant: "destructive",
       });
-      return { error };
+      throw error;
     }
   };
 
@@ -144,12 +139,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const isAuthenticated = !!user;
+
   return (
     <AuthContext.Provider
       value={{
         session,
         user,
-        isAuthenticated: !!user,
+        isAuthenticated,
         loading,
         isAdmin,
         signIn,
