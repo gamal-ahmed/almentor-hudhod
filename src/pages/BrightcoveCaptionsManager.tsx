@@ -1,411 +1,213 @@
 
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/AuthContext";
-import { Header } from "@/components/Header";
-import { ArrowLeft, Film } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "@/hooks/use-toast";
-import {
-  fetchBrightcoveKeys,
-  getBrightcoveAuthToken,
-  listCaptionsForBrightcoveVideo,
-  addCaptionToBrightcove,
-  deleteCaptionFromBrightcove,
-  getVideoDetails,
-  listAudioTracksForBrightcoveVideo
-} from "@/lib/api";
+import React, { useState, useEffect } from 'react';
+import { Header } from '@/components/Header';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { VideoIdInput } from '@/components/VideoIdInput';
+import { VideoDetails } from '@/components/VideoDetails';
+import CaptionsList from '@/components/CaptionsList';
+import DirectCaptionIngestion from '@/components/DirectCaptionIngestion';
+import { toast } from '@/hooks/use-toast';
+import { AuthGuard } from '@/components/AuthGuard';
+import { useBrightcovePublishing } from '@/hooks/useBrightcovePublishing';
+import { Toaster } from '@/components/ui/toaster';
 
 export default function BrightcoveCaptionsManager() {
-  const { isAuthenticated, loading, isAdmin } = useAuth();
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [brightcoveKeys, setBrightcoveKeys] = useState<{
-    brightcove_client_id?: string;
-    brightcove_client_secret?: string;
-    brightcove_account_id?: string;
-  }>({});
-  const [videoId, setVideoId] = useState("");
+  const [videoId, setVideoId] = useState<string>('');
   const [videoDetails, setVideoDetails] = useState<any>(null);
-  const [captionsList, setCaptionsList] = useState<any[]>([]);
-  const [audioTracks, setAudioTracks] = useState<any[]>([]);
-  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
-  const [captionText, setCaptionText] = useState("");
-  const [isDefault, setIsDefault] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [selectedCaption, setSelectedCaption] = useState<any>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [captions, setCaptions] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('lookup');
+  const { 
+    publishCaptions, 
+    fetchVideoDetails, 
+    fetchCaptions, 
+    processingState, 
+    clearState 
+  } = useBrightcovePublishing();
 
-  // Fetch Brightcove keys on component mount
+  // Clear states when component unmounts or tab changes
   useEffect(() => {
-    async function loadBrightcoveKeys() {
-      try {
-        const keys = await fetchBrightcoveKeys();
-        setBrightcoveKeys(keys);
-        
-        // Get auth token after keys are loaded
-        if (keys.brightcove_client_id && keys.brightcove_client_secret) {
-          const token = await getBrightcoveAuthToken(
-            keys.brightcove_client_id,
-            keys.brightcove_client_secret
-          );
-          setAuthToken(token);
-        }
-      } catch (error) {
-        console.error("Error fetching Brightcove keys:", error);
-        toast({
-          title: "Error fetching Brightcove keys",
-          description: "Failed to load Brightcove API keys. Check the console for details.",
-          variant: "destructive",
-        });
+    return () => {
+      clearState();
+    };
+  }, [clearState, activeTab]);
+
+  // Handle video ID input change
+  const handleVideoIdChange = (value: string) => {
+    setVideoId(value);
+    if (videoDetails) {
+      setVideoDetails(null);
+      setCaptions([]);
+    }
+  };
+
+  // Handle searching for a video
+  const handleSearchVideo = async () => {
+    if (!videoId) {
+      toast({
+        title: "Video ID Required",
+        description: "Please enter a Brightcove video ID to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const details = await fetchVideoDetails(videoId);
+      setVideoDetails(details);
+      
+      // Also fetch captions if video details are found
+      if (details) {
+        handleFetchCaptions();
       }
-    }
-
-    loadBrightcoveKeys();
-  }, []);
-
-  // Check if user is an admin, redirect if not
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate("/signin");
-    } else if (!loading && isAuthenticated && !isAdmin) {
-      navigate("/app");
-    } else if (!loading && isAuthenticated) {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated, loading, isAdmin, navigate]);
-
-  const handleFetchVideoDetails = async () => {
-    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
-      toast({
-        title: "Error",
-        description: "Missing video ID, authorization token or account ID.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const video = await getVideoDetails(videoId, authToken);
-      setVideoDetails(video);
-      toast({
-        title: "Video Details",
-        description: `Successfully fetched details for video ID: ${videoId}.`,
-      });
     } catch (error: any) {
-      console.error("Error fetching video details:", error);
       toast({
-        title: "Error",
-        description: `Failed to fetch video details: ${error.message}`,
-        variant: "destructive",
+        title: "Error Fetching Video",
+        description: error.message || "Could not retrieve video details. Please check the ID and try again.",
+        variant: "destructive"
       });
     }
   };
 
-  const handleListCaptions = async () => {
-    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
+  // Handle fetching captions for a video
+  const handleFetchCaptions = async () => {
+    if (!videoId) {
       toast({
-        title: "Error",
-        description: "Missing video ID, authorization token or account ID.",
-        variant: "destructive",
+        title: "Video ID Required",
+        description: "Please enter a Brightcove video ID to fetch captions.",
+        variant: "destructive"
       });
       return;
     }
 
     try {
-      const captions = await listCaptionsForBrightcoveVideo(
-        videoId, 
-        brightcoveKeys.brightcove_account_id,
-        authToken
-      );
-      setCaptionsList(captions);
-      toast({
-        title: "Captions List",
-        description: `Successfully fetched captions list for video ID: ${videoId}.`,
-      });
+      const captionsData = await fetchCaptions(videoId);
+      setCaptions(captionsData || []);
     } catch (error: any) {
-      console.error("Error fetching captions list:", error);
       toast({
-        title: "Error",
-        description: `Failed to fetch captions list: ${error.message}`,
-        variant: "destructive",
+        title: "Error Fetching Captions",
+        description: error.message || "Could not retrieve captions. Please try again.",
+        variant: "destructive"
       });
     }
   };
 
-  const handleListAudioTracks = async () => {
-    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
+  // Handle publishing captions to Brightcove
+  const handlePublishCaptions = async (captionId: string, language: string, label: string) => {
+    if (!videoId || !captionId) {
       toast({
-        title: "Error",
-        description: "Missing video ID, authorization token or account ID.",
-        variant: "destructive",
+        title: "Missing Information",
+        description: "Video ID and caption ID are required to publish captions.",
+        variant: "destructive"
       });
       return;
     }
 
     try {
-      const tracks = await listAudioTracksForBrightcoveVideo(
-        videoId,
-        brightcoveKeys.brightcove_account_id,
-        authToken
-      );
-      setAudioTracks(tracks);
+      await publishCaptions(videoId, captionId, language);
       toast({
-        title: "Audio Tracks List",
-        description: `Successfully fetched audio tracks for video ID: ${videoId}.`,
+        title: "Captions Published",
+        description: `Captions for ${label || language} have been published successfully.`,
+        variant: "default"
       });
-    } catch (error: any) {
-      console.error("Error fetching audio tracks:", error);
-      toast({
-        title: "Error",
-        description: `Failed to fetch audio tracks: ${error.message}`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUploadCaption = async () => {
-    if (!videoId || !authToken) {
-      toast({
-        title: "Error",
-        description: "Please enter a video ID and ensure you're authorized.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedTrackId) {
-      toast({
-        title: "Error",
-        description: "Please select an audio track.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!captionText) {
-      toast({
-        title: "Error",
-        description: "Please enter caption text.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploading(true);
-    try {
-      // Convert boolean to string for the isDefault parameter
-      const isDefaultStr = isDefault ? "true" : "false";
       
-      const newCaption = await addCaptionToBrightcove(
-        videoId,
-        selectedTrackId,
-        authToken,
-        undefined, // modelId
-        undefined, // modelName
-        "en", // Default language
-        "English", // Default label
-        captionText // Using captionText as the URL for simplicity
-      );
-      
-      setCaptionsList([...captionsList, newCaption]);
-      setCaptionText("");
-      toast({
-        title: "Caption Uploaded",
-        description: "Successfully uploaded caption to Brightcove.",
-      });
+      // Refresh captions list after publishing
+      handleFetchCaptions();
     } catch (error: any) {
-      console.error("Error uploading caption:", error);
       toast({
-        title: "Error",
-        description: `Failed to upload caption: ${error.message}`,
-        variant: "destructive",
+        title: "Error Publishing Captions",
+        description: error.message || "Failed to publish captions. Please try again.",
+        variant: "destructive"
       });
-    } finally {
-      setUploading(false);
     }
   };
 
-  const handleDeleteCaption = async () => {
-    if (!videoId || !authToken || !brightcoveKeys.brightcove_account_id) {
-      toast({
-        title: "Error",
-        description: "Missing video ID, authorization token or account ID.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedCaption) {
-      toast({
-        title: "Error",
-        description: "Please select a caption to delete.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      await deleteCaptionFromBrightcove(
-        videoId,
-        selectedCaption.id,
-        brightcoveKeys.brightcove_account_id,
-        authToken
-      );
-      
-      setCaptionsList(captionsList.filter(caption => caption.id !== selectedCaption.id));
-      toast({
-        title: "Caption Deleted",
-        description: "Successfully deleted caption from Brightcove.",
-      });
-    } catch (error: any) {
-      console.error("Error deleting caption:", error);
-      toast({
-        title: "Error",
-        description: `Failed to delete caption: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setDeleting(false);
-    }
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    
+    // Reset states when changing tabs
+    setVideoId('');
+    setVideoDetails(null);
+    setCaptions([]);
+    clearState();
   };
-
-  if (loading || isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <span className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></span>
-          <p className="text-muted-foreground">Loading Brightcove integration...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <>
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container py-8 max-w-3xl">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate("/app")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-3xl font-bold">Brightcove Captions Manager</h1>
-          </div>
-        </div>
-
-        <Card>
+      <main className="container mx-auto py-8 px-4 md:px-8">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Video Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="video-id">Video ID</Label>
-              <Input
-                id="video-id"
-                value={videoId}
-                onChange={(e) => setVideoId(e.target.value)}
-                placeholder="Enter Brightcove Video ID"
-              />
-            </div>
-            <div className="flex gap-4">
-              <Button onClick={handleFetchVideoDetails}>Fetch Video Details</Button>
-              <Button onClick={handleListCaptions}>List Captions</Button>
-              <Button onClick={handleListAudioTracks}>List Audio Tracks</Button>
-            </div>
-            {videoDetails && (
-              <div className="border rounded-md p-4">
-                <h3 className="text-lg font-semibold">Video Information</h3>
-                <p>Name: {videoDetails.name}</p>
-                <p>Description: {videoDetails.description}</p>
-                <p>Duration: {videoDetails.duration}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Upload Caption</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="audio-track">Audio Track</Label>
-              <Select onValueChange={setSelectedTrackId}>
-                <SelectTrigger id="audio-track">
-                  <SelectValue placeholder="Select an audio track" />
-                </SelectTrigger>
-                <SelectContent>
-                  {audioTracks.map((track) => (
-                    <SelectItem key={track.id} value={track.id}>
-                      {track.label || track.language || track.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="caption-text">Caption Text</Label>
-              <Input
-                id="caption-text"
-                value={captionText}
-                onChange={(e) => setCaptionText(e.target.value)}
-                placeholder="Enter caption text"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch id="is-default" checked={isDefault} onCheckedChange={(checked) => setIsDefault(checked)} />
-              <Label htmlFor="is-default">Set as Default</Label>
-            </div>
-            <Button onClick={handleUploadCaption} disabled={uploading}>
-              {uploading ? "Uploading..." : "Upload Caption"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Captions List</CardTitle>
+            <CardTitle className="text-2xl">Brightcove Captions Manager</CardTitle>
+            <CardDescription>
+              Fetch, view, and manage captions for Brightcove videos
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {captionsList.length > 0 ? (
-              <ul className="list-none space-y-2">
-                {captionsList.map((caption) => (
-                  <li
-                    key={caption.id}
-                    className={`p-3 rounded-md cursor-pointer ${selectedCaption?.id === caption.id ? "bg-secondary" : "hover:bg-muted"}`}
-                    onClick={() => setSelectedCaption(caption)}
-                  >
-                    {caption.label || caption.language || caption.id}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No captions found for this video.</p>
-            )}
-            <Button
-              onClick={handleDeleteCaption}
-              disabled={deleting || !selectedCaption}
-              className="mt-4"
-              variant="destructive"
-            >
-              {deleting ? "Deleting..." : "Delete Selected Caption"}
-            </Button>
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
+              <TabsList className="mb-6">
+                <TabsTrigger value="lookup">Video Lookup</TabsTrigger>
+                <TabsTrigger value="direct">Direct Upload</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="lookup" className="space-y-6">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="videoId">Video ID</Label>
+                    <div className="flex items-center gap-2">
+                      <VideoIdInput videoId={videoId} onChange={handleVideoIdChange} />
+                      <Button onClick={handleSearchVideo} disabled={processingState.isLoading}>
+                        {processingState.isLoading ? "Loading..." : "Search"}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {videoDetails && (
+                    <>
+                      <VideoDetails video={videoDetails} />
+                      
+                      <div className="space-y-2 pt-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium">Captions</h3>
+                          <Button 
+                            variant="outline" 
+                            onClick={handleFetchCaptions}
+                            disabled={processingState.isLoading}
+                          >
+                            Refresh Captions
+                          </Button>
+                        </div>
+                        
+                        <CaptionsList 
+                          captions={captions} 
+                          videoId={videoId} 
+                          onPublish={handlePublishCaptions} 
+                          isLoading={processingState.isLoading}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="direct">
+                <DirectCaptionIngestion />
+              </TabsContent>
+            </Tabs>
           </CardContent>
+          <CardFooter className="border-t pt-6 flex flex-col items-start">
+            <p className="text-sm text-muted-foreground">
+              Note: Caption files must be in WebVTT (.vtt) format. For more information about 
+              Brightcove captions, refer to the Brightcove documentation.
+            </p>
+          </CardFooter>
         </Card>
-      </div>
-    </>
+      </main>
+      <Toaster />
+    </div>
   );
 }

@@ -22,5 +22,5 @@ export function useMobile() {
   return !!isMobile;
 }
 
-// Re-export useIsMobile for backward compatibility
-export { useIsMobile } from "./use-mobile";
+// Re-export for compatibility if there are existing imports elsewhere in the codebase
+export const useIsMobile = useMobile;

@@ -1,8 +1,10 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User, AuthResponse } from '@supabase/supabase-js';
+import { Session, User, AuthResponse as SupabaseAuthResponse } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+
+type AuthResponse = SupabaseAuthResponse;
 
 interface AuthContextType {
   session: Session | null;
