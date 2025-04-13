@@ -38,7 +38,8 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
     jumpForward,
     jumpBackward,
     jumpToSegment,
-    playSegment
+    playSegment,
+    isPlayingSegment
   } = useAudioControls({
     audioRef,
     isPlaying,
@@ -54,7 +55,8 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
 
   // Set up event listeners when component mounts
   useEffect(() => {
-    setupEventListeners();
+    const cleanup = setupEventListeners();
+    return cleanup;
   }, [vttSegments, setupEventListeners]);
   
   // Update audio element when volume or mute state changes
@@ -64,6 +66,16 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
       audioRef.current.muted = isMuted;
     }
   }, [volume, isMuted]);
+
+  // Update audio src when it changes
+  useEffect(() => {
+    if (audioRef.current && audioSrc) {
+      // Reset play state when audio source changes
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setActiveSegment(null);
+    }
+  }, [audioSrc]);
 
   return {
     audioRef,
@@ -83,6 +95,7 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
     jumpForward,
     jumpBackward,
     jumpToSegment,
-    playSegment
+    playSegment,
+    isPlayingSegment
   };
 };

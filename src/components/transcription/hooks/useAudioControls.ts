@@ -1,5 +1,5 @@
 
-import { RefObject } from 'react';
+import { RefObject, useRef } from 'react';
 import { parseTimeToSeconds } from '../utils/timeUtils';
 import { VTTSegment } from '../types';
 
@@ -28,6 +28,18 @@ export const useAudioControls = ({
   setCurrentTime,
   addLog
 }: UseAudioControlsProps) => {
+  // Ref to track current segment playback control
+  const segmentPlaybackRef = useRef<{
+    active: boolean;
+    segmentIndex: number | null;
+    endTime: number | null;
+    cleanupTimer: number | null;
+  }>({
+    active: false,
+    segmentIndex: null,
+    endTime: null,
+    cleanupTimer: null
+  });
 
   // Helper function to validate and safely parse time values
   const safeParseTimeToSeconds = (timeString: string): number | null => {
@@ -60,8 +72,26 @@ export const useAudioControls = ({
     }
   };
 
+  // Stop segment playback if active
+  const stopSegmentPlayback = () => {
+    if (segmentPlaybackRef.current.active && segmentPlaybackRef.current.cleanupTimer) {
+      window.clearTimeout(segmentPlaybackRef.current.cleanupTimer);
+      segmentPlaybackRef.current = {
+        active: false,
+        segmentIndex: null,
+        endTime: null,
+        cleanupTimer: null
+      };
+    }
+  };
+
   const togglePlay = () => {
     if (!audioRef.current) return;
+    
+    // If a segment is currently being played, stop segment control
+    if (segmentPlaybackRef.current.active) {
+      stopSegmentPlayback();
+    }
     
     if (isPlaying) {
       audioRef.current.pause();
@@ -78,6 +108,11 @@ export const useAudioControls = ({
   
   const handleSeek = (value: number[]) => {
     if (!audioRef.current) return;
+    
+    // If a segment is being played, stop segment control
+    if (segmentPlaybackRef.current.active) {
+      stopSegmentPlayback();
+    }
     
     const newTime = value[0];
     audioRef.current.currentTime = newTime;
@@ -99,11 +134,23 @@ export const useAudioControls = ({
   
   const jumpForward = () => {
     if (!audioRef.current) return;
+    
+    // If a segment is being played, stop segment control
+    if (segmentPlaybackRef.current.active) {
+      stopSegmentPlayback();
+    }
+    
     audioRef.current.currentTime = Math.min(audioRef.current.currentTime + 10, duration);
   };
   
   const jumpBackward = () => {
     if (!audioRef.current) return;
+    
+    // If a segment is being played, stop segment control
+    if (segmentPlaybackRef.current.active) {
+      stopSegmentPlayback();
+    }
+    
     audioRef.current.currentTime = Math.max(audioRef.current.currentTime - 10, 0);
   };
   
@@ -111,6 +158,11 @@ export const useAudioControls = ({
     if (!audioRef.current || !vttSegments[index]) return;
     
     try {
+      // If a segment is being played, stop segment control
+      if (segmentPlaybackRef.current.active) {
+        stopSegmentPlayback();
+      }
+      
       const startTime = safeParseTimeToSeconds(vttSegments[index].startTime);
       
       // If we couldn't parse the time properly, don't try to set it
@@ -144,6 +196,11 @@ export const useAudioControls = ({
     if (!audioRef.current || !vttSegments[index]) return;
     
     try {
+      // If a segment is already being played, stop it
+      if (segmentPlaybackRef.current.active) {
+        stopSegmentPlayback();
+      }
+      
       const startTime = safeParseTimeToSeconds(vttSegments[index].startTime);
       const endTime = safeParseTimeToSeconds(vttSegments[index].endTime);
       
@@ -155,21 +212,54 @@ export const useAudioControls = ({
         return;
       }
       
+      // Set up segment playback tracking
+      segmentPlaybackRef.current = {
+        active: true,
+        segmentIndex: index,
+        endTime: endTime,
+        cleanupTimer: null
+      };
+      
+      // Set audio to start time and play
       audioRef.current.currentTime = startTime;
       
+      // Set up timeupdate event handler for this segment
+      const handleSegmentTimeUpdate = () => {
+        if (!audioRef.current || !segmentPlaybackRef.current.active) return;
+        
+        // Check if we've reached the segment end time
+        if (audioRef.current.currentTime >= (segmentPlaybackRef.current.endTime || 0)) {
+          audioRef.current.pause();
+          audioRef.current.removeEventListener('timeupdate', handleSegmentTimeUpdate);
+          stopSegmentPlayback();
+        }
+      };
+      
+      // Add event listener for timeupdate
+      audioRef.current.addEventListener('timeupdate', handleSegmentTimeUpdate);
+      
+      // Start playback
       audioRef.current.play().catch(error => {
         console.error('Error playing audio segment:', error);
         addLog(`Error playing audio segment: ${error.message}`, "error", {
           source: "TranscriptionCard"
         });
+        audioRef.current?.removeEventListener('timeupdate', handleSegmentTimeUpdate);
+        stopSegmentPlayback();
       });
       
-      const duration = endTime - startTime;
-      setTimeout(() => {
-        if (audioRef.current && audioRef.current.currentTime >= endTime) {
+      // Set a safety timeout as backup (in case timeupdate doesn't fire properly)
+      const safetyDuration = (endTime - startTime) * 1000 + 500; // Add a small buffer
+      
+      const timerId = window.setTimeout(() => {
+        if (audioRef.current && segmentPlaybackRef.current.active) {
           audioRef.current.pause();
+          audioRef.current.removeEventListener('timeupdate', handleSegmentTimeUpdate);
+          stopSegmentPlayback();
         }
-      }, duration * 1000);
+      }, safetyDuration);
+      
+      segmentPlaybackRef.current.cleanupTimer = timerId as unknown as number;
       
       addLog(`Playing segment ${index + 1}`, "debug", {
         source: "TranscriptionCard",
@@ -192,6 +282,7 @@ export const useAudioControls = ({
     jumpForward,
     jumpBackward,
     jumpToSegment,
-    playSegment
+    playSegment,
+    isPlayingSegment: segmentPlaybackRef.current.active
   };
 };

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { useLogsStore } from "@/lib/useLogsStore";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
@@ -30,6 +30,7 @@ const TranscriptionCard = ({
   const [copied, setCopied] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   const addLog = useLogsStore(state => state.addLog);
+  const [currentlyPlayingSegment, setCurrentlyPlayingSegment] = useState<number | null>(null);
   
   const { segments: vttSegments, wordCount } = useVttParser(vttContent, modelName);
   
@@ -51,7 +52,8 @@ const TranscriptionCard = ({
     jumpForward,
     jumpBackward,
     jumpToSegment,
-    playSegment
+    playSegment,
+    isPlayingSegment
   } = useAudioPlayer(vttSegments, audioSrc);
   
   useEffect(() => {
@@ -64,6 +66,15 @@ const TranscriptionCard = ({
       segments: vttSegments.length
     });
   }, [vttContent, isLoading, modelName, audioSrc, vttSegments.length, isSelected]);
+  
+  // Update currentlyPlayingSegment when a segment is played
+  useEffect(() => {
+    if (isPlayingSegment) {
+      setCurrentlyPlayingSegment(activeSegment);
+    } else {
+      setCurrentlyPlayingSegment(null);
+    }
+  }, [isPlayingSegment, activeSegment]);
   
   const handleCopy = () => {
     if (vttContent) {
@@ -82,6 +93,11 @@ const TranscriptionCard = ({
     if (onTextEdit) {
       onTextEdit(editedVttContent);
     }
+  };
+
+  const handlePlaySegment = (index: number) => {
+    setCurrentlyPlayingSegment(index);
+    playSegment(index);
   };
 
   useEffect(() => {
@@ -113,9 +129,11 @@ const TranscriptionCard = ({
           vttContent={vttContent}
           modelName={modelName}
           onSegmentClick={jumpToSegment}
-          onPlaySegment={playSegment}
+          onPlaySegment={handlePlaySegment}
           isEditable={isEditable}
           onTextEdit={handleTextEdit}
+          isPlayingSegment={isPlayingSegment}
+          currentlyPlayingSegment={currentlyPlayingSegment}
         />
       </CardContent>
       

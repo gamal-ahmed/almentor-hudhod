@@ -17,6 +17,8 @@ interface TranscriptionContentProps {
   onPlaySegment: (index: number) => void;
   isEditable?: boolean;
   onTextEdit?: (editedVttContent: string) => void;
+  isPlayingSegment?: boolean;
+  currentlyPlayingSegment?: number | null;
 }
 
 const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
@@ -29,7 +31,9 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
   onSegmentClick,
   onPlaySegment,
   isEditable = false,
-  onTextEdit
+  onTextEdit,
+  isPlayingSegment = false,
+  currentlyPlayingSegment = null
 }) => {
   const addLog = useLogsStore(state => state.addLog);
   const [editMode, setEditMode] = useState(false);
@@ -100,6 +104,7 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
         {vttSegments.map((segment, index) => (
           <TranscriptionSegment
             key={index}
+            index={index}
             segment={segment}
             isActive={activeSegment === index}
             audioSrc={audioSrc}
@@ -107,6 +112,8 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
               if (audioSrc) onSegmentClick(index);
             }}
             onPlaySegment={() => onPlaySegment(index)}
+            isPlayingSegment={isPlayingSegment}
+            currentSegmentIndex={currentlyPlayingSegment !== null ? currentlyPlayingSegment : -1}
           />
         ))}
       </div>

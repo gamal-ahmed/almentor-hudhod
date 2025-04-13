@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
+import { Play, Pause } from "lucide-react";
 
 interface TranscriptionSegmentProps {
   segment: {
@@ -13,6 +13,9 @@ interface TranscriptionSegmentProps {
   audioSrc: string | null;
   onSegmentClick: () => void;
   onPlaySegment: () => void;
+  isPlayingSegment?: boolean;
+  currentSegmentIndex?: number;
+  index: number;
 }
 
 const TranscriptionSegment: React.FC<TranscriptionSegmentProps> = ({
@@ -21,11 +24,18 @@ const TranscriptionSegment: React.FC<TranscriptionSegmentProps> = ({
   audioSrc,
   onSegmentClick,
   onPlaySegment,
+  isPlayingSegment = false,
+  currentSegmentIndex = -1,
+  index,
 }) => {
+  const isCurrentlyPlaying = isPlayingSegment && currentSegmentIndex === index;
+  
   return (
     <div 
       className={`vtt-segment p-2 rounded-md mb-2 transition-colors ${
-        isActive 
+        isCurrentlyPlaying 
+          ? 'bg-primary/30 dark:bg-primary/50 border border-primary' 
+          : isActive 
           ? 'bg-primary/20 dark:bg-primary/40' 
           : 'bg-muted/30 hover:bg-muted/50'
       }`}
@@ -42,12 +52,18 @@ const TranscriptionSegment: React.FC<TranscriptionSegmentProps> = ({
               onPlaySegment();
             }}
           >
-            <Play className="h-3 w-3" />
+            {isCurrentlyPlaying ? (
+              <Pause className="h-3 w-3" />
+            ) : (
+              <Play className="h-3 w-3" />
+            )}
           </Button>
         )}
       </div>
       <div 
-        className="vtt-content text-sm mt-1 cursor-pointer" 
+        className={`vtt-content text-sm mt-1 cursor-pointer ${
+          isCurrentlyPlaying ? 'font-medium' : ''
+        }`}
         onClick={onSegmentClick}
       >
         {segment.text}

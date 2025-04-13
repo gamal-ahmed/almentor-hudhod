@@ -32,6 +32,7 @@ export const useAudioEventHandlers = ({
       const currentTime = audioRef.current.currentTime;
       setCurrentTime(currentTime);
       
+      // Find which segment the current time falls within
       const index = vttSegments.findIndex((segment) => {
         const startSeconds = parseTimeToSeconds(segment.startTime);
         const endSeconds = parseTimeToSeconds(segment.endTime);
@@ -41,7 +42,22 @@ export const useAudioEventHandlers = ({
       if (index !== -1) {
         setActiveSegment(index);
       } else {
-        setActiveSegment(null);
+        // If no segment is active, find the upcoming segment
+        const nextSegmentIndex = vttSegments.findIndex((segment) => {
+          const startSeconds = parseTimeToSeconds(segment.startTime);
+          return currentTime < startSeconds;
+        });
+        
+        // If we're near the beginning or between segments, show the closest one
+        if (nextSegmentIndex === 0 && currentTime < parseTimeToSeconds(vttSegments[0].startTime)) {
+          setActiveSegment(0); // Show first segment if we're before it
+        } else if (nextSegmentIndex > 0) {
+          // We're between segments, highlight the previous one
+          setActiveSegment(nextSegmentIndex - 1);
+        } else {
+          // We're past the last segment
+          setActiveSegment(vttSegments.length > 0 ? vttSegments.length - 1 : null);
+        }
       }
     };
     
