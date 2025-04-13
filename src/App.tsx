@@ -11,6 +11,7 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import SessionDetails from "./pages/SessionDetails";
 import BrightcoveCaptionsManager from "./pages/BrightcoveCaptionsManager";
+import AdminAnalytics from "./pages/AdminAnalytics"; // Import the new admin page
 import AuthGuard from "./components/AuthGuard";
 import { AuthProvider } from "./lib/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
@@ -65,6 +66,11 @@ const App = () => (
                 <Route path="/brightcove-captions-manager" element={
                   <AuthGuard>
                     <BrightcoveCaptionsManager />
+                  </AuthGuard>
+                } />
+                <Route path="/admin/analytics" element={
+                  <AuthGuard>
+                    <AdminAnalytics />
                   </AuthGuard>
                 } />
                 <Route path="*" element={<NotFound />} />

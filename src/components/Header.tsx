@@ -1,143 +1,115 @@
-
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import {
+  Home,
+  Film,
+  BarChart3,
+  AudioLines,
+  ChevronDown,
+  User,
+  HelpCircle,
+  LogOut,
+} from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "@/lib/AuthContext";
-import { Menu, X, Home, FileText, Film, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useMobile } from "@/hooks/useMobile";
 
-const Header = () => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
-  const location = useLocation();
+export function Header() {
+  const { isAuthenticated, user, signOut, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const isMobile = useMobile();
+  const path = useLocation().pathname;
   
-  const isActive = (path: string) => {
-    return location.pathname === path;
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/signin");
   };
 
-  const navigation = [
-    { name: 'Home', href: '/app', icon: Home, current: isActive('/app') },
-    { name: 'Sessions', href: '/app', icon: FileText, current: isActive('/app') },
-    { name: 'Brightcove Captions', href: '/brightcove-captions-manager', icon: Film, current: isActive('/brightcove-captions-manager') },
-  ];
-
   return (
-    <header className="bg-background border-b">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8" aria-label="Global">
-        <div className="flex lg:flex-1">
-          <Link to="/" className="-m-1.5 p-1.5 flex items-center gap-2">
-            <Zap className="h-8 w-8 text-primary" />
-            <span className="font-semibold tracking-tight">Hudhod</span>
-          </Link>
-        </div>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <Link to="/" className="flex items-center gap-2 font-bold mr-6">
+          <AudioLines className="h-6 w-6" />
+          <span className="hidden md:inline-block">Transcription Tool</span>
+        </Link>
         
-        <div className="flex lg:hidden">
-          <button
-            type="button"
-            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <span className="sr-only">Open main menu</span>
-            <Menu className="h-6 w-6" aria-hidden="true" />
-          </button>
-        </div>
-        
-        <div className="hidden lg:flex lg:gap-x-6">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={cn(
-                "text-sm font-semibold flex items-center gap-1 px-3 py-2 rounded-md",
-                item.current 
-                  ? "bg-primary text-primary-foreground" 
-                  : "hover:bg-muted"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.name}
-            </Link>
-          ))}
-        </div>
-        
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-          {user ? (
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-muted-foreground">
-                {user.email}
-              </div>
-              <Avatar>
-                <AvatarFallback>
-                  {user.email?.charAt(0).toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <Button variant="outline" onClick={signOut}>
-                Sign out
-              </Button>
-            </div>
-          ) : (
-            <Link to="/signin">
-              <Button variant="outline">Sign in</Button>
-            </Link>
-          )}
-        </div>
-      </nav>
-      
-      {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
-          <div className="fixed inset-0 flex">
-            <div className="w-full">
-              <div className="flex h-16 items-center justify-between px-6">
-                <Link to="/" className="-m-1.5 p-1.5 flex items-center gap-2">
-                  <img className="h-8 w-auto" src="/placeholder.svg" alt="Logo" />
-                  <span className="font-semibold tracking-tight">Transcription Service</span>
+        {isAuthenticated && (
+          <nav className="flex-1 flex items-center justify-between">
+            <div className="flex gap-2">
+              <Button 
+                asChild 
+                variant={path === "/app" ? "default" : "ghost"}
+                size={isMobile ? "icon" : "default"}
+              >
+                <Link to="/app">
+                  {isMobile ? <Home className="h-5 w-5" /> : "Dashboard"}
                 </Link>
-                <button
-                  type="button"
-                  className="-m-2.5 p-2.5"
-                  onClick={() => setMobileMenuOpen(false)}
+              </Button>
+              <Button 
+                asChild 
+                variant={path.includes("/brightcove-captions-manager") ? "default" : "ghost"}
+                size={isMobile ? "icon" : "default"}
+              >
+                <Link to="/brightcove-captions-manager">
+                  {isMobile ? <Film className="h-5 w-5" /> : "Video Captions"}
+                </Link>
+              </Button>
+              
+              {/* Add Admin Analytics Link - Only visible to admins */}
+              {isAdmin && (
+                <Button 
+                  asChild 
+                  variant={path.includes("/admin/analytics") ? "default" : "ghost"}
+                  size={isMobile ? "icon" : "default"}
                 >
-                  <span className="sr-only">Close menu</span>
-                  <X className="h-6 w-6" aria-hidden="true" />
-                </button>
-              </div>
-              <div className="py-6 px-6 space-y-2">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "block text-sm font-semibold flex items-center gap-2 px-3 py-2 rounded-md",
-                      item.current 
-                        ? "bg-primary text-primary-foreground" 
-                        : "hover:bg-muted"
-                    )}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.name}
+                  <Link to="/admin/analytics">
+                    {isMobile ? <BarChart3 className="h-5 w-5" /> : "Analytics"}
                   </Link>
-                ))}
-                {user && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-4" 
-                    onClick={() => {
-                      signOut();
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Sign out
-                  </Button>
-                )}
-              </div>
+                </Button>
+              )}
             </div>
-          </div>
-        </div>
-      )}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email || "Avatar"} />
+                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="absolute bottom-1.5 right-1 h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel>
+                  {user?.user_metadata?.full_name || user?.email || "User"}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <HelpCircle className="mr-2 h-4 w-4" />
+                  <span>Support</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </nav>
+        )}
+      </div>
     </header>
   );
-};
-
-export default Header;
+}
