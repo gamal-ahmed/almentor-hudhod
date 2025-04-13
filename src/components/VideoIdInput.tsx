@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 interface VideoIdInputProps {
   videoId: string;
   onChange: (id: string) => void;
-  disabled?: boolean;
+  disabled: boolean;
 }
 
-const VideoIdInput = ({ videoId, onChange, disabled = false }: VideoIdInputProps) => {
+const VideoIdInput = ({ videoId, onChange, disabled }: VideoIdInputProps) => {
   return (
     <div className="space-y-2">
       <Label htmlFor="videoId">Brightcove Video ID</Label>

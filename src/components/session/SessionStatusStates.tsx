@@ -1,31 +1,99 @@
 
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, FileText, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-interface SessionStatusStatesProps {
-  session: string;
+interface LoadingStateProps {
+  message?: string;
 }
 
-const SessionStatusStates = ({ session }: SessionStatusStatesProps) => {
+export const LoadingState: React.FC<LoadingStateProps> = ({ message = "Loading session details..." }) => (
+  <div className="flex flex-col items-center justify-center py-10">
+    <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+    <p className="text-muted-foreground text-center">{message}</p>
+  </div>
+);
+
+interface ErrorStateProps {
+  error: string;
+  onRetry: () => void;
+  sessionId?: string;
+}
+
+export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry, sessionId }) => {
+  const navigate = useNavigate();
+  
+  const handleBackToDashboard = () => {
+    navigate('/app');
+  };
+  
   return (
-    <Card className="mb-4">
-      <CardContent className="p-4">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            <span>Session ID: {session}</span>
-          </Badge>
-          
-          <Badge variant="outline" className="flex items-center gap-1 bg-green-50 text-green-700 border-green-200">
-            <CheckCircle className="h-3 w-3" />
-            <span>Status: Active</span>
-          </Badge>
+    <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 my-4">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
+        <div>
+          <h3 className="text-lg font-medium text-destructive mb-2">Error Loading Session</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRetry}
+              className="flex items-center gap-1.5"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Try Again
+            </Button>
+            
+            {!sessionId && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleBackToDashboard}
+                className="flex items-center gap-1.5"
+              >
+                Back to Dashboard
+              </Button>
+            )}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
-export default SessionStatusStates;
+interface EmptyStateProps {
+  onRefresh: () => void;
+}
+
+export const EmptyState: React.FC<EmptyStateProps> = ({ onRefresh }) => (
+  <div className="bg-muted rounded-lg p-6 my-4 text-center">
+    <FileText className="h-10 w-10 text-muted-foreground/70 mx-auto mb-4" />
+    <h3 className="text-lg font-medium mb-2">No Transcription Jobs Found</h3>
+    <p className="text-muted-foreground mb-4">
+      We couldn't find any transcription jobs for this session.
+    </p>
+    <Button 
+      variant="outline" 
+      size="sm" 
+      onClick={onRefresh}
+      className="flex items-center gap-1.5 mx-auto"
+    >
+      <RefreshCw className="h-4 w-4" />
+      Refresh
+    </Button>
+  </div>
+);
+
+interface NoJobSelectedStateProps {}
+
+export const NoJobSelectedState: React.FC<NoJobSelectedStateProps> = () => (
+  <div className="text-center py-10">
+    <FileText className="h-10 w-10 mx-auto mb-4 text-muted-foreground/70" />
+    <h3 className="text-lg font-medium mb-2">No Transcription Selected</h3>
+    <p className="text-muted-foreground">
+      Select a transcription job from the list to view details.
+    </p>
+  </div>
+);

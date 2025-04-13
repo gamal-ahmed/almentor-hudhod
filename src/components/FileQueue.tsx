@@ -3,48 +3,35 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileAudio, CheckCircle, XCircle, ArrowRight, Upload } from "lucide-react";
+import { FileAudio, CheckCircle, XCircle, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { showNotification } from "@/lib/notifications";
-import FileUpload from "@/components/FileUpload";
 
 interface FileQueueProps {
-  files?: File[];
-  currentIndex?: number;
-  onProcessNext?: () => void;
-  onSkip?: () => void;
-  onReset?: () => void;
-  isProcessing?: boolean;
-  notificationsEnabled?: boolean;
+  files: File[];
+  currentIndex: number;
+  onProcessNext: () => void;
+  onSkip: () => void;
+  onReset: () => void;
+  isProcessing: boolean;
+  notificationsEnabled: boolean;
 }
 
 const FileQueue = ({
-  files = [],
-  currentIndex = 0,
-  onProcessNext = () => {},
-  onSkip = () => {},
-  onReset = () => {},
-  isProcessing = false,
-  notificationsEnabled = false
+  files,
+  currentIndex,
+  onProcessNext,
+  onSkip,
+  onReset,
+  isProcessing,
+  notificationsEnabled
 }: FileQueueProps) => {
   const { toast } = useToast();
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  
-  const displayFiles = files.length > 0 ? files : uploadedFiles;
-  
-  const handleFileUpload = (file: File) => {
-    setUploadedFiles(prev => [...prev, file]);
-    toast({
-      title: "File added to queue",
-      description: `${file.name} has been added to the queue.`
-    });
-  };
   
   const handleConfirm = () => {
     if (notificationsEnabled) {
       showNotification("File Confirmed", {
-        body: `Confirmed: ${displayFiles[currentIndex - 1]?.name || "Unknown file"}. Moving to next file.`,
+        body: `Confirmed: ${files[currentIndex - 1]?.name || "Unknown file"}. Moving to next file.`,
         tag: "file-queue"
       });
     }
@@ -55,7 +42,7 @@ const FileQueue = ({
   const handleSkip = () => {
     if (notificationsEnabled) {
       showNotification("File Skipped", {
-        body: `Skipped: ${displayFiles[currentIndex]?.name || "Unknown file"}. Moving to next file.`,
+        body: `Skipped: ${files[currentIndex]?.name || "Unknown file"}. Moving to next file.`,
         tag: "file-queue"
       });
     }
@@ -63,27 +50,8 @@ const FileQueue = ({
     onSkip();
   };
   
-  // If no files are present, show the upload interface
-  if (displayFiles.length === 0) {
-    return (
-      <Card className="overflow-hidden border-t-4 border-t-purple-500 shadow-md hover:shadow-lg transition-shadow">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl font-semibold flex items-center">
-            <FileAudio className="mr-2 h-5 w-5 text-purple-500" />
-            Audio Transcription Queue
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FileUpload 
-            onFileUpload={handleFileUpload}
-            isUploading={isUploading}
-          />
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Upload an audio file to start the transcription process
-          </p>
-        </CardContent>
-      </Card>
-    );
+  if (!files.length) {
+    return null;
   }
   
   return (
@@ -91,12 +59,12 @@ const FileQueue = ({
       <CardHeader className="pb-3">
         <CardTitle className="text-xl font-semibold flex items-center">
           <FileAudio className="mr-2 h-5 w-5 text-purple-500" />
-          MP3 Queue ({currentIndex}/{displayFiles.length})
+          MP3 Queue ({currentIndex}/{files.length})
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-48 rounded-md border p-2">
-          {displayFiles.map((file, index) => (
+          {files.map((file, index) => (
             <div
               key={`${file.name}-${index}`}
               className={`flex items-center justify-between p-2 mb-1 rounded-md ${
@@ -134,7 +102,7 @@ const FileQueue = ({
         </ScrollArea>
       </CardContent>
       <CardFooter className="flex justify-between border-t pt-4">
-        {currentIndex > 0 && currentIndex < displayFiles.length ? (
+        {currentIndex > 0 && currentIndex < files.length ? (
           <>
             <Button
               variant="outline"
@@ -155,7 +123,7 @@ const FileQueue = ({
               Confirm & Next
             </Button>
           </>
-        ) : currentIndex === displayFiles.length ? (
+        ) : currentIndex === files.length ? (
           <Button
             size="sm"
             onClick={onReset}
@@ -174,26 +142,6 @@ const FileQueue = ({
             Start Processing
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-2"
-          onClick={() => document.getElementById('file-upload-input')?.click()}
-        >
-          <Upload className="mr-1 h-4 w-4" />
-          Add More Files
-        </Button>
-        <input 
-          id="file-upload-input" 
-          type="file" 
-          accept="audio/*" 
-          className="hidden" 
-          onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-              handleFileUpload(e.target.files[0]);
-            }
-          }}
-        />
       </CardFooter>
     </Card>
   );

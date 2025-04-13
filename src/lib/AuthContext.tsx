@@ -1,32 +1,30 @@
+
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User, AuthResponse as SupabaseAuthResponse } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
-type AuthResponse = SupabaseAuthResponse;
-
 interface AuthContextType {
-  session: Session | null;
   user: User | null;
-  isAuthenticated: boolean;
+  session: Session | null;
   loading: boolean;
-  isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<AuthResponse>;
-  signUp: (email: string, password: string) => Promise<AuthResponse>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
+  
   useEffect(() => {
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         console.log(`Auth state changed: ${event}`, currentSession);
@@ -39,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
@@ -48,48 +47,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  useEffect(() => {
-    async function checkAdminStatus() {
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        if (!error && data && data.role === 'admin') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-      }
-    }
-
-    checkAdminStatus();
-  }, [user]);
-
   const signUp = async (email: string, password: string) => {
     try {
-      const response = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({ email, password });
       
-      if (response.error) {
-        throw response.error;
+      if (error) {
+        throw error;
       }
       
       toast({
         title: "Account created",
         description: "Please check your email to verify your account",
       });
-      
-      return response;
     } catch (error: any) {
       toast({
         title: "Error creating account",
@@ -102,10 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const response = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       
-      if (response.error) {
-        throw response.error;
+      if (error) {
+        throw error;
       }
       
       toast({
@@ -114,7 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       navigate('/app');
-      return response;
     } catch (error: any) {
       toast({
         title: "Error signing in",
@@ -146,14 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session,
         user,
-        isAuthenticated,
+        session,
         loading,
-        isAdmin,
-        signIn,
         signUp,
+        signIn,
         signOut,
+        isAuthenticated,
       }}
     >
       {children}
