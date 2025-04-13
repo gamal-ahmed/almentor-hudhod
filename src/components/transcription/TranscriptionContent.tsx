@@ -1,10 +1,14 @@
 
 import React, { useState } from "react";
-import TranscriptionSegment from "./TranscriptionSegment";
 import { useLogsStore } from "@/lib/useLogsStore";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { VTTSegment } from "./types";
+
+// Import the new component files
+import LoadingState from "./components/LoadingState";
+import SegmentsList from "./components/SegmentsList";
+import EditableTranscription from "./components/EditableTranscription";
+import RawVttView from "./components/RawVttView";
+import EmptyTranscriptionState from "./components/EmptyTranscriptionState";
 
 interface TranscriptionContentProps {
   vttSegments: VTTSegment[];
@@ -78,155 +82,55 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
     setEditMode(false);
   };
 
+  // Conditional rendering based on state
   if (isLoading) {
-    return (
-      <div className="text-center text-muted-foreground animate-pulse-opacity">
-        Generating transcription...
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (!editMode && vttSegments.length > 0) {
     return (
-      <div className="space-y-1">
-        {isEditable && (
-          <div className="flex justify-end mb-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setEditMode(true)}
-              className="text-xs"
-            >
-              Edit Transcription
-            </Button>
-          </div>
-        )}
-        {vttSegments.map((segment, index) => (
-          <TranscriptionSegment
-            key={index}
-            index={index}
-            segment={segment}
-            isActive={activeSegment === index}
-            audioSrc={audioSrc}
-            onSegmentClick={() => {
-              if (audioSrc) onSegmentClick(index);
-            }}
-            onPlaySegment={() => onPlaySegment(index)}
-            isPlayingSegment={isPlayingSegment}
-            currentSegmentIndex={currentlyPlayingSegment !== null ? currentlyPlayingSegment : -1}
-          />
-        ))}
-      </div>
+      <SegmentsList 
+        vttSegments={vttSegments}
+        activeSegment={activeSegment}
+        audioSrc={audioSrc}
+        onSegmentClick={onSegmentClick}
+        onPlaySegment={onPlaySegment}
+        isEditable={isEditable}
+        setEditMode={setEditMode}
+        isPlayingSegment={isPlayingSegment}
+        currentlyPlayingSegment={currentlyPlayingSegment}
+      />
     );
   }
 
   if (editMode && editedSegments.length > 0) {
     return (
-      <div className="space-y-3">
-        <div className="flex justify-between mb-2">
-          <span className="text-sm font-medium">Editing Transcription</span>
-          <div className="space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleCancelEdits}
-              className="text-xs"
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={handleSaveEdits}
-              className="text-xs"
-            >
-              Save Changes
-            </Button>
-          </div>
-        </div>
-        {editedSegments.map((segment, index) => (
-          <div key={index} className="border rounded-md p-2 bg-muted/20">
-            <div className="flex text-xs text-muted-foreground mb-1">
-              <span>{segment.startTime} → {segment.endTime}</span>
-            </div>
-            <Textarea
-              value={segment.text}
-              onChange={(e) => handleSegmentTextChange(index, e.target.value)}
-              className="min-h-[60px] text-sm"
-            />
-          </div>
-        ))}
-      </div>
+      <EditableTranscription 
+        editedSegments={editedSegments}
+        handleSegmentTextChange={handleSegmentTextChange}
+        handleSaveEdits={handleSaveEdits}
+        handleCancelEdits={handleCancelEdits}
+      />
     );
   }
 
   if (vttContent && vttContent.length > 0) {
     // If there's content but no segments, show raw VTT content
     return (
-      <div className="p-2">
-        <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-md mb-4 text-xs">
-          <p className="font-medium">VTT parsing issue detected</p>
-          <p className="mt-1">The transcription was received but couldn't be parsed into segments.</p>
-        </div>
-        {isEditable && !editMode ? (
-          <div className="flex justify-end mb-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setEditMode(true)}
-              className="text-xs"
-            >
-              Edit Raw VTT
-            </Button>
-          </div>
-        ) : null}
-        
-        {editMode ? (
-          <div>
-            <Textarea
-              value={editedContent}
-              onChange={(e) => setEditedContent(e.target.value)}
-              className="min-h-[200px] font-mono text-xs"
-            />
-            <div className="flex justify-end mt-2 space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleCancelEdits}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={handleSaveEdits}
-                className="text-xs"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="vtt-content text-sm border border-dashed p-3 rounded-md max-h-[200px] overflow-y-auto">
-            {vttContent}
-          </div>
-        )}
-      </div>
+      <RawVttView 
+        vttContent={vttContent}
+        editMode={editMode}
+        isEditable={isEditable}
+        editedContent={editedContent}
+        setEditMode={setEditMode}
+        setEditedContent={setEditedContent}
+        handleSaveEdits={handleSaveEdits}
+        handleCancelEdits={handleCancelEdits}
+      />
     );
   }
 
-  return (
-    <div className="text-center text-muted-foreground flex flex-col items-center justify-center h-full">
-      <span className="text-4xl mb-2">📝</span>
-      <span>No transcription available yet</span>
-      {modelName && modelName.includes("Gemini") && (
-        <span className="text-xs mt-2 px-2 py-1 bg-red-100 dark:bg-red-900/20 rounded-md">
-            Check logs for Gemini transcription status
-        </span>
-      )}
-    </div>
-  );
+  return <EmptyTranscriptionState modelName={modelName} />;
 };
 
 export default TranscriptionContent;
