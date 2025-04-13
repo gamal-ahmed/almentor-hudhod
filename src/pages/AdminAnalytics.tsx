@@ -54,6 +54,13 @@ interface ModelStat {
   acceptanceRate: string;
 }
 
+// Define types for props of components
+interface StatsCardProps {
+  title: string;
+  value: React.ReactNode;
+  icon: React.ReactNode;
+}
+
 export default function AdminAnalytics() {
   const { isAuthenticated, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -177,7 +184,7 @@ export default function AdminAnalytics() {
 }
 
 // Stats Card Component
-function StatsCard({ title, value, icon }) {
+function StatsCard({ title, value, icon }: StatsCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
