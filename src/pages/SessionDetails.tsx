@@ -63,16 +63,16 @@ export default function SessionDetails() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto py-8 px-4 md:px-8">
-        <SessionHeader session={loadedSessionId} />
+        <SessionHeader sessionId={loadedSessionId} />
         <SessionStatusStates session={loadedSessionId} />
         <div className="md:grid md:grid-cols-4 md:gap-4">
           <div className="md:col-span-1">
             <Card className="mb-4">
               <CardContent className="p-4">
                 <TranscriptionJobList
-                  jobs={sessionJobs}
-                  selectedJob={selectedJob}
-                  onJobSelect={(job) => setSelectedJob(job)}
+                  jobList={sessionJobs}
+                  selectedJobId={selectedJob?.id}
+                  onSelectJob={(job) => setSelectedJob(job)}
                 />
               </CardContent>
             </Card>
@@ -85,10 +85,15 @@ export default function SessionDetails() {
                 <TabsTrigger value="single">Single Job View</TabsTrigger>
               </TabsList>
               <TabsContent value="comparison">
-                <ComparisonView jobs={sessionJobs} />
+                <ComparisonView sessionJobs={sessionJobs} />
               </TabsContent>
               <TabsContent value="single">
-                <SingleJobView selectedJob={selectedJob} />
+                <SingleJobView 
+                  selectedJob={selectedJob} 
+                  audioUrl={audioUrl} 
+                  extractVttContent={() => ''} 
+                  getModelDisplayName={(model) => model}
+                />
               </TabsContent>
             </Tabs>
           </div>

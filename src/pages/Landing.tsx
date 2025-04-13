@@ -1,60 +1,61 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
+import { Button } from "@/components/ui/button"; 
 import HeroSection from '@/components/HeroSection';
 import FeatureCard from '@/components/FeatureCard';
-import { Button } from '@/components/ui/button';
+import { Header } from '@/components/Header';
 import Footer from '@/components/Footer';
+import { FileAudio, BarChart, Globe } from 'lucide-react';
 
 const Landing = () => {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <Header />
+      
       <main className="flex-grow">
         <HeroSection />
-
-        <section className="py-12 bg-gray-50 dark:bg-gray-800">
-          <div className="container mx-auto text-center">
-            <h2 className="text-3xl font-semibold text-gray-800 dark:text-white mb-8">
-              Key Features
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <FeatureCard
-                title="AI-Powered Transcription"
-                description="Leverage advanced AI to convert audio to text with high accuracy."
-                icon="ai"
+        
+        <section className="py-16 bg-background">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12">Key Features</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <FeatureCard 
+                title="Multiple AI Models" 
+                description="Compare transcriptions from different AI models to get the best results."
+                icon={FileAudio} 
               />
-              <FeatureCard
-                title="Multi-Format Support"
-                description="Supports a wide range of audio and video formats for flexible transcription."
-                icon="format"
+              
+              <FeatureCard 
+                title="Analytics Dashboard" 
+                description="Track usage, accuracy, and performance metrics across all transcriptions."
+                icon={BarChart} 
               />
-              <FeatureCard
-                title="Real-time Editing"
-                description="Edit and refine transcriptions in real-time for perfect results."
-                icon="edit"
+              
+              <FeatureCard 
+                title="Global Publishing" 
+                description="Seamlessly publish captions to Brightcove and other video platforms."
+                icon={Globe} 
               />
             </div>
-          </div>
-        </section>
-
-        <section className="py-12">
-          <div className="container mx-auto text-center">
-            <h2 className="text-3xl font-semibold text-gray-800 dark:text-white mb-8">
-              Get Started Today
-            </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
-              Start transcribing your audio files with ease. Sign up now and get a free trial!
-            </p>
-            <div className="flex justify-center">
-              <Button asChild size="lg">
-                <Link to="/signup">Sign Up</Link>
-              </Button>
+            
+            <div className="mt-12 text-center">
+              <Link to="/signin">
+                <Button size="lg" className="mr-4">
+                  Get Started
+                </Button>
+              </Link>
+              <Link to="/app">
+                <Button variant="outline" size="lg">
+                  Demo
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
       </main>
+      
       <Footer />
     </div>
   );
