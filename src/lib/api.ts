@@ -84,9 +84,28 @@ export async function fetchBrightcoveKeys() {
   }
 }
 
-// Transcribe audio using selected model - directly uploads the file
+// Add logging to clientTranscribeAudio
 export async function transcribeAudio(file: File, model: TranscriptionModel, prompt = "Please preserve all English words exactly as spoken") {
-  return serverTranscribeAudio(file, model, prompt);
+  const addLog = getLogsStore().addLog;
+  const startTimedLog = getLogsStore().startTimedLog;
+  
+  const logOperation = startTimedLog(`Starting ${model} transcription`, "info", model);
+  
+  try {
+    addLog(`Transcribing with ${model}`, "info", {
+      source: model,
+      details: `File: ${file.name}, Size: ${file.size} bytes`
+    });
+    
+    return serverTranscribeAudio(file, model, prompt);
+  } catch (error) {
+    addLog(`Error in ${model} transcription: ${error.message}`, "error", {
+      source: model,
+      details: error.stack
+    });
+    logOperation.error(`${error.message}`, error.stack);
+    throw error;
+  }
 }
 
 // Helper function to convert text to VTT format
