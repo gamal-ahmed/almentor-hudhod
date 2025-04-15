@@ -1,12 +1,25 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, DEFAULT_PROMPT } from "./constants.ts";
-import { properlyEncodedBase64, createGeminiRequest, convertTextToVTT } from "./utils.ts";
 
-// Maximum number of retries for rate limit errors
-const MAX_RETRIES = 3;
-// Initial delay in milliseconds before retrying (will increase with backoff)
-const INITIAL_RETRY_DELAY = 1000;
+// CORS headers for browser access
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Updated prompt with specific instructions for bilingual transcription
+const DEFAULT_PROMPT = `You will be provided with an audio file: below
+and the primary language of the audio: ar-EG and en-US
+
+Instructions:
+
+1. Listen to the provided audio file below.
+2. Identify and transcribe only the speech, ignoring any background noise or music.
+3. Transcribe the Arabic and English speech. Write English words in English and Arabic words in Arabic.
+
+4. If the audio quality is poor or unclear, indicate this in your response and identify the problematic sections (e.g., "Audio unclear from 0:15 to 0:25").
+5. If the audio does not contain Arabic speech or contains predominantly another language, state that "The audio does not meet the specified language criteria."
+
+Output Format: VTT`;
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -63,125 +76,117 @@ serve(async (req) => {
     
     console.log(`Audio conversion complete, base64 length: ${base64Audio.length}`);
     
-    // Create the Gemini API request
-    const geminiRequestBody = createGeminiRequest(prompt, base64Audio, audioFile.type);
-    
+    // Define the Gemini API request with system instructions
+    const geminiRequestBody = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `${prompt}\n\nTranscribe the following audio file and return the transcript with timestamps in WebVTT format. Do not translate any words - preserve ALL English words exactly as spoken, including names, technical terms, and acronyms.`
+            },
+            {
+              inline_data: {
+                mime_type: audioFile.type,
+                data: base64Audio
+              }
+            }
+          ]
+        }
+      ],
+      generation_config: {
+        temperature: 0.1,
+        top_p: 0.95,
+        top_k: 40,
+        max_output_tokens: 8192
+      }
+    };
+
     // Log the full request body for debugging
     console.log('Full Gemini Request Body:', JSON.stringify(geminiRequestBody, null, 2));
     
-    // Implement retry logic for rate limit errors
-    let retries = 0;
-    let lastError;
+    console.log('Sending request to Gemini API');
     
-    while (retries <= MAX_RETRIES) {
-      if (retries > 0) {
-        const delay = INITIAL_RETRY_DELAY * Math.pow(2, retries - 1);
-        console.log(`Rate limit hit. Retry attempt ${retries}/${MAX_RETRIES}. Waiting ${delay}ms before retrying...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+    // Make the request to the Gemini API with the updated model
+    const geminiResponse = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-03-25:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify(geminiRequestBody)
       }
+    );
+
+    // Check for errors in the Gemini response
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Gemini API error: ${geminiResponse.statusText}`,
+          details: errorText
+        }),
+        { 
+          status: geminiResponse.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Parse the Gemini response
+    const geminiData = await geminiResponse.json();
+    console.log('Received response from Gemini API');
+    
+    let transcription = '';
+    
+    // Extract the text from the Gemini response
+    if (geminiData.candidates && geminiData.candidates.length > 0 && 
+        geminiData.candidates[0].content && 
+        geminiData.candidates[0].content.parts && 
+        geminiData.candidates[0].content.parts.length > 0) {
       
-      console.log(`Sending request to Gemini API${retries > 0 ? ` (retry ${retries}/${MAX_RETRIES})` : ''}`);
-      
-      try {
-        // Make the request to the Gemini API
-        const geminiResponse = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-03-25:generateContent",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": apiKey
-            },
-            body: JSON.stringify(geminiRequestBody)
-          }
-        );
-
-        // Check if we hit a rate limit
-        if (geminiResponse.status === 429) {
-          console.warn(`Rate limit error (429) encountered on attempt ${retries + 1}/${MAX_RETRIES + 1}`);
-          const rateLimitData = await geminiResponse.json();
-          console.warn('Rate limit details:', JSON.stringify(rateLimitData));
-          
-          lastError = new Error(`Gemini API rate limit exceeded: ${JSON.stringify(rateLimitData)}`);
-          retries++;
-          continue; // Try again after delay
+      transcription = geminiData.candidates[0].content.parts[0].text;
+      console.log(`Extracted transcription (${transcription.length} chars)`);
+    } else {
+      console.error('Unexpected Gemini response format:', JSON.stringify(geminiData, null, 2));
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid response format from Gemini API',
+          rawResponse: geminiData
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-
-        // Check for other errors in the Gemini response
-        if (!geminiResponse.ok) {
-          const errorText = await geminiResponse.text();
-          console.error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
-          return new Response(
-            JSON.stringify({ 
-              error: `Gemini API error: ${geminiResponse.statusText}`,
-              details: errorText,
-              status: geminiResponse.status
-            }),
-            { 
-              status: geminiResponse.status, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-
-        // Parse the Gemini response
-        const geminiData = await geminiResponse.json();
-        console.log('Received response from Gemini API');
-        
-        let transcription = '';
-        
-        // Extract the text from the Gemini response
-        if (geminiData.candidates && geminiData.candidates.length > 0 && 
-            geminiData.candidates[0].content && 
-            geminiData.candidates[0].content.parts && 
-            geminiData.candidates[0].content.parts.length > 0) {
-          
-          transcription = geminiData.candidates[0].content.parts[0].text;
-          console.log(`Extracted transcription (${transcription.length} chars)`);
-        } else {
-          console.error('Unexpected Gemini response format:', JSON.stringify(geminiData, null, 2));
-          return new Response(
-            JSON.stringify({ 
-              error: 'Invalid response format from Gemini API',
-              rawResponse: geminiData
-            }),
-            { 
-              status: 500, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-        
-        // Determine if the response is already in VTT format or needs conversion
-        const isVttFormat = transcription.trim().startsWith('WEBVTT');
-        let vttContent = isVttFormat ? transcription : convertTextToVTT(transcription);
-        
-        console.log(`Generated VTT content (${vttContent.length} chars)`);
-
-        // Return the successful response
-        return new Response(
-          JSON.stringify({ 
-            vttContent,
-            prompt
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      } catch (fetchError) {
-        console.error(`Network error on attempt ${retries + 1}/${MAX_RETRIES + 1}:`, fetchError);
-        lastError = fetchError;
-        retries++;
-        
-        // If this was the last retry, we'll exit the loop and throw the error
-        if (retries > MAX_RETRIES) {
-          break;
-        }
-      }
+      );
     }
     
-    // If we've exhausted all retries
-    throw lastError || new Error('Maximum retry attempts exceeded');
+    // Determine if the response is already in VTT format or needs conversion
+    const isVttFormat = transcription.trim().startsWith('WEBVTT');
+    let vttContent = '';
+    
+    if (isVttFormat) {
+      vttContent = transcription;
+    } else {
+      // Convert plain text to VTT format
+      vttContent = convertTextToVTT(transcription);
+    }
+    
+    console.log(`Generated VTT content (${vttContent.length} chars)`);
+
+    // Return the successful response
+    return new Response(
+      JSON.stringify({ 
+        vttContent,
+        prompt
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   } catch (error) {
     console.error('Error processing transcription request:', error);
     return new Response(
@@ -197,3 +202,51 @@ serve(async (req) => {
     );
   }
 });
+
+// Properly encode to base64 for Gemini API
+async function properlyEncodedBase64(buffer: ArrayBuffer, mimeType: string): Promise<string> {
+  const bytes = new Uint8Array(buffer);
+  
+  // Convert to a binary string first
+  let binary = '';
+  const chunkSize = 1024; // Use small chunks to avoid stack issues
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, Math.min(i + chunkSize, bytes.length));
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
+  }
+  
+  // Use btoa for standard base64 encoding
+  // This needs to be called once on the complete binary string
+  // to ensure proper padding and formatting
+  return btoa(binary);
+}
+
+// Helper function to convert text to VTT format
+function convertTextToVTT(text: string): string {
+  let vttContent = 'WEBVTT\n\n';
+  
+  // Split text into sentences or chunks
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  
+  // Create a VTT cue for each sentence with appropriate timestamps
+  sentences.forEach((sentence, index) => {
+    const startTime = formatVTTTime(index * 5);
+    const endTime = formatVTTTime((index + 1) * 5);
+    vttContent += `${startTime} --> ${endTime}\n${sentence.trim()}\n\n`;
+  });
+  
+  return vttContent;
+}
+
+// Helper function to format time in seconds to VTT timestamp format (HH:MM:SS.mmm)
+function formatVTTTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const milliseconds = Math.floor((seconds % 1) * 1000);
+  
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
+}
