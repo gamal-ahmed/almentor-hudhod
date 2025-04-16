@@ -1,4 +1,5 @@
-// Enhanced parseVTT function with better error handling
+
+// Enhanced parseVTT function with better format handling
 export function parseVTT(vttContent: string) {
   try {
     // Check if the content is empty or not a string
@@ -7,13 +8,21 @@ export function parseVTT(vttContent: string) {
       return [];
     }
 
+    // Clean up potential formatting issues
+    let cleanContent = vttContent
+      .replace(/WEBVTT\s*FILE/i, 'WEBVTT') // Normalize header
+      .replace(/(\d{2}:\d{2}:\d{2})(\s*)-->(\s*)(\d{2}:\d{2}:\d{2})/g, '$1.000 --> $4.000') // Add milliseconds if missing
+      .replace(/(\d+:\d+)\s+-->\s+(\d+:\d+)/g, '00:$1.000 --> 00:$2.000') // Handle MM:SS format
+      .replace(/NOTE\s+.*\n/g, '') // Remove NOTE lines
+      .replace(/^\s*$\n/gm, ''); // Remove empty lines
+
     // Ensure the content starts with WEBVTT
-    if (!vttContent.trim().startsWith('WEBVTT')) {
-      vttContent = `WEBVTT\n\n${vttContent}`;
+    if (!cleanContent.trim().startsWith('WEBVTT')) {
+      cleanContent = `WEBVTT\n\n${cleanContent}`;
     }
     
     // Split the content into lines
-    const lines = vttContent.split('\n');
+    const lines = cleanContent.split('\n');
     console.log('VTT split into', lines.length, 'lines');
 
     const segments: {
@@ -33,9 +42,21 @@ export function parseVTT(vttContent: string) {
         continue;
       }
 
-      // If we find a timestamp line (contains -->)
+      // Check for timestamp line (contains -->)
       if (line.includes('-->')) {
-        const [startTime, endTime] = line.split('-->').map(t => t.trim());
+        // Extract and normalize timestamps
+        const [startTime, endTime] = line.split('-->').map(t => {
+          let time = t.trim();
+          // Add milliseconds if missing
+          if (!time.includes('.')) {
+            time += '.000';
+          }
+          // Add hours if missing
+          if (time.split(':').length === 2) {
+            time = '00:' + time;
+          }
+          return time;
+        });
         
         // Create a new segment
         currentSegment = {
@@ -47,15 +68,23 @@ export function parseVTT(vttContent: string) {
       } 
       // Add text content to the current segment
       else if (inCue && currentSegment) {
-        // Add the line to the current segment's text
-        if (currentSegment.text.length > 0) {
-          currentSegment.text += ' ' + line;
-        } else {
-          currentSegment.text = line;
+        // Clean up any timestamp-like patterns from the text
+        const cleanedLine = line
+          .replace(/\d{2}:\d{2}:\d{2}\.\d{3}/g, '') // Remove full timestamps
+          .replace(/\d{2}:\d{2}:\d{2}/g, '') // Remove timestamps without milliseconds
+          .replace(/\d{2}:\d{2}/g, '') // Remove MM:SS format
+          .trim();
+
+        if (cleanedLine) {
+          // Add the cleaned line to the current segment's text
+          if (currentSegment.text.length > 0) {
+            currentSegment.text += ' ' + cleanedLine;
+          } else {
+            currentSegment.text = cleanedLine;
+          }
         }
 
         // Check if the next line is empty or a new cue timestamp
-        // If so, add the completed segment and reset
         const nextLine = i < lines.length - 1 ? lines[i + 1].trim() : '';
         if (nextLine === '' || nextLine.includes('-->') || i === lines.length - 1) {
           if (currentSegment.text) {
