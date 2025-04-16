@@ -20,6 +20,7 @@ interface TranscriptionContentProps {
   currentlyPlayingSegment?: number | null;
   error?: string;
   onRetry?: () => void;
+  isSegmentPaused?: boolean;
 }
 
 const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
