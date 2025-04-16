@@ -1,4 +1,6 @@
 
+import React from 'react';
+
 // Enhanced parseVTT function with better format handling
 export function parseVTT(vttContent: string) {
   try {
@@ -13,6 +15,7 @@ export function parseVTT(vttContent: string) {
       .replace(/WEBVTT\s*FILE/i, 'WEBVTT') // Normalize header
       .replace(/(\d{2}:\d{2}:\d{2})(\s*)-->(\s*)(\d{2}:\d{2}:\d{2})/g, '$1.000 --> $4.000') // Add milliseconds if missing
       .replace(/(\d+:\d+)\s+-->\s+(\d+:\d+)/g, '00:$1.000 --> 00:$2.000') // Handle MM:SS format
+      .replace(/^(?:\d+\s*|\.\s*)+\n/gm, '') // Remove lines with just dots, numbers, or periods
       .replace(/NOTE\s+.*\n/g, '') // Remove NOTE lines
       .replace(/^\s*$\n/gm, ''); // Remove empty lines
 
@@ -68,8 +71,9 @@ export function parseVTT(vttContent: string) {
       } 
       // Add text content to the current segment
       else if (inCue && currentSegment) {
-        // Clean up any timestamp-like patterns from the text
+        // Clean up any timestamp-like patterns and numbers from the text
         const cleanedLine = line
+          .replace(/^\d+\s*/, '') // Remove leading numbers
           .replace(/\d{2}:\d{2}:\d{2}\.\d{3}/g, '') // Remove full timestamps
           .replace(/\d{2}:\d{2}:\d{2}/g, '') // Remove timestamps without milliseconds
           .replace(/\d{2}:\d{2}/g, '') // Remove MM:SS format
