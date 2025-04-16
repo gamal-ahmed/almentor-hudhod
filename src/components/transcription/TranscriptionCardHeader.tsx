@@ -1,20 +1,17 @@
 
-import React from "react";
-import { CardTitle } from "@/components/ui/card";
+import React from 'react';
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getModelColor } from "./utils/modelUtils";
+import { getModelDisplayName } from './utils/modelUtils';
+import { Loader2 } from "lucide-react";
 
 interface TranscriptionCardHeaderProps {
   modelName: string;
-  prompt: string;
-  isSelected: boolean;
-  wordCount: number;
-  segmentCount: number;
-  isLoading: boolean;
-  vttContent: string;
+  prompt?: string;
+  isSelected?: boolean;
+  wordCount?: number;
+  segmentCount?: number;
+  isLoading?: boolean;
+  vttContent?: string;
 }
 
 const TranscriptionCardHeader: React.FC<TranscriptionCardHeaderProps> = ({
@@ -27,34 +24,31 @@ const TranscriptionCardHeader: React.FC<TranscriptionCardHeaderProps> = ({
   vttContent
 }) => {
   return (
-    <div className={`pb-2 ${getModelColor(modelName)}`}>
-      <div className="flex justify-between items-center">
-        <CardTitle className="text-lg flex items-center">
-          {modelName}
+    <div className="space-y-2">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-lg font-semibold">{getModelDisplayName(modelName)}</h3>
           {prompt && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-                    <Info className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <div className="font-medium mb-1">Prompt Used:</div>
-                  <div className="text-xs">{prompt}</div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+              Prompt: {prompt}
+            </p>
           )}
-        </CardTitle>
-        <Badge variant={isSelected ? "default" : "outline"}>
-          {isSelected ? "Selected" : "Not Selected"}
-        </Badge>
+        </div>
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
       </div>
+      
       {!isLoading && vttContent && (
-        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-          <span>{wordCount} words</span>
-          <span>{segmentCount} segments</span>
+        <div className="flex gap-2">
+          {wordCount !== undefined && (
+            <Badge variant="outline" className="text-xs">
+              {wordCount} words
+            </Badge>
+          )}
+          {segmentCount !== undefined && (
+            <Badge variant="outline" className="text-xs">
+              {segmentCount} segments
+            </Badge>
+          )}
         </div>
       )}
     </div>

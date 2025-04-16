@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { useLogsStore } from "@/lib/useLogsStore";
@@ -67,7 +66,6 @@ const TranscriptionCard = ({
     });
   }, [vttContent, isLoading, modelName, audioSrc, vttSegments.length, isSelected]);
   
-  // Update currentlyPlayingSegment when a segment is played
   useEffect(() => {
     if (isPlayingSegment) {
       setCurrentlyPlayingSegment(activeSegment);
