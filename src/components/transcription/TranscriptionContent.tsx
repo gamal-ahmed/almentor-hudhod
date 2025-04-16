@@ -18,6 +18,8 @@ interface TranscriptionContentProps {
   onTextEdit?: (editedVttContent: string) => void;
   isPlayingSegment?: boolean;
   currentlyPlayingSegment?: number | null;
+  error?: string;
+  onRetry?: () => void;
 }
 
 const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
@@ -33,6 +35,8 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
   onTextEdit,
   isPlayingSegment = false,
   currentlyPlayingSegment = null,
+  error,
+  onRetry,
 }) => {
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState(vttContent);
@@ -75,6 +79,9 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
       handleCancelEdits={handleCancelEdits}
       isPlayingSegment={isPlayingSegment}
       currentlyPlayingSegment={currentlyPlayingSegment}
+      modelName={modelName}
+      error={error}
+      onRetry={onRetry}
     />
   );
 };

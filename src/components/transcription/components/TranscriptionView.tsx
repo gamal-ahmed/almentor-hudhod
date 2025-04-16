@@ -5,6 +5,7 @@ import SegmentsList from "./SegmentsList";
 import EditableTranscription from "./EditableTranscription";
 import RawVttView from "./RawVttView";
 import EmptyTranscriptionState from "./EmptyTranscriptionState";
+import ApiErrorState from "./ApiErrorState";
 
 interface TranscriptionViewProps {
   editMode: boolean;
@@ -22,6 +23,9 @@ interface TranscriptionViewProps {
   handleCancelEdits: () => void;
   isPlayingSegment?: boolean;
   currentlyPlayingSegment?: number | null;
+  modelName: string;
+  error?: string;
+  onRetry?: () => void;
 }
 
 const TranscriptionView: React.FC<TranscriptionViewProps> = ({
@@ -40,7 +44,15 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   handleCancelEdits,
   isPlayingSegment,
   currentlyPlayingSegment,
+  modelName,
+  error,
+  onRetry,
 }) => {
+  // Show API error message if there's an error
+  if (error) {
+    return <ApiErrorState modelName={modelName} error={error} onRetry={onRetry} />;
+  }
+
   if (!editMode && vttSegments.length > 0) {
     return (
       <SegmentsList 
@@ -83,7 +95,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({
     );
   }
 
-  return <EmptyTranscriptionState modelName="" />;
+  return <EmptyTranscriptionState modelName={modelName} />;
 };
 
 export default TranscriptionView;
