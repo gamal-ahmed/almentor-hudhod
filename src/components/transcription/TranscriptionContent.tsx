@@ -20,7 +20,6 @@ interface TranscriptionContentProps {
   currentlyPlayingSegment?: number | null;
   error?: string;
   onRetry?: () => void;
-  isSegmentPaused?: boolean;
 }
 
 const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
@@ -38,7 +37,6 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
   currentlyPlayingSegment = null,
   error,
   onRetry,
-  isSegmentPaused = false,
 }) => {
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState(vttContent);
@@ -84,7 +82,6 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
       modelName={modelName}
       error={error}
       onRetry={onRetry}
-      isSegmentPaused={isSegmentPaused}
     />
   );
 };

@@ -6,30 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Updated prompt with specific VTT formatting instructions
+// Updated prompt with specific instructions for bilingual transcription
 const DEFAULT_PROMPT = `You will be provided with an audio file: below
 and the primary language of the audio: ar-EG and en-US
 
 Instructions:
 
-1. Listen to the provided audio file.
-2. Transcribe the speech into properly formatted WebVTT segments.
-3. Each segment should be 3-5 seconds long.
-4. Format each segment exactly like this:
+1. Listen to the provided audio file below.
+2. Identify and transcribe only the speech, ignoring any background noise or music.
+3. Transcribe the Arabic and English speech. Write English words in English and Arabic words in Arabic.
 
-WEBVTT
+4. If the audio quality is poor or unclear, indicate this in your response and identify the problematic sections (e.g., "Audio unclear from 0:15 to 0:25").
+5. If the audio does not contain Arabic speech or contains predominantly another language, state that "The audio does not meet the specified language criteria."
 
-00:00:00.000 --> 00:00:03.000
-[Transcribed text for this segment]
-
-00:00:03.000 --> 00:00:06.000
-[Next segment's transcribed text]
-
-5. Maintain exact timing format: HH:MM:SS.mmm
-6. Do not include timestamps or numbers within the transcribed text
-7. Preserve English words exactly as spoken, write Arabic words in Arabic
-
-Output Format: WebVTT only, no additional text or explanations`;
+Output Format: VTT`;
 
 serve(async (req) => {
   // Handle CORS preflight requests

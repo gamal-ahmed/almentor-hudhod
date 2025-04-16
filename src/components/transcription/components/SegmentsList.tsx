@@ -14,7 +14,6 @@ interface SegmentsListProps {
   setEditMode: (editMode: boolean) => void;
   isPlayingSegment?: boolean;
   currentlyPlayingSegment?: number | null;
-  isSegmentPaused?: boolean;
 }
 
 const SegmentsList: React.FC<SegmentsListProps> = ({
@@ -27,7 +26,6 @@ const SegmentsList: React.FC<SegmentsListProps> = ({
   setEditMode,
   isPlayingSegment = false,
   currentlyPlayingSegment = null,
-  isSegmentPaused = false,
 }) => {
   return (
     <div className="space-y-1">
@@ -56,7 +54,6 @@ const SegmentsList: React.FC<SegmentsListProps> = ({
           onPlaySegment={() => onPlaySegment(index)}
           isPlayingSegment={isPlayingSegment}
           currentSegmentIndex={currentlyPlayingSegment !== null ? currentlyPlayingSegment : -1}
-          isSegmentPaused={isSegmentPaused}
         />
       ))}
     </div>

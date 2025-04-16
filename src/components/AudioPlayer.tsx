@@ -1,8 +1,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import AudioProgress from './audio-player/AudioProgress';
-import VolumeControl from './audio-player/VolumeControl';
-import PlaybackControls from './audio-player/PlaybackControls';
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Play, Pause, VolumeX, Volume2, Rewind, FastForward, SkipBack, SkipForward } from "lucide-react";
 
 interface AudioPlayerProps {
   src: string | null;
@@ -16,7 +16,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [isAudioLoaded, setIsAudioLoaded] = useState(false);
 
   useEffect(() => {
     const audioElement = audioRef.current;
@@ -31,7 +30,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
 
     const handleLoadedMetadata = () => {
       setDuration(audioElement.duration);
-      setIsAudioLoaded(true);
     };
 
     audioElement.addEventListener('timeupdate', handleTimeUpdate);
@@ -57,14 +55,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
     }
   }, [isPlaying]);
 
+  // Reset player when src changes
   useEffect(() => {
     setCurrentTime(0);
     setIsPlaying(false);
-    setIsAudioLoaded(false);
   }, [src]);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
+  };
+
+  const formatTime = (timeInSeconds: number): string => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleSeek = (value: number[]) => {
@@ -128,28 +132,102 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
     <div className="audio-player space-y-2">
       <audio ref={audioRef} src={src} preload="metadata" />
       
-      <AudioProgress
-        currentTime={currentTime}
-        duration={duration}
-        onSeek={handleSeek}
-        isAudioLoaded={isAudioLoaded}
-      />
+      <div className="flex items-center justify-between space-x-2">
+        <div className="text-xs text-muted-foreground w-10">{formatTime(currentTime)}</div>
+        
+        <div className="flex-1">
+          <Slider
+            value={[currentTime]}
+            min={0}
+            max={duration || 100}
+            step={0.1}
+            onValueChange={handleSeek}
+            disabled={!duration}
+            className="cursor-pointer"
+          />
+        </div>
+        
+        <div className="text-xs text-muted-foreground w-10">{formatTime(duration)}</div>
+      </div>
       
       <div className="flex items-center justify-between">
-        <VolumeControl
-          volume={volume}
-          isMuted={isMuted}
-          onVolumeChange={handleVolumeChange}
-          onMuteToggle={toggleMute}
-        />
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMute}
+            className="h-8 w-8"
+          >
+            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </Button>
+          
+          <div className="w-20">
+            <Slider
+              value={[isMuted ? 0 : volume]}
+              min={0}
+              max={1}
+              step={0.01}
+              onValueChange={handleVolumeChange}
+              className="cursor-pointer"
+            />
+          </div>
+        </div>
         
-        <PlaybackControls
-          isPlaying={isPlaying}
-          isAudioLoaded={isAudioLoaded}
-          onPlayPause={togglePlay}
-          onForward={skipForward}
-          onBackward={skipBackward}
-        />
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={skipBackward}
+            className="h-8 w-8 md:flex hidden"
+            disabled={!duration}
+            title="Back 30 seconds"
+          >
+            <SkipBack className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={jumpBackward}
+            className="h-8 w-8"
+            disabled={!duration}
+            title="Back 10 seconds"
+          >
+            <Rewind className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={togglePlay}
+            className="h-10 w-10 rounded-full"
+            disabled={!duration}
+          >
+            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={jumpForward}
+            className="h-8 w-8"
+            disabled={!duration}
+            title="Forward 10 seconds"
+          >
+            <FastForward className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={skipForward}
+            className="h-8 w-8 md:flex hidden"
+            disabled={!duration}
+            title="Forward 30 seconds"
+          >
+            <SkipForward className="h-4 w-4" />
+          </Button>
+        </div>
         
         <div className="w-24"></div>
       </div>

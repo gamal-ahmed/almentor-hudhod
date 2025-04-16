@@ -16,7 +16,6 @@ interface TranscriptionSegmentProps {
   isPlayingSegment?: boolean;
   currentSegmentIndex?: number;
   index: number;
-  isSegmentPaused?: boolean;
 }
 
 const TranscriptionSegment: React.FC<TranscriptionSegmentProps> = ({
@@ -28,7 +27,6 @@ const TranscriptionSegment: React.FC<TranscriptionSegmentProps> = ({
   isPlayingSegment = false,
   currentSegmentIndex = -1,
   index,
-  isSegmentPaused = false
 }) => {
   const isCurrentlyPlaying = isPlayingSegment && currentSegmentIndex === index;
   
@@ -54,7 +52,7 @@ const TranscriptionSegment: React.FC<TranscriptionSegmentProps> = ({
               onPlaySegment();
             }}
           >
-            {isCurrentlyPlaying && !isSegmentPaused ? (
+            {isCurrentlyPlaying ? (
               <Pause className="h-3 w-3" />
             ) : (
               <Play className="h-3 w-3" />
