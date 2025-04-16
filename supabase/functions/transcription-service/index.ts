@@ -341,7 +341,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
       console.log(`This job is associated with session ${sessionId}`);
     }
     
-    // Get job information from database - use the view for reading
+    // Get job information from database
     const { data: job, error: jobError } = await supabase
       .from('transcription_jobs')
       .select('*')
@@ -428,7 +428,7 @@ async function processTranscription(jobId: string, audioFile: File, prompt: stri
       console.log(`Updated job ${jobId} with session_id ${sessionId}`);
     }
     
-    // Update job with success
+    // Update job with success and store prompt in result
     await updateJobStatus(
       jobId, 
       'completed', 

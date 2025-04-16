@@ -1,4 +1,3 @@
-
 import { Json } from "@/integrations/supabase/types";
 
 // Define types for transcription records
@@ -15,6 +14,7 @@ export interface TranscriptionRecord {
   updated_at?: string;
   id?: string;
   vtt_file_url?: string;
+  prompt_text?: string;
 }
 
 // Define a union type for all possible job statuses

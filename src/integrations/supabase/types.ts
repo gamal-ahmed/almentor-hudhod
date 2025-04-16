@@ -873,6 +873,7 @@ export type Database = {
           file_path: string
           id: string
           model: string
+          prompt_text: string | null
           result: Json | null
           session_id: string | null
           status: string
@@ -887,6 +888,7 @@ export type Database = {
           file_path: string
           id?: string
           model: string
+          prompt_text?: string | null
           result?: Json | null
           session_id?: string | null
           status?: string
@@ -901,6 +903,7 @@ export type Database = {
           file_path?: string
           id?: string
           model?: string
+          prompt_text?: string | null
           result?: Json | null
           session_id?: string | null
           status?: string
@@ -1006,12 +1009,14 @@ export type Database = {
           file_path: string | null
           id: string | null
           model: string | null
+          prompt_text: string | null
           result: Json | null
           session_id: string | null
           status: string | null
           status_message: string | null
           updated_at: string | null
           user_id: string | null
+          vtt_file_url: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1019,12 +1024,14 @@ export type Database = {
           file_path?: string | null
           id?: string | null
           model?: string | null
+          prompt_text?: string | null
           result?: Json | null
           session_id?: string | null
           status?: string | null
           status_message?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vtt_file_url?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1032,12 +1039,14 @@ export type Database = {
           file_path?: string | null
           id?: string | null
           model?: string | null
+          prompt_text?: string | null
           result?: Json | null
           session_id?: string | null
           status?: string | null
           status_message?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vtt_file_url?: string | null
         }
         Relationships: [
           {

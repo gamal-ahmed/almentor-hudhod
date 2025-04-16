@@ -1,9 +1,7 @@
-
 import { TranscriptionModel } from "@/components/ModelSelector";
 import { TranscriptionRecord } from "../../types/transcription";
 import { baseService, getLogsStore } from "../baseService";
 
-// Creates a transcription job and returns the job ID
 export async function createTranscriptionJob(
   file: File, 
   model: TranscriptionModel, 
@@ -16,7 +14,7 @@ export async function createTranscriptionJob(
   const logOperation = startTimedLog(`Creating transcription job with ${model}`, "info", model);
   
   try {
-    // Validate the file
+    // Validate file
     if (!file || !file.name || !file.size || !file.type) {
       throw new Error("Invalid file object. File is missing required properties.");
     }
@@ -26,7 +24,6 @@ export async function createTranscriptionJob(
       details: `Creating transcription job with ${model}`
     });
     
-    // First upload the file to temporary storage
     const fileName = `temp/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     
     addLog(`Uploading file for ${model} transcription job`, "info", {
@@ -34,14 +31,14 @@ export async function createTranscriptionJob(
       details: `File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`
     });
     
-    // Create job record in the database first - using the actual table, not the view
+    // Create job record with prompt_text
     const insertData: TranscriptionRecord = {
       model: model as string,
       file_path: fileName,
-      status: 'pending'
+      status: 'pending',
+      prompt_text: prompt
     };
     
-    // Add session_id if provided
     if (sessionId) {
       insertData.session_id = sessionId;
     }
