@@ -1,4 +1,3 @@
-
 import React from "react";
 import { VTTSegment } from "../types";
 import SegmentsList from "./SegmentsList";
@@ -26,6 +25,7 @@ interface TranscriptionViewProps {
   modelName: string;
   error?: string;
   onRetry?: () => void;
+  isSegmentPaused?: boolean;
 }
 
 const TranscriptionView: React.FC<TranscriptionViewProps> = ({
@@ -47,8 +47,8 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   modelName,
   error,
   onRetry,
+  isSegmentPaused = false,
 }) => {
-  // Show API error message if there's an error
   if (error) {
     return <ApiErrorState modelName={modelName} error={error} onRetry={onRetry} />;
   }
@@ -65,6 +65,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({
         setEditMode={setEditMode}
         isPlayingSegment={isPlayingSegment}
         currentlyPlayingSegment={currentlyPlayingSegment}
+        isSegmentPaused={isSegmentPaused}
       />
     );
   }
