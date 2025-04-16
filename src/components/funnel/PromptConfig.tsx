@@ -3,9 +3,9 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { arabicDialects } from '@/lib/constants/arabicDialects';
 
 export interface PromptConfiguration {
   languages: string[];
@@ -21,9 +21,24 @@ interface PromptConfigProps {
 
 const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
   const handleLanguageChange = (value: string) => {
+    const newLanguages = value === 'both' 
+      ? ['en-US', value] // value here will be the selected Arabic dialect
+      : [value];
+    
     onChange({
       ...config,
-      languages: value === 'both' ? ['ar-EG', 'en-US'] : [value]
+      languages: newLanguages
+    });
+  };
+
+  const handleArabicDialectChange = (dialect: string) => {
+    const newLanguages = config.languages.includes('en-US')
+      ? ['en-US', dialect]
+      : [dialect];
+    
+    onChange({
+      ...config,
+      languages: newLanguages
     });
   };
 
@@ -48,6 +63,14 @@ const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
     });
   };
 
+  // Helper function to determine if it's both languages
+  const isBothLanguages = config.languages.includes('en-US') && config.languages.length > 1;
+  
+  // Helper function to get current Arabic dialect
+  const getCurrentArabicDialect = () => {
+    return config.languages.find(lang => lang.startsWith('ar-')) || 'ar-eg';
+  };
+
   return (
     <Card className="w-full shadow-md border-primary/10">
       <CardHeader>
@@ -58,18 +81,38 @@ const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
           <Label htmlFor="language">Language Selection</Label>
           <Select 
             onValueChange={handleLanguageChange}
-            value={config.languages.length > 1 ? 'both' : config.languages[0]}
+            value={isBothLanguages ? 'both' : config.languages[0]}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select languages" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="both">Arabic and English (Both)</SelectItem>
-              <SelectItem value="ar-EG">Arabic Only</SelectItem>
               <SelectItem value="en-US">English Only</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {(isBothLanguages || config.languages[0]?.startsWith('ar-')) && (
+          <div className="space-y-2">
+            <Label htmlFor="arabicDialect">Arabic Dialect</Label>
+            <Select
+              onValueChange={handleArabicDialectChange}
+              value={getCurrentArabicDialect()}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Arabic dialect" />
+              </SelectTrigger>
+              <SelectContent>
+                {arabicDialects.map(dialect => (
+                  <SelectItem key={dialect.value} value={dialect.value}>
+                    {dialect.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="segmentDuration">Segment Duration (seconds)</Label>
