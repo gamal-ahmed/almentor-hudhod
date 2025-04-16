@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TranscriptionModel } from "@/components/ModelSelector";
 import ModelSelector from "@/components/ModelSelector";
 import { useLogsStore } from "@/lib/useLogsStore";
+import PromptConfig, { PromptConfiguration } from './PromptConfig';
 import { FileAudio, UploadCloud, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,13 +34,18 @@ interface UploadConfigStepProps {
 const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCreated, onStepComplete }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedModels, setSelectedModels] = useState<TranscriptionModel[]>(['openai']);
+  const [promptConfig, setPromptConfig] = useState<PromptConfiguration>({
+    languages: ['ar-EG', 'en-US'],
+    segmentDuration: 3,
+    noiseHandling: 'ignore',
+    customInstructions: null
+  });
   const [prompt, setPrompt] = useState("Please preserve all English words exactly as spoken");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { addLog } = useLogsStore();
   const [userId, setUserId] = useState<string | null>(null);
   
-  // Get the current user's ID when component mounts
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -48,7 +54,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
     
     checkAuth();
     
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUserId(session?.user?.id || null);
     });
@@ -82,28 +87,26 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       setIsProcessing(true);
       addLog(`Processing file: ${file.name}`, "info", { source: "UploadConfigStep" });
 
-      // Create session ID and start server-side transcription
       const sessionId = crypto.randomUUID();
       
-      // Get current auth session
       const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || "00000000-0000-0000-0000-000000000000"; // Anonymous fallback
+      const currentUserId = session?.user?.id || "00000000-0000-0000-0000-000000000000";
       
-      // Create a transcription session
       const { data: sessionData, error: sessionError } = await supabase
         .from('transcription_sessions')
         .insert({
           id: sessionId,
           selected_models: selectedModels,
           audio_file_name: file.name,
-          user_id: currentUserId
+          user_id: currentUserId,
+          prompt_config: promptConfig,
+          prompt_text: buildPrompt(promptConfig)
         })
         .select()
         .single();
       
       if (sessionError) throw sessionError;
       
-      // Upload the audio file to Supabase storage
       const filePath = `sessions/${sessionId}/${file.name}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -115,9 +118,8 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       if (uploadError) throw uploadError;
       
-      // Create a job for each selected model
       const jobsPromises = selectedModels.map(model => 
-        createTranscriptionJob(file, model, prompt, sessionId)
+        createTranscriptionJob(file, model, buildPrompt(promptConfig), sessionId)
           .catch(error => {
             console.error(`Error creating job for model ${model}:`, error);
             addLog(`Failed to create ${model} transcription job: ${error.message}`, "error", {
@@ -130,7 +132,6 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
       
       const results = await Promise.all(jobsPromises);
       
-      // Filter out failed jobs
       const successfulJobs = results.filter(result => result && result.jobId);
       const jobIds = successfulJobs.map(result => result.jobId);
       
@@ -201,25 +202,13 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
               onModelChange={handleModelsChange}
               disabled={isProcessing}
             />
-            {selectedModels.length === 0 && (
-              <p className="text-xs text-red-500 mt-1">
-                Please select at least one transcription model
-              </p>
-            )}
           </div>
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="prompt">Transcription Prompt</Label>
-          <Textarea
-            id="prompt"
-            placeholder="Customize the transcription with a prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={isProcessing}
-            className="w-full"
-          />
-        </div>
+        <PromptConfig 
+          config={promptConfig}
+          onChange={setPromptConfig}
+        />
         
         <Button
           variant="default"

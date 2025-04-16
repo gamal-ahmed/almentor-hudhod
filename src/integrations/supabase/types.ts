@@ -819,6 +819,8 @@ export type Database = {
           created_at: string
           id: string
           last_updated: string
+          prompt_config: Json | null
+          prompt_text: string | null
           selected_model: string | null
           selected_models: string[]
           selected_transcription: string | null
@@ -834,6 +836,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_updated?: string
+          prompt_config?: Json | null
+          prompt_text?: string | null
           selected_model?: string | null
           selected_models?: string[]
           selected_transcription?: string | null
@@ -849,6 +853,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_updated?: string
+          prompt_config?: Json | null
+          prompt_text?: string | null
           selected_model?: string | null
           selected_models?: string[]
           selected_transcription?: string | null

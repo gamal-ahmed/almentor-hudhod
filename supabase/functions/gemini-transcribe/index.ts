@@ -1,43 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// CORS headers for browser access
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Updated prompt with specific VTT formatting instructions
-const DEFAULT_PROMPT = `You will be provided with an audio file: below
-and the primary language of the audio: ar-EG and en-US
+function buildPrompt(promptConfig: any) {
+  const {
+    languages = ['ar-EG', 'en-US'],
+    segmentDuration = 3,
+    noiseHandling = 'ignore',
+    customInstructions = null
+  } = promptConfig || {};
+
+  let prompt = `You will be provided with an audio file: below
+and the primary language of the audio: ${languages.join(' and ')}
 
 Instructions:
 
 1. Listen to the provided audio file.
 2. Transcribe the speech into properly formatted WebVTT segments.
-3. Each segment should be 3-5 seconds long.
+3. Each segment should be ${segmentDuration} seconds long.
 4. Format each segment exactly like this:
 
 WEBVTT
 
-00:00:00.000 --> 00:00:03.000
+00:00:00.000 --> 00:00:0${segmentDuration}.000
 [Transcribed text for this segment]
 
-00:00:03.000 --> 00:00:06.000
+00:00:0${segmentDuration}.000 --> 00:00:0${segmentDuration * 2}.000
 [Next segment's transcribed text]
 
 5. Maintain exact timing format: HH:MM:SS.mmm
 6. Do not include timestamps or numbers within the transcribed text
-7. Preserve English words exactly as spoken, write Arabic words in Arabic
+7. Preserve English words exactly as spoken, write Arabic words in Arabic`;
 
-Output Format: WebVTT only, no additional text or explanations`;
+  if (noiseHandling === 'transcribe') {
+    prompt += '\n8. Include descriptions of significant background sounds and music in [square brackets]';
+  } else {
+    prompt += '\n8. Ignore background sounds and music';
+  }
+
+  if (customInstructions) {
+    prompt += `\n\nAdditional Instructions:\n${customInstructions}`;
+  }
+
+  prompt += '\n\nOutput Format: WebVTT only, no additional text or explanations';
+
+  return prompt;
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Get the API key from environment variables
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) {
     console.error('Missing GEMINI_API_KEY environment variable');
@@ -48,25 +65,12 @@ serve(async (req) => {
   }
 
   try {
-    // Only process POST requests with form data
-    if (req.method !== 'POST') {
-      return new Response(
-        JSON.stringify({ error: 'Method not allowed' }),
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Processing Gemini transcription request');
-    
     // Get the form data from the request
     const formData = await req.formData();
     const audioFile = formData.get('audio');
-    let prompt = formData.get('prompt') || DEFAULT_PROMPT;
+    const promptConfig = formData.get('promptConfig') ? JSON.parse(formData.get('promptConfig') as string) : null;
     
-    // Enhance user prompt if it doesn't already have strong preservation instructions
-    if (!prompt.toLowerCase().includes('preserve') && !prompt.toLowerCase().includes('exact')) {
-      prompt = `${DEFAULT_PROMPT}\n\nAdditional context: ${prompt}`;
-    }
+    const prompt = buildPrompt(promptConfig);
     
     if (!audioFile || !(audioFile instanceof File)) {
       return new Response(
@@ -92,9 +96,7 @@ serve(async (req) => {
         {
           role: "user",
           parts: [
-            {
-              text: `${prompt}\n\nTranscribe the following audio file and return the transcript with timestamps in WebVTT format. Do not translate any words - preserve ALL English words exactly as spoken, including names, technical terms, and acronyms.`
-            },
+            { text: prompt },
             {
               inline_data: {
                 mime_type: audioFile.type,
