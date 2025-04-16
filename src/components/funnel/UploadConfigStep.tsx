@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TranscriptionModel } from "@/components/ModelSelector";
 import ModelSelector from "@/components/ModelSelector";
@@ -30,6 +31,40 @@ interface UploadConfigStepProps {
   onTranscriptionsCreated: (jobIdsArray: string[], sessionId?: string) => void;
   onStepComplete: () => void;
 }
+
+// Helper function to build prompt text based on configurations
+const buildPrompt = (config: PromptConfiguration): string => {
+  // Start with a basic prompt template
+  let promptText = "You will be provided with an audio file.\n\nInstructions:\n\n";
+  
+  // Add language instructions
+  if (config.languages.length === 1) {
+    const lang = config.languages[0] === 'ar-EG' ? 'Arabic' : 'English';
+    promptText += `1. Transcribe the ${lang} speech in the audio.\n`;
+  } else {
+    promptText += "1. Transcribe both the Arabic and English speech. Write English words in English and Arabic words in Arabic.\n";
+  }
+  
+  // Add segment duration instructions
+  promptText += `2. Break the transcription into segments of approximately ${config.segmentDuration} seconds.\n`;
+  
+  // Add noise handling instructions
+  if (config.noiseHandling === 'ignore') {
+    promptText += "3. Identify and transcribe only the speech, ignoring any background noise or music.\n";
+  } else {
+    promptText += "3. Include descriptions of background sounds and music in [brackets].\n";
+  }
+  
+  // Add custom instructions if provided
+  if (config.customInstructions) {
+    promptText += `4. ${config.customInstructions}\n`;
+  }
+  
+  // Add output format
+  promptText += "\nOutput Format: WEBVTT";
+  
+  return promptText;
+};
 
 const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCreated, onStepComplete }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -99,7 +134,7 @@ const UploadConfigStep: React.FC<UploadConfigStepProps> = ({ onTranscriptionsCre
           selected_models: selectedModels,
           audio_file_name: file.name,
           user_id: currentUserId,
-          prompt_config: promptConfig,
+          prompt_config: promptConfig as any, // Cast to any to fix type issue
           prompt_text: buildPrompt(promptConfig)
         })
         .select()
