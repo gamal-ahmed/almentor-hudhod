@@ -13,6 +13,8 @@ import {
   formatJobDate
 } from "../utils/transcriptionJobUtils";
 import { TranscriptionJob } from "../types/transcription";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { MessageCircle } from "lucide-react";
 
 interface TranscriptionJobItemProps {
   job: TranscriptionJob;
@@ -36,6 +38,7 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
   onRetryJob
 }) => {
   const { relative: relativeDateFormatted, formatted: formattedDate } = formatJobDate(job.created_at);
+  const prompt = job.result?.prompt || "No prompt specified";
   
   return (
     <div
@@ -62,6 +65,24 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
               <Star className="h-3 w-3 mr-1 fill-green-500 text-green-500" />
               Accepted
             </Badge>
+          )}
+          
+          {job.result?.prompt && (
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold">Transcription Prompt</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {prompt}
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           )}
         </div>
         <span className="text-xs text-muted-foreground">
