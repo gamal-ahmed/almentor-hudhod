@@ -4,9 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import TranscriptionJobList from "./TranscriptionJobList";
 import SingleJobView from "./SingleJobView";
 import ComparisonView from "./ComparisonView";
-import { LoadingState, ErrorState, EmptyState } from "./SessionStatusStates";
+import { LoadingState, ErrorState, EmptyState, NoJobSelectedState } from "./SessionStatusStates";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
 import { AudioPreview } from "./components";
+import { ExportFormat } from "@/hooks/useTranscriptionExport";
 
 interface SessionMainContentProps {
   loading: boolean;
@@ -28,7 +29,7 @@ interface SessionMainContentProps {
   displaySessionId: string | undefined;
   extractVttContent: (job: TranscriptionJob) => string;
   getModelDisplayName: (model: string) => string;
-  handleComparisonExport: (job: TranscriptionJob) => void;
+  handleComparisonExport: (job: TranscriptionJob) => (format: ExportFormat) => void;
   setViewMode: (mode: 'single' | 'compare') => void;
   handleTextEdit: (job: TranscriptionJob, editedContent: string) => Promise<string | null>;
 }
@@ -99,7 +100,7 @@ const SessionMainContent: React.FC<SessionMainContentProps> = ({
               audioUrl={audioUrl}
               extractVttContent={extractVttContent}
               getModelDisplayName={getModelDisplayName}
-              onExport={handleComparisonExport}
+              onExport={handleComparisonExport(selectedJob)}
               onAccept={() => handleMarkAsAccepted(selectedJob)}
               onTextEdit={handleTextEdit}
             />

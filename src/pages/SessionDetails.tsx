@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import { useSessionDetails } from "@/hooks/useSessionDetails";
 import { useComparisonMode } from "@/hooks/useComparisonMode";
-import { useTranscriptionExport } from "@/hooks/useTranscriptionExport";
+import { useTranscriptionExport, ExportFormat } from "@/hooks/useTranscriptionExport";
 import { useJobOperations } from "@/hooks/useJobOperations";
 import { useBrightcovePublishing } from "@/hooks/useBrightcovePublishing";
 import { extractVttContent, getModelDisplayName } from "@/utils/transcriptionUtils";
@@ -14,6 +14,7 @@ import SessionTitle from "@/components/session/SessionTitle";
 import SessionMainContent from "@/components/session/SessionMainContent";
 import PublishDialog from "@/components/session/PublishDialog";
 import { TranscriptionJob } from "@/lib/api/types/transcription";
+import { AudioPreview } from "@/components/session/components";
 
 const SessionDetails = () => {
   const { sessionId } = useParams<{ sessionId?: string }>();
@@ -32,6 +33,7 @@ const SessionDetails = () => {
     setAcceptedModelId,
     refreshJobs,
     isPolling,
+    addLog,
     saveEditedTranscription
   } = useSessionDetails(sessionId);
   

@@ -86,9 +86,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onRefresh }) => (
   </div>
 );
 
-interface NoJobSelectedStateProps {}
-
-export const NoJobSelectedState: React.FC<NoJobSelectedStateProps> = () => (
+export const NoJobSelectedState: React.FC = () => (
   <div className="text-center py-10">
     <FileText className="h-10 w-10 mx-auto mb-4 text-muted-foreground/70" />
     <h3 className="text-lg font-medium mb-2">No Transcription Selected</h3>
