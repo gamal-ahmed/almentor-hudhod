@@ -15,7 +15,7 @@ export function useSelectedJob(
   const [selectedTranscriptionUrl, setSelectedTranscriptionUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Update selected job when jobs change
+  // Initial selection when jobs first load and no job is selected
   useEffect(() => {
     if (sessionJobs.length > 0 && !selectedJob) {
       const completedJobs = sessionJobs.filter(job => job.status === 'completed');
@@ -25,11 +25,11 @@ export function useSelectedJob(
         setSelectedJob(sessionJobs[0]);
       }
     }
-  }, [sessionJobs, selectedJob]);
+  }, [sessionJobs]); // Remove selectedJob from dependencies
 
-  // Auto-select completed jobs when they finish
+  // Auto-select completed jobs only when there is no current selection
   useEffect(() => {
-    if (jobsUpdated.length > 0) {
+    if (!selectedJob && jobsUpdated.length > 0) {
       // Find newly completed jobs
       const newlyCompleted = jobsUpdated.filter(update => 
         update.status === 'completed' && 
@@ -47,7 +47,7 @@ export function useSelectedJob(
         }
       }
     }
-  }, [jobsUpdated, sessionJobs]);
+  }, [jobsUpdated, sessionJobs, selectedJob]);
 
   // Function to save edited transcription
   const saveEditedTranscription = async (
