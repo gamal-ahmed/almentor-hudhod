@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useRef, useState, useEffect } from 'react';
 import AudioProgress from './audio-player/AudioProgress';
 import VolumeControl from './audio-player/VolumeControl';
 import PlaybackControls from './audio-player/PlaybackControls';
@@ -15,6 +16,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [isAudioLoaded, setIsAudioLoaded] = useState(false);
 
   useEffect(() => {
     const audioElement = audioRef.current;
@@ -29,6 +31,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
 
     const handleLoadedMetadata = () => {
       setDuration(audioElement.duration);
+      setIsAudioLoaded(true);
     };
 
     audioElement.addEventListener('timeupdate', handleTimeUpdate);
@@ -57,16 +60,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onTimeUpdate }) => {
   useEffect(() => {
     setCurrentTime(0);
     setIsPlaying(false);
+    setIsAudioLoaded(false);
   }, [src]);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
-  };
-
-  const formatTime = (timeInSeconds: number): string => {
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleSeek = (value: number[]) => {
