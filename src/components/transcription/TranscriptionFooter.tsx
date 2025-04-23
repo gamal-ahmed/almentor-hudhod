@@ -1,7 +1,6 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Download, Save, Headphones } from "lucide-react";
+import { RefreshCw, Check, Copy, Download, Save, Headphones } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ExportFormat } from "./types";
 
@@ -21,6 +20,9 @@ interface TranscriptionFooterProps {
   onSelect: () => void;
   isSelected: boolean;
   showAudioControls: boolean;
+  onRetry?: () => void;
+  isRetrying?: boolean;
+  showRetryButton?: boolean;
 }
 
 const TranscriptionFooter: React.FC<TranscriptionFooterProps> = ({
@@ -38,7 +40,10 @@ const TranscriptionFooter: React.FC<TranscriptionFooterProps> = ({
   onAccept,
   onSelect,
   isSelected,
-  showAudioControls
+  showAudioControls,
+  onRetry,
+  isRetrying = false,
+  showRetryButton = false
 }) => {
   return (
     <div className="flex flex-col w-full">
@@ -60,9 +65,24 @@ const TranscriptionFooter: React.FC<TranscriptionFooterProps> = ({
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
-        <Button size="sm" onClick={onSelect} disabled={isLoading || !vttContent} variant={isSelected ? "secondary" : "default"}>
-          {isSelected ? "Selected" : "Select"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {showRetryButton && onRetry && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={onRetry}
+              disabled={isRetrying}
+              className="text-xs border-red-200 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+              {isRetrying ? 'Retrying...' : 'Retry'}
+            </Button>
+          )}
+          
+          <Button size="sm" onClick={onSelect} disabled={isLoading || !vttContent} variant={isSelected ? "secondary" : "default"}>
+            {isSelected ? "Selected" : "Select"}
+          </Button>
+        </div>
       </div>
 
       {showExportOptions && vttContent && !isLoading && (
