@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getUserTranscriptionJobs, checkTranscriptionJobStatus } from '@/lib/api';
+import { getUserTranscriptionJobs, checkTranscriptionJobStatus, createTranscriptionJob } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -22,6 +22,8 @@ interface TranscriptionJob {
   status_message: string;
   error?: string;
   session_id?: string;
+  file_path: string;
+  prompt_text?: string;
   result?: { 
     vttContent: string; 
     text: string; 
@@ -52,6 +54,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const [polling, setPolling] = useState(false);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const { toast } = useToast();
+  const [isRetrying, setIsRetrying] = useState<Record<string, boolean>>({});
   
   const groupJobsBySession = (jobs: TranscriptionJob[]) => {
     if (!jobs.length) return [];
@@ -313,7 +316,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
   const toggleExpandJob = (jobId: string) => {
     setExpandedJob(expandedJob === jobId ? null : jobId);
   };
-  
+
   const getGroupStatus = (group: JobGroup) => {
     if (group.jobs.some(job => job.status === 'pending' || job.status === 'processing')) {
       return 'processing';
@@ -331,6 +334,59 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
     const models = [...new Set(group.jobs.map(job => getModelDisplayName(job.model)))];
     const formattedDate = new Date(group.timestamp).toLocaleString();
     return `Session ${formattedDate} (${models.join(', ')})`;
+  };
+
+  const handleRetryJob = async (job: TranscriptionJob) => {
+    if (!job.file_path) {
+      toast({
+        title: "Cannot retry transcription",
+        description: "Missing file path",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsRetrying({...isRetrying, [job.id]: true});
+    
+    try {
+      // Get the file from storage
+      const fileResponse = await fetch(job.file_path);
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to fetch audio file: ${fileResponse.statusText}`);
+      }
+      
+      const fileBlob = await fileResponse.blob();
+      const file = new File([fileBlob], `retry-${job.id}.mp3`, { type: 'audio/mpeg' });
+      
+      // Create a new transcription job with the same model
+      console.log(`Retrying ${job.model} transcription for session ${sessionId}`);
+      
+      const result = await createTranscriptionJob(
+        file,
+        job.model as any,
+        job.prompt_text || "Please preserve all English words exactly as spoken",
+        sessionId
+      );
+      
+      toast({
+        title: "Transcription job restarted",
+        description: `Started new ${job.model} transcription job`,
+      });
+      
+      console.log(`Created new ${job.model} transcription job with ID ${result.jobId}`);
+      
+      // Refresh the job list
+      await fetchJobs();
+    } catch (error) {
+      console.error("Error retrying transcription job:", error);
+      toast({
+        title: "Error retrying transcription",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRetrying({...isRetrying, [job.id]: false});
+    }
   };
   
   if (loading && jobs.length === 0) {
@@ -552,12 +608,7 @@ const TranscriptionJobs: React.FC<TranscriptionJobsProps> = ({
                             variant="outline"
                             size="sm"
                             className="w-full text-xs border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400"
-                            onClick={() => {
-                              toast({
-                                title: "Retry functionality",
-                                description: "Retry feature will be implemented soon",
-                              });
-                            }}
+                            onClick={() => handleRetryJob(job)}
                           >
                             <ExternalLink className="h-3 w-3 mr-1" />
                             Retry transcription
