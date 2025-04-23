@@ -14,6 +14,7 @@ interface SingleJobViewProps {
   onExport?: (format: ExportFormat) => void;
   onAccept?: () => void;
   onTextEdit?: (job: TranscriptionJob, editedContent: string) => Promise<string | null>;
+  isPolling?: boolean;  // Added this property to match what's being passed in SessionMainContent
 }
 
 const SingleJobView: React.FC<SingleJobViewProps> = ({
@@ -23,7 +24,8 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   getModelDisplayName,
   onExport,
   onAccept,
-  onTextEdit
+  onTextEdit,
+  isPolling = false  // Default value to ensure backward compatibility
 }) => {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -76,7 +78,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
         onAccept={handleAccept}
         isEditable={selectedJob.status === 'completed'}
         onTextEdit={handleTextEdit}
-        isLoading={isSaving || selectedJob.status === 'processing' || selectedJob.status === 'pending'}
+        isLoading={isSaving || selectedJob.status === 'processing' || selectedJob.status === 'pending' || isPolling}
       />
     </Card>
   );
