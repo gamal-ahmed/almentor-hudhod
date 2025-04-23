@@ -1,36 +1,24 @@
 
 import React from "react";
 import TranscriptionCardContainer from "./components/TranscriptionCardContainer";
-
-interface TranscriptionCardProps {
-  modelName: string;
-  vttContent: string;
-  audioSrc: string | null;
-  isSelected: boolean;
-  showExportOptions: boolean;
-  showAudioControls: boolean;
-  onExport: (format: string) => void;
-  onAccept: () => void;
-  isEditable: boolean;
-  onTextEdit?: (editedContent: string) => Promise<string | null>;
-  isLoading: boolean;
-  onRetry?: () => void;
-  isRetrying?: boolean; 
-  showRetryButton?: boolean;
-}
+import { TranscriptionCardProps } from "./types";
 
 const TranscriptionCard: React.FC<TranscriptionCardProps> = ({
-  modelName,
-  vttContent,
-  audioSrc,
-  isSelected,
-  showExportOptions,
-  showAudioControls,
-  onExport,
-  onAccept,
-  isEditable,
+  modelName = "",
+  vttContent = "",
+  prompt,
+  onSelect,
+  isSelected = false,
+  audioSrc = null,
+  isLoading = false,
+  className,
+  showPagination,
+  showExportOptions = false,
+  showAudioControls = false,
+  onExport = () => {},
+  onAccept = () => {},
   onTextEdit,
-  isLoading,
+  isEditable = false,
   onRetry,
   isRetrying = false,
   showRetryButton = false
@@ -39,15 +27,19 @@ const TranscriptionCard: React.FC<TranscriptionCardProps> = ({
     <TranscriptionCardContainer
       modelName={modelName}
       vttContent={vttContent}
-      audioSrc={audioSrc}
+      prompt={prompt}
+      onSelect={onSelect}
       isSelected={isSelected}
+      audioSrc={audioSrc}
+      isLoading={isLoading}
+      className={className}
+      showPagination={showPagination}
       showExportOptions={showExportOptions}
       showAudioControls={showAudioControls}
       onExport={onExport}
       onAccept={onAccept}
-      isEditable={isEditable}
       onTextEdit={onTextEdit}
-      isLoading={isLoading}
+      isEditable={isEditable}
       onRetry={onRetry}
       isRetrying={isRetrying}
       showRetryButton={showRetryButton}
