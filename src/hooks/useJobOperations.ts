@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createTranscriptionJob } from "@/lib/api";
 import { TranscriptionJob } from "@/components/session/types/transcription";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useJobOperations(
   sessionId: string | undefined,
@@ -55,10 +56,10 @@ export function useJobOperations(
   };
   
   const handleRetryJob = async (job: TranscriptionJob) => {
-    if (!sessionId || !job.file_path) {
+    if (!sessionId) {
       toast({
         title: "Cannot retry transcription",
-        description: "Missing session ID or file path",
+        description: "Missing session ID",
         variant: "destructive",
       });
       return;
@@ -67,17 +68,39 @@ export function useJobOperations(
     setIsRetrying({...isRetrying, [job.id]: true});
     
     try {
-      // Get the file from storage (this would require a function that fetches from storage)
-      const fileResponse = await fetch(job.file_path);
+      // Get signed URL for the file
+      if (!job.file_path) {
+        throw new Error("Missing file path");
+      }
+      
+      // Create signed URL if it's a storage file path
+      let fileUrl = job.file_path;
+      if (!fileUrl.startsWith('http')) {
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from('transcriptions')
+          .createSignedUrl(job.file_path, 3600); // 1 hour expiry
+          
+        if (signedUrlError || !signedUrlData?.signedUrl) {
+          throw new Error(`Failed to access audio file: ${signedUrlError?.message || 'File not found'}`);
+        }
+        
+        fileUrl = signedUrlData.signedUrl;
+      }
+      
+      // Fetch the file using the signed URL
+      const fileResponse = await fetch(fileUrl);
       if (!fileResponse.ok) {
         throw new Error(`Failed to fetch audio file: ${fileResponse.statusText}`);
       }
       
       const fileBlob = await fileResponse.blob();
-      const file = new File([fileBlob], `retry-${job.id}.mp3`, { type: 'audio/mpeg' });
+      const fileName = `retry-${job.id}${getFileExtension(job.file_path)}`;
+      const file = new File([fileBlob], fileName, { type: fileBlob.type || 'audio/mpeg' });
       
-      // Create a new transcription job with the same model
-      addLog(`Retrying ${job.model} transcription for session ${sessionId}`, "info");
+      addLog(`Retrying ${job.model} transcription for session ${sessionId}`, "info", {
+        source: job.model,
+        details: `File: ${fileName}, Size: ${file.size} bytes`
+      });
       
       const result = await createTranscriptionJob(
         file,
@@ -88,13 +111,19 @@ export function useJobOperations(
       
       toast({
         title: "Transcription job restarted",
-        description: `Started new ${job.model} transcription job`,
+        description: `Started new ${getModelDisplayName(job.model)} transcription job`,
       });
       
-      addLog(`Created new ${job.model} transcription job with ID ${result.jobId}`, "success");
+      addLog(`Created new ${job.model} transcription job`, "success", {
+        source: job.model,
+        jobId: result.jobId
+      });
     } catch (error) {
       console.error("Error retrying transcription job:", error);
-      addLog(`Error retrying ${job.model} transcription: ${error instanceof Error ? error.message : String(error)}`, "error");
+      addLog(`Error retrying ${job.model} transcription: ${error instanceof Error ? error.message : String(error)}`, "error", {
+        source: job.model,
+        details: error instanceof Error ? error.stack : undefined
+      });
       
       toast({
         title: "Error retrying transcription",
@@ -103,6 +132,26 @@ export function useJobOperations(
       });
     } finally {
       setIsRetrying({...isRetrying, [job.id]: false});
+    }
+  };
+  
+  // Helper function to get the file extension
+  const getFileExtension = (filePath: string): string => {
+    const match = filePath.match(/\.[0-9a-z]+$/i);
+    return match ? match[0] : '.mp3';
+  };
+  
+  // Helper function to get model display name
+  const getModelDisplayName = (model: string): string => {
+    switch (model) {
+      case "openai":
+        return "OpenAI Whisper";
+      case "gemini-2.0-flash":
+        return "Gemini 2.0 Flash";
+      case "phi4":
+        return "Microsoft Phi-4";
+      default:
+        return model;
     }
   };
   
