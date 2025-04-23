@@ -14,7 +14,7 @@ interface SingleJobViewProps {
   onExport?: (format: ExportFormat) => void;
   onAccept?: () => void;
   onTextEdit?: (job: TranscriptionJob, editedContent: string) => Promise<string | null>;
-  isPolling?: boolean;  // Added this property to match what's being passed in SessionMainContent
+  isPolling?: boolean;
 }
 
 const SingleJobView: React.FC<SingleJobViewProps> = ({
@@ -25,7 +25,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   onExport,
   onAccept,
   onTextEdit,
-  isPolling = false  // Default value to ensure backward compatibility
+  isPolling = false
 }) => {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);

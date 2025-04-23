@@ -7,8 +7,8 @@ import TranscriptionFooter from "../TranscriptionFooter";
 import AudioControls from "../AudioControls";
 import LoadingState from "./LoadingState";
 import { useVttParser } from "../hooks/useVttParser";
-import { TranscriptionCardProps } from "../types";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
+import { TranscriptionCardProps } from "../types";
 
 const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
   modelName = "",
@@ -37,16 +37,16 @@ const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
     volume,
     isMuted,
     isAudioLoaded,
-    currentlyPlayingSegment,
     isPlayingSegment,
-    handlePlayPause,
+    togglePlay,
     handleSeek,
     handleVolumeChange,
-    handleMuteToggle,
-    handleForward,
-    handleBackward,
+    toggleMute,
+    jumpForward,
+    jumpBackward,
+    jumpToSegment,
     playSegment
-  } = useAudioPlayer(audioSrc, vttSegments);
+  } = useAudioPlayer(vttSegments, audioSrc);
 
   // Handle segment click
   const handleSegmentClick = (index: number) => {
@@ -90,7 +90,7 @@ const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
           onTextEdit={onTextEdit}
           isEditable={isEditable}
           isPlayingSegment={isPlayingSegment}
-          currentlyPlayingSegment={currentlyPlayingSegment}
+          currentlyPlayingSegment={activeSegment}
         />
       </CardContent>
       
@@ -103,12 +103,12 @@ const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
             volume={volume}
             isMuted={isMuted}
             isAudioLoaded={isAudioLoaded}
-            onPlayPause={handlePlayPause}
+            onPlayPause={togglePlay}
             onSeek={handleSeek}
             onVolumeChange={handleVolumeChange}
-            onMuteToggle={handleMuteToggle}
-            onForward={handleForward}
-            onBackward={handleBackward}
+            onMuteToggle={toggleMute}
+            onForward={jumpForward}
+            onBackward={jumpBackward}
           />
         </div>
       )}

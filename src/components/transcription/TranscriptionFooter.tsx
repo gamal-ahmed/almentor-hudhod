@@ -16,7 +16,7 @@ interface TranscriptionFooterProps {
   showExportOptions: boolean;
   exportFormat: ExportFormat;
   setExportFormat: (format: ExportFormat) => void;
-  onExport: () => void;
+  onExport: (format: ExportFormat) => void;
   onAccept: () => void;
   onSelect: () => void;
   isSelected: boolean;
@@ -41,7 +41,7 @@ const TranscriptionFooter: React.FC<TranscriptionFooterProps> = ({
   showAudioControls
 }) => {
   return (
-    <div className="flex flex-col border-t pt-4 gap-3">
+    <div className="flex flex-col w-full">
       <div className="flex justify-between w-full">
         <div className="flex space-x-2">
           {audioSrc && !showAudioControls && (
@@ -89,7 +89,7 @@ const TranscriptionFooter: React.FC<TranscriptionFooterProps> = ({
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={onExport}
+              onClick={() => onExport(exportFormat)}
             >
               <Download className="h-4 w-4 mr-2" />
               Export

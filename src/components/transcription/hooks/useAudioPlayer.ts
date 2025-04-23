@@ -14,6 +14,7 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioLoaded, setIsAudioLoaded] = useState(false);
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
+  const [currentlyPlayingSegment, setCurrentlyPlayingSegment] = useState<number | null>(null);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const addLog = useLogsStore(state => state.addLog);
@@ -74,8 +75,18 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
       setIsPlaying(false);
       setCurrentTime(0);
       setActiveSegment(null);
+      setCurrentlyPlayingSegment(null);
     }
   }, [audioSrc]);
+
+  // Update currentlyPlayingSegment when isPlayingSegment or activeSegment changes
+  useEffect(() => {
+    if (isPlayingSegment) {
+      setCurrentlyPlayingSegment(activeSegment);
+    } else {
+      setCurrentlyPlayingSegment(null);
+    }
+  }, [isPlayingSegment, activeSegment]);
 
   return {
     audioRef,
@@ -88,6 +99,8 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
     isAudioLoaded,
     showAudioPlayer,
     setShowAudioPlayer,
+    currentlyPlayingSegment,
+    isPlayingSegment,
     togglePlay,
     handleSeek,
     handleVolumeChange,
@@ -96,6 +109,10 @@ export const useAudioPlayer = (vttSegments: VTTSegment[], audioSrc: string | nul
     jumpBackward,
     jumpToSegment,
     playSegment,
-    isPlayingSegment
+    // Aliases for function names used in AudioControls component
+    handlePlayPause: togglePlay,
+    handleMuteToggle: toggleMute,
+    handleForward: jumpForward,
+    handleBackward: jumpBackward
   };
 };
