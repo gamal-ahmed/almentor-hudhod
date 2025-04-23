@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import TranscriptionJobList from "./TranscriptionJobList";
@@ -58,7 +57,7 @@ const SessionMainContent: React.FC<SessionMainContentProps> = ({
   setViewMode,
   handleTextEdit
 }) => {
-  if (loading) {
+  if (loading && sessionJobs.length === 0) {
     return <LoadingState />;
   }
 
@@ -103,6 +102,7 @@ const SessionMainContent: React.FC<SessionMainContentProps> = ({
               onExport={handleComparisonExport(selectedJob)}
               onAccept={() => handleMarkAsAccepted(selectedJob)}
               onTextEdit={handleTextEdit}
+              isPolling={isPolling}
             />
           ) : (
             <Card className="shadow-soft border-2 h-full flex items-center justify-center">

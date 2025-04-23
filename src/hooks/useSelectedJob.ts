@@ -13,37 +13,42 @@ export function useSelectedJob(
 ) {
   const [selectedJob, setSelectedJob] = useState<TranscriptionJob | null>(null);
   const [selectedTranscriptionUrl, setSelectedTranscriptionUrl] = useState<string | null>(null);
+  const [isSelecting, setIsSelecting] = useState(true);
   const { toast } = useToast();
 
-  // Initial selection when jobs first load and no job is selected
+  // Initial selection when jobs first load
   useEffect(() => {
-    if (sessionJobs.length > 0 && !selectedJob) {
-      const completedJobs = sessionJobs.filter(job => job.status === 'completed');
-      if (completedJobs.length > 0) {
-        setSelectedJob(completedJobs[0]);
-      } else {
-        setSelectedJob(sessionJobs[0]);
+    if (sessionJobs.length > 0 && isSelecting) {
+      setIsSelecting(true);
+      
+      try {
+        const completedJobs = sessionJobs.filter(job => job.status === 'completed');
+        if (completedJobs.length > 0) {
+          setSelectedJob(completedJobs[0]);
+        } else {
+          setSelectedJob(sessionJobs[0]);
+        }
+      } finally {
+        setIsSelecting(false);
       }
     }
-  }, [sessionJobs]); // Remove selectedJob from dependencies
+  }, [sessionJobs]); 
 
-  // Auto-select completed jobs only when there is no current selection
+  // Handle job updates
   useEffect(() => {
-    if (!selectedJob && jobsUpdated.length > 0) {
-      // Find newly completed jobs
-      const newlyCompleted = jobsUpdated.filter(update => 
-        update.status === 'completed' && 
-        update.previousStatus !== 'completed'
-      );
+    if (jobsUpdated.length > 0) {
+      const updatedJob = jobsUpdated[0];
+      const jobInSession = sessionJobs.find(job => job.id === updatedJob.id);
       
-      if (newlyCompleted.length > 0) {
-        // Find the first newly completed job in the session jobs
-        const firstCompletedId = newlyCompleted[0].id;
-        const completedJob = sessionJobs.find(job => job.id === firstCompletedId);
-        
-        if (completedJob) {
-          console.log(`Auto-selecting newly completed job: ${completedJob.id} (${completedJob.model})`);
-          setSelectedJob(completedJob);
+      if (jobInSession && jobInSession.status === 'completed') {
+        // If the selected job completed, update it
+        if (selectedJob?.id === jobInSession.id) {
+          setSelectedJob(jobInSession);
+        } 
+        // If no job is selected, select the newly completed one
+        else if (!selectedJob) {
+          console.log(`Auto-selecting newly completed job: ${jobInSession.id} (${jobInSession.model})`);
+          setSelectedJob(jobInSession);
         }
       }
     }
@@ -113,6 +118,7 @@ export function useSelectedJob(
     setSelectedJob,
     selectedTranscriptionUrl,
     setSelectedTranscriptionUrl,
-    saveEditedTranscription
+    saveEditedTranscription,
+    isSelecting
   };
 }

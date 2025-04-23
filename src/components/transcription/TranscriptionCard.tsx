@@ -8,6 +8,7 @@ import TranscriptionContent from "./TranscriptionContent";
 import TranscriptionFooter from "./TranscriptionFooter";
 import AudioControls from "./AudioControls";
 import { ExportFormat, TranscriptionCardProps } from "./types";
+import LoadingState from "./components/LoadingState";
 
 const TranscriptionCard = ({ 
   modelName = "", 
@@ -30,6 +31,7 @@ const TranscriptionCard = ({
   const [exportFormat, setExportFormat] = useState<ExportFormat>('vtt');
   const addLog = useLogsStore(state => state.addLog);
   const [currentlyPlayingSegment, setCurrentlyPlayingSegment] = useState<number | null>(null);
+  const [isContentReady, setIsContentReady] = useState(false);
   
   const { segments: vttSegments, wordCount } = useVttParser(vttContent, modelName);
   
@@ -56,15 +58,28 @@ const TranscriptionCard = ({
   } = useAudioPlayer(vttSegments, audioSrc);
   
   useEffect(() => {
-    console.log(`TranscriptionCard render for ${modelName}:`, { 
-      hasContent: !!vttContent, 
-      contentLength: vttContent?.length || 0,
-      isLoading, 
-      isSelected,
-      hasAudio: !!audioSrc,
-      segments: vttSegments.length
-    });
-  }, [vttContent, isLoading, modelName, audioSrc, vttSegments.length, isSelected]);
+    let mounted = true;
+    
+    const prepareContent = async () => {
+      setIsContentReady(false);
+      
+      if (vttContent && mounted) {
+        console.log(`Preparing content for ${modelName}:`, {
+          contentLength: vttContent.length,
+          segmentsCount: vttSegments.length
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setIsContentReady(true);
+      }
+    };
+    
+    prepareContent();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [vttContent, modelName, vttSegments.length]);
   
   useEffect(() => {
     if (isPlayingSegment) {
@@ -104,6 +119,16 @@ const TranscriptionCard = ({
     }
   }, [showAudioControls, audioSrc, setShowAudioPlayer]);
 
+  if (isLoading || !isContentReady) {
+    return (
+      <Card className="shadow-soft border-2">
+        <CardContent className="p-6">
+          <LoadingState />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'} ${className}`}>
       <CardHeader className={`pb-2`}>
@@ -118,7 +143,7 @@ const TranscriptionCard = ({
         />
       </CardHeader>
       
-      <CardContent className={`h-[300px] overflow-y-auto ${isLoading ? 'flex items-center justify-center' : ''}`}>
+      <CardContent className={`h-[300px] overflow-y-auto`}>
         <TranscriptionContent
           vttSegments={vttSegments}
           activeSegment={activeSegment}
