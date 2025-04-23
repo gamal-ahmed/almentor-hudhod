@@ -13,8 +13,11 @@ export interface TranscriptionCardProps {
   showAudioControls?: boolean;
   onExport?: (format: ExportFormat) => void;
   onAccept?: () => void;
-  onTextEdit?: (editedVttContent: string) => void;
+  onTextEdit?: (editedVttContent: string) => Promise<string | null>;
   isEditable?: boolean;
+  onRetry?: () => void;
+  isRetrying?: boolean;
+  showRetryButton?: boolean;
 }
 
 export type ExportFormat = 'vtt' | 'srt' | 'text' | 'json';

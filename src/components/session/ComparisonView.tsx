@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from "@/components/ui/button";
 import { Columns, ArrowLeft } from "lucide-react";
 import { TranscriptionCard } from "@/components/transcription";
+import { ExportFormat } from "@/components/transcription/types";
 
 interface TranscriptionJob {
   id: string;
@@ -12,6 +13,7 @@ interface TranscriptionJob {
   created_at: string;
   updated_at: string;
   result?: any;
+  file_path?: string;
 }
 
 interface ComparisonViewProps {
@@ -33,6 +35,16 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
   onAccept,
   audioUrl
 }) => {
+  // Wrapper functions to handle callbacks
+  const handleSelectCard = () => {
+    // In comparison view, we don't need to do anything when a card is selected
+  };
+  
+  // Export handler that wraps the job
+  const handleExportForJob = (job: TranscriptionJob) => (format: ExportFormat) => {
+    onExport(job);
+  };
+
   return (
     <Card className="shadow-soft border-2 h-full">
       <CardHeader className="pb-3">
@@ -52,15 +64,14 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
                 modelName={getModelDisplayName(job.model)}
                 vttContent={extractVttContent(job)}
                 isSelected={true}
-                onSelect={() => {}}
-                showPagination={false}
+                onSelect={handleSelectCard}
                 audioSrc={audioUrl}
-                onExport={() => onExport(job)}
+                onExport={handleExportForJob(job)}
                 onAccept={() => onAccept(job)}
                 showExportOptions={true}
                 className="h-full"
                 showAudioControls={true}
-                prompt={job.result?.prompt || ""}
+                isLoading={false}
               />
             </div>
           ))}

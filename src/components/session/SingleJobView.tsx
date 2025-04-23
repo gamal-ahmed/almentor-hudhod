@@ -32,8 +32,19 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   
-  const vttContent = extractVttContent(selectedJob);
+  const vttContent = extractVttContent(selectedJob) || "";
   const modelDisplayName = getModelDisplayName(selectedJob.model);
+  
+  // Safely extract prompt from result
+  const getPromptText = (): string => {
+    if (!selectedJob.result) return "";
+    
+    if (typeof selectedJob.result === 'object' && !Array.isArray(selectedJob.result)) {
+      return (selectedJob.result as any).prompt || "";
+    }
+    
+    return "";
+  };
   
   const handleExport = (format: ExportFormat) => {
     if (onExport) {
@@ -47,8 +58,8 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
     }
   };
 
-  const handleTextEdit = async (editedContent: string) => {
-    if (!onTextEdit) return;
+  const handleTextEdit = async (editedContent: string): Promise<string | null> => {
+    if (!onTextEdit) return null;
     
     try {
       setIsSaving(true);
@@ -56,12 +67,14 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
       if (result) {
         console.log("Transcription edited successfully", result);
       }
+      return result;
     } catch (error) {
       toast({
         title: "Error saving edited transcription",
         description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive"
       });
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -93,7 +106,7 @@ const SingleJobView: React.FC<SingleJobViewProps> = ({
       await createTranscriptionJob(
         file,
         selectedJob.model as any,
-        selectedJob.result?.prompt || "Please preserve all English words exactly as spoken",
+        getPromptText() || "Please preserve all English words exactly as spoken",
         selectedJob.session_id
       );
       

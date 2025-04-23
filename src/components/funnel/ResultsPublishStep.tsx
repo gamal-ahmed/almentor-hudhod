@@ -362,6 +362,12 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
     });
   };
 
+  const handleSelectModel = (model: string, vttContent: string) => {
+    if (vttContent) {
+      handleSelectTranscription(vttContent, model);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
@@ -528,7 +534,6 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
                 {selectedModels.map((model) => {
                   const latestJob = latestResults[model];
                   const vttContent = latestJob ? extractVttContent(latestJob) : "";
-                  const promptUsed = latestJob?.result?.prompt || "Default prompt used";
                   const isLoading = isModelProcessing(model);
                   
                   return (
@@ -542,11 +547,12 @@ const ResultsPublishStep: React.FC<ResultsPublishStepProps> = ({
                             : "Microsoft Phi-4"
                       }
                       vttContent={vttContent}
-                      prompt={promptUsed}
-                      onSelect={() => vttContent && handleSelectTranscription(vttContent, model)}
+                      onSelect={() => handleSelectModel(model, vttContent)}
                       isSelected={selectedModel === model}
                       audioSrc={audioUrl || undefined}
                       isLoading={isLoading}
+                      showExportOptions={false}
+                      showAudioControls={false}
                     />
                   );
                 })}
