@@ -1,10 +1,8 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Star, StarIcon, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { 
   getStatusIcon, 
   getStatusColor, 
@@ -13,6 +11,9 @@ import {
   formatJobDate
 } from "../utils/transcriptionJobUtils";
 import { TranscriptionJob } from "../types/transcription";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Star, StarIcon } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { MessageCircle } from "lucide-react";
 
@@ -120,11 +121,14 @@ const TranscriptionJobItem: React.FC<TranscriptionJobItemProps> = ({
       )}
       
       <div className="mt-3 flex justify-end gap-2">
-        {job.status === 'failed' && onRetryJob && (
+        {onRetryJob && (
           <Button 
             size="sm" 
             variant="outline"
-            className="text-xs border-red-200 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
+            className={cn(
+              "text-xs border-blue-200 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20",
+              job.status === 'failed' ? "border-red-200 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20" : ""
+            )}
             onClick={(e) => {
               e.stopPropagation();
               onRetryJob(job);
