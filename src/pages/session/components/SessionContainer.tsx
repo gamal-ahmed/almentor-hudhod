@@ -1,6 +1,4 @@
-
 import React from "react";
-import { Container } from "@/components/ui/container";
 import SessionHeader from "@/components/session/SessionHeader";
 import SessionActionHeader from "@/components/session/SessionActionHeader";
 import SessionTitle from "@/components/session/SessionTitle";
@@ -80,7 +78,7 @@ const SessionContainer: React.FC<SessionContainerProps> = ({
   const failedJobsCount = sessionJobs.filter(job => job.status === 'failed').length;
 
   return (
-    <Container className="py-6">
+    <div className="container py-6">
       <div className="max-w-7xl mx-auto p-4 md:p-6">
         <div className="flex flex-col gap-4 mb-6">
           <SessionHeader 
@@ -147,7 +145,7 @@ const SessionContainer: React.FC<SessionContainerProps> = ({
         open={publishDialogOpen}
         onOpenChange={setPublishDialogOpen}
       />
-    </Container>
+    </div>
   );
 };
 
