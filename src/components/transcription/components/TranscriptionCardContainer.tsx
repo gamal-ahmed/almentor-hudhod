@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import TranscriptionCardHeader from "./TranscriptionCardHeader";
 import TranscriptionContent from "../TranscriptionContent";
@@ -8,6 +8,7 @@ import AudioControls from "../AudioControls";
 import LoadingState from "./LoadingState";
 import { useVttParser } from "../hooks/useVttParser";
 import { TranscriptionCardProps } from "../types";
+import { useAudioPlayer } from "../hooks/useAudioPlayer";
 
 const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
   modelName = "",
@@ -26,7 +27,32 @@ const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
   isEditable = false
 }) => {
   const { segments: vttSegments, wordCount } = useVttParser(vttContent, modelName);
+  const [activeSegment, setActiveSegment] = useState<number | null>(null);
   
+  // Initialize audio player with required props
+  const {
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    isAudioLoaded,
+    currentlyPlayingSegment,
+    isPlayingSegment,
+    handlePlayPause,
+    handleSeek,
+    handleVolumeChange,
+    handleMuteToggle,
+    handleForward,
+    handleBackward,
+    playSegment
+  } = useAudioPlayer(audioSrc, vttSegments);
+
+  // Handle segment click
+  const handleSegmentClick = (index: number) => {
+    setActiveSegment(index);
+  };
+
   if (isLoading) {
     return (
       <Card className="shadow-soft border-2">
@@ -54,18 +80,36 @@ const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
       <CardContent className="h-[300px] overflow-y-auto">
         <TranscriptionContent
           vttSegments={vttSegments}
+          activeSegment={activeSegment}
           audioSrc={audioSrc}
           isLoading={isLoading}
           vttContent={vttContent}
           modelName={modelName}
+          onSegmentClick={handleSegmentClick}
+          onPlaySegment={playSegment}
           onTextEdit={onTextEdit}
           isEditable={isEditable}
+          isPlayingSegment={isPlayingSegment}
+          currentlyPlayingSegment={currentlyPlayingSegment}
         />
       </CardContent>
       
       {audioSrc && showAudioControls && (
         <div className="px-6 pt-2 pb-0 border-t">
-          <AudioControls />
+          <AudioControls
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            volume={volume}
+            isMuted={isMuted}
+            isAudioLoaded={isAudioLoaded}
+            onPlayPause={handlePlayPause}
+            onSeek={handleSeek}
+            onVolumeChange={handleVolumeChange}
+            onMuteToggle={handleMuteToggle}
+            onForward={handleForward}
+            onBackward={handleBackward}
+          />
         </div>
       )}
       
@@ -80,6 +124,12 @@ const TranscriptionCardContainer: React.FC<TranscriptionCardProps> = ({
           vttContent={vttContent}
           audioSrc={audioSrc}
           isLoading={isLoading}
+          showAudioPlayer={isPlayingSegment}
+          setShowAudioPlayer={() => {}}
+          copied={false}
+          handleCopy={() => {}}
+          exportFormat={'vtt'}
+          setExportFormat={() => {}}
         />
       </CardFooter>
     </Card>
