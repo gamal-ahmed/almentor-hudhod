@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -20,37 +21,25 @@ interface PromptConfigProps {
 
 const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
   const handleLanguageChange = (value: string) => {
-    if (value === 'both') {
-      const currentArabicDialect = config.languages.find(lang => lang.startsWith('ar-')) || 'ar-EG';
-      onChange({
-        ...config,
-        languages: ['en-US', currentArabicDialect]
-      });
-    } else if (value === 'en-US') {
-      onChange({
-        ...config,
-        languages: ['en-US']
-      });
-    } else if (value.startsWith('ar-')) {
-      onChange({
-        ...config,
-        languages: [value]
-      });
-    }
+    const newLanguages = value === 'both' 
+      ? ['en-US', value] // value here will be the selected Arabic dialect
+      : [value];
+    
+    onChange({
+      ...config,
+      languages: newLanguages
+    });
   };
 
   const handleArabicDialectChange = (dialect: string) => {
-    if (config.languages.includes('en-US')) {
-      onChange({
-        ...config,
-        languages: ['en-US', dialect]
-      });
-    } else {
-      onChange({
-        ...config,
-        languages: [dialect]
-      });
-    }
+    const newLanguages = config.languages.includes('en-US')
+      ? ['en-US', dialect]
+      : [dialect];
+    
+    onChange({
+      ...config,
+      languages: newLanguages
+    });
   };
 
   const handleSegmentDurationChange = (value: string) => {
@@ -74,8 +63,10 @@ const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
     });
   };
 
+  // Helper function to determine if it's both languages
   const isBothLanguages = config.languages.includes('en-US') && config.languages.length > 1;
   
+  // Helper function to get current Arabic dialect
   const getCurrentArabicDialect = () => {
     return config.languages.find(lang => lang.startsWith('ar-')) || 'ar-eg';
   };
@@ -90,7 +81,7 @@ const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
           <Label htmlFor="language">Language Selection</Label>
           <Select 
             onValueChange={handleLanguageChange}
-            value={config.languages.includes('en-US') && config.languages.length > 1 ? 'both' : config.languages[0]}
+            value={isBothLanguages ? 'both' : config.languages[0]}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select languages" />
@@ -98,17 +89,16 @@ const PromptConfig: React.FC<PromptConfigProps> = ({ config, onChange }) => {
             <SelectContent>
               <SelectItem value="both">Arabic and English (Both)</SelectItem>
               <SelectItem value="en-US">English Only</SelectItem>
-              <SelectItem value="ar-EG">Arabic Only</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {(config.languages.includes('en-US') ? config.languages.length > 1 : config.languages[0]?.startsWith('ar-')) && (
+        {(isBothLanguages || config.languages[0]?.startsWith('ar-')) && (
           <div className="space-y-2">
             <Label htmlFor="arabicDialect">Arabic Dialect</Label>
             <Select
               onValueChange={handleArabicDialectChange}
-              value={config.languages.find(lang => lang.startsWith('ar-')) || 'ar-EG'}
+              value={getCurrentArabicDialect()}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select Arabic dialect" />
