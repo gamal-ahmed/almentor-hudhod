@@ -16,24 +16,35 @@ function buildPrompt(promptConfig: any) {
   let prompt = `You will be provided with an audio file: below
 and the primary language of the audio: ${languages.join(' and ')}
 
-Instructions:
+CRITICAL LANGUAGE INSTRUCTIONS:
+1. For English content:
+   - ALWAYS keep English words, phrases, and sentences EXACTLY as spoken
+   - DO NOT translate English to Arabic under any circumstances
+   - Preserve technical terms, names, and acronyms in their original English form
 
-1. Listen to the provided audio file.
-2. Transcribe the speech into properly formatted WebVTT segments.
-3. Each segment should be ${segmentDuration} seconds long.
-4. Format each segment exactly like this:
+2. For Arabic content:
+   - Write Arabic text using Arabic script (العربية)
+   - DO NOT transliterate Arabic using Latin characters
+   - DO NOT translate Arabic to English
+
+3. For mixed language content:
+   - Keep each language in its original form
+   - DO NOT translate between languages
+   - Maintain the natural flow of code-switching between Arabic and English
+
+4. Transcribe the speech into properly formatted WebVTT segments
+5. Each segment should be ${segmentDuration} seconds long
+6. Format each segment exactly like this:
 
 WEBVTT
 
 00:00:00.000 --> 00:00:0${segmentDuration}.000
-[Transcribed text for this segment]
+[Transcribed text preserving both languages exactly as spoken]
 
 00:00:0${segmentDuration}.000 --> 00:00:0${segmentDuration * 2}.000
 [Next segment's transcribed text]
 
-5. Maintain exact timing format: HH:MM:SS.mmm
-6. Do not include timestamps or numbers within the transcribed text
-7. Preserve English words exactly as spoken, write Arabic words in Arabic`;
+7. Maintain exact timing format: HH:MM:SS.mmm`;
 
   if (noiseHandling === 'transcribe') {
     prompt += '\n8. Include descriptions of significant background sounds and music in [square brackets]';
