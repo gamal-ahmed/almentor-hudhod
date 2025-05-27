@@ -121,7 +121,7 @@ serve(async (req) => {
     
     // Make the request to the Gemini API with the updated model
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-03-25:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent",
       {
         method: "POST",
         headers: {
