@@ -56,6 +56,7 @@ serve(async (req) => {
   }
 
   const apiKey = Deno.env.get('GEMINI_API_KEY');
+  console.log('apiKey', apiKey);
   if (!apiKey) {
     console.error('Missing GEMINI_API_KEY environment variable');
     return new Response(
@@ -135,7 +136,7 @@ serve(async (req) => {
     // Check for errors in the Gemini response
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      console.error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
+      console.error(`Gemini APاI error (${geminiResponse.status}): ${errorText}`);
       return new Response(
         JSON.stringify({ 
           error: `Gemini API error: ${geminiResponse.statusText}`,
