@@ -1,9 +1,93 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Simple in-memory queue for Gemini requests
+class GeminiRequestQueue {
+  private queue: Array<() => Promise<void>> = [];
+  private processing = false;
+  private lastRequestTime = 0;
+  private readonly minDelayMs = 2000; // 2 seconds between requests
+
+  async enqueue<T>(requestFn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await requestFn();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      
+      if (!this.processing) {
+        this.processQueue();
+      }
+    });
+  }
+
+  private async processQueue() {
+    if (this.processing || this.queue.length === 0) return;
+    
+    this.processing = true;
+    
+    while (this.queue.length > 0) {
+      const requestFn = this.queue.shift()!;
+      
+      // Rate limiting: ensure minimum delay between requests
+      const timeSinceLastRequest = Date.now() - this.lastRequestTime;
+      if (timeSinceLastRequest < this.minDelayMs) {
+        const delay = this.minDelayMs - timeSinceLastRequest;
+        console.log(`Rate limiting: waiting ${delay}ms before next request`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      
+      this.lastRequestTime = Date.now();
+      await requestFn();
+    }
+    
+    this.processing = false;
+  }
+}
+
+const geminiQueue = new GeminiRequestQueue();
+
+// Retry logic with exponential backoff
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  baseDelayMs = 1000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Check if it's a rate limit error
+      const isRateLimitError = error instanceof Error && 
+        (error.message.includes('429') || error.message.includes('rate limit') || error.message.includes('quota'));
+      
+      // Don't retry non-rate-limit errors or on final attempt
+      if (!isRateLimitError || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff with jitter
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 1000;
+      console.log(`Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
+}
 
 function buildPrompt(promptConfig: any) {
   const {
@@ -33,12 +117,13 @@ WEBVTT
 
 5. Maintain exact timing format: HH:MM:SS.mmm
 6. Do not include timestamps or numbers within the transcribed text
-7. Preserve English words exactly as spoken, write Arabic words in Arabic`;
+7. CRITICAL: Preserve the original language of each word - write English words in English letters, write Arabic words in Arabic script. Do NOT translate between languages.
+8. When you hear mixed language speech, keep each word in its original language and script.`;
 
   if (noiseHandling === 'transcribe') {
-    prompt += '\n8. Include descriptions of significant background sounds and music in [square brackets]';
+    prompt += '\n9. Include descriptions of significant background sounds and music in [square brackets]';
   } else {
-    prompt += '\n8. Ignore background sounds and music';
+    prompt += '\n9. Ignore background sounds and music';
   }
 
   if (customInstructions) {
@@ -90,84 +175,85 @@ serve(async (req) => {
     
     console.log(`Audio conversion complete, base64 length: ${base64Audio.length}`);
     
-    // Define the Gemini API request with system instructions
-    const geminiRequestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
+    // Queue the Gemini API request to prevent concurrent calls
+    const result = await geminiQueue.enqueue(async () => {
+      return await retryWithBackoff(async () => {
+        // Define the Gemini API request with system instructions
+        const geminiRequestBody = {
+          contents: [
             {
-              inline_data: {
-                mime_type: audioFile.type,
-                data: base64Audio
-              }
+              role: "user",
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: audioFile.type,
+                    data: base64Audio
+                  }
+                }
+              ]
             }
-          ]
+          ],
+          generation_config: {
+            temperature: 0.1,
+            top_p: 0.95,
+            top_k: 40,
+            max_output_tokens: 8192
+          }
+        };
+
+        console.log('Sending request to Gemini API (queued and rate-limited)');
+        
+        // Use the stable Gemini 1.5 Pro model instead of the experimental preview
+        const geminiResponse = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey
+            },
+            body: JSON.stringify(geminiRequestBody)
+          }
+        );
+
+        // Check for errors in the Gemini response
+        if (!geminiResponse.ok) {
+          const errorText = await geminiResponse.text();
+          console.error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
+          
+          // Create a more specific error for rate limiting
+          if (geminiResponse.status === 429) {
+            throw new Error(`Gemini API rate limit exceeded: ${geminiResponse.statusText}`);
+          }
+          
+          throw new Error(`Gemini API error: ${geminiResponse.statusText} - ${errorText}`);
         }
-      ],
-      generation_config: {
-        temperature: 0.1,
-        top_p: 0.95,
-        top_k: 40,
-        max_output_tokens: 8192
-      }
-    };
 
-    // Log the full request body for debugging
-    console.log('Full Gemini Request Body:', JSON.stringify(geminiRequestBody, null, 2));
-    
-    console.log('Sending request to Gemini API');
-    
-    // Make the request to the Gemini API with the updated model
-    const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify(geminiRequestBody)
-      }
-    );
-
-    // Check for errors in the Gemini response
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
-      return new Response(
-        JSON.stringify({ 
-          error: `Gemini API error: ${geminiResponse.statusText}`,
-          details: errorText
-        }),
-        { 
-          status: geminiResponse.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Parse the Gemini response
-    const geminiData = await geminiResponse.json();
-    console.log('Received response from Gemini API');
+        // Parse the Gemini response
+        const geminiData = await geminiResponse.json();
+        console.log('Received response from Gemini API');
+        
+        return geminiData;
+      }, 3, 2000); // 3 retries with 2 second base delay
+    });
     
     let transcription = '';
     
     // Extract the text from the Gemini response
-    if (geminiData.candidates && geminiData.candidates.length > 0 && 
-        geminiData.candidates[0].content && 
-        geminiData.candidates[0].content.parts && 
-        geminiData.candidates[0].content.parts.length > 0) {
+    if (result.candidates && result.candidates.length > 0 && 
+        result.candidates[0].content && 
+        result.candidates[0].content.parts && 
+        result.candidates[0].content.parts.length > 0) {
       
-      transcription = geminiData.candidates[0].content.parts[0].text;
+      transcription = result.candidates[0].content.parts[0].text;
       console.log(`Extracted transcription (${transcription.length} chars)`);
     } else {
-      console.error('Unexpected Gemini response format:', JSON.stringify(geminiData, null, 2));
+      console.error('Unexpected Gemini response format:', JSON.stringify(result, null, 2));
       return new Response(
         JSON.stringify({ 
           error: 'Invalid response format from Gemini API',
-          rawResponse: geminiData
+          rawResponse: result
         }),
         { 
           status: 500, 
@@ -201,11 +287,21 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing transcription request:', error);
+    
+    // Provide more specific error messages for rate limiting
+    let errorMessage = 'Error processing transcription request';
+    if (error instanceof Error) {
+      if (error.message.includes('rate limit') || error.message.includes('429')) {
+        errorMessage = 'Gemini API rate limit exceeded. Please try again in a few moments.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: 'Error processing transcription request',
-        message: error.message,
-        stack: error.stack
+        error: errorMessage,
+        details: error instanceof Error ? error.stack : String(error)
       }),
       { 
         status: 500, 
