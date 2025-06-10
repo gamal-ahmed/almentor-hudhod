@@ -9,7 +9,7 @@ const corsHeaders = {
 // Google Cloud configuration
 const PROJECT_ID = "silicon-talent-454813-a2";
 const LOCATION = "global";
-const MODEL_NAME = "gemini-2.5-pro-preview-06-05";
+const MODEL_NAME = "gemini-2.0-flash-exp";
 
 // Cache for JWT token
 let cachedToken: { token: string; expires: number } | null = null;
@@ -60,6 +60,31 @@ WEBVTT
   return prompt;
 }
 
+// Validate service account key structure
+function validateServiceAccountKey(keyString: string): any {
+  try {
+    const key = JSON.parse(keyString);
+    
+    const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id', 'auth_uri', 'token_uri'];
+    
+    for (const field of requiredFields) {
+      if (!key[field]) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+    }
+    
+    if (key.type !== 'service_account') {
+      throw new Error('Invalid key type. Expected "service_account"');
+    }
+    
+    console.log('Service account key validation successful');
+    return key;
+  } catch (error) {
+    console.error('Service account key validation failed:', error.message);
+    throw new Error(`Invalid service account key format: ${error.message}`);
+  }
+}
+
 // Generate JWT token for Google Cloud authentication
 async function generateJWT() {
   const serviceAccountKey = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY');
@@ -68,41 +93,59 @@ async function generateJWT() {
     throw new Error('Missing GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY environment variable');
   }
 
+  console.log('Service account key found, length:', serviceAccountKey.length);
+
   // Check if we have a valid cached token
   if (cachedToken && Date.now() < cachedToken.expires) {
+    console.log('Using cached JWT token');
     return cachedToken.token;
   }
 
   try {
-    const serviceAccount = JSON.parse(serviceAccountKey);
+    // Validate and parse service account key
+    const serviceAccount = validateServiceAccountKey(serviceAccountKey);
+    console.log('Service account email:', serviceAccount.client_email);
+    console.log('Service account project:', serviceAccount.project_id);
     
     // Create JWT header
     const header = {
       "alg": "RS256",
-      "typ": "JWT"
+      "typ": "JWT",
+      "kid": serviceAccount.private_key_id
     };
 
-    // Create JWT payload
+    // Create JWT payload with correct scopes for Vertex AI
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       "iss": serviceAccount.client_email,
-      "scope": "https://www.googleapis.com/auth/cloud-platform",
+      "scope": "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/generative-language.retriever",
       "aud": "https://oauth2.googleapis.com/token",
       "exp": now + 3600, // 1 hour
       "iat": now
     };
 
+    console.log('JWT payload created, expires at:', new Date(payload.exp * 1000).toISOString());
+
     // Encode header and payload
-    const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const encodedHeader = base64UrlEncode(JSON.stringify(header));
+    const encodedPayload = base64UrlEncode(JSON.stringify(payload));
     
-    // Create signature (simplified - in production use proper crypto library)
+    // Create signature
     const message = `${encodedHeader}.${encodedPayload}`;
     
     // Import the private key
     const privateKeyPem = serviceAccount.private_key;
-    const privateKeyDer = pemToDer(privateKeyPem);
     
+    // Clean up the private key format
+    const cleanPrivateKey = privateKeyPem
+      .replace(/\\n/g, '\n')
+      .replace(/-----BEGIN PRIVATE KEY-----/, '')
+      .replace(/-----END PRIVATE KEY-----/, '')
+      .replace(/\s/g, '');
+    
+    const privateKeyDer = base64Decode(cleanPrivateKey);
+    
+    console.log('Importing private key...');
     const cryptoKey = await crypto.subtle.importKey(
       "pkcs8",
       privateKeyDer,
@@ -114,6 +157,7 @@ async function generateJWT() {
       ["sign"]
     );
 
+    console.log('Signing JWT...');
     // Sign the message
     const signature = await crypto.subtle.sign(
       "RSASSA-PKCS1-v1_5",
@@ -122,11 +166,10 @@ async function generateJWT() {
     );
 
     // Encode signature
-    const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-      .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
+    const encodedSignature = base64UrlEncode(signature);
     const jwt = `${message}.${encodedSignature}`;
 
+    console.log('JWT created, exchanging for access token...');
     // Exchange JWT for access token
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -141,10 +184,12 @@ async function generateJWT() {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      throw new Error(`Token exchange failed: ${errorText}`);
+      console.error('Token exchange failed:', tokenResponse.status, errorText);
+      throw new Error(`Token exchange failed (${tokenResponse.status}): ${errorText}`);
     }
 
     const tokenData = await tokenResponse.json();
+    console.log('Access token obtained successfully');
     
     // Cache the token
     cachedToken = {
@@ -155,17 +200,30 @@ async function generateJWT() {
     return tokenData.access_token;
   } catch (error) {
     console.error('JWT generation failed:', error);
+    console.error('Error stack:', error.stack);
     throw new Error(`Authentication failed: ${error.message}`);
   }
 }
 
-// Helper function to convert PEM to DER
-function pemToDer(pem: string): ArrayBuffer {
-  const pemHeader = "-----BEGIN PRIVATE KEY-----";
-  const pemFooter = "-----END PRIVATE KEY-----";
-  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
-  
-  const binaryString = atob(pemContents);
+// Helper function for base64 URL encoding
+function base64UrlEncode(data: string | ArrayBuffer): string {
+  let base64: string;
+  if (typeof data === 'string') {
+    base64 = btoa(data);
+  } else {
+    const bytes = new Uint8Array(data);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    base64 = btoa(binary);
+  }
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+// Helper function for base64 decoding
+function base64Decode(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
@@ -179,6 +237,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== Gemini Transcription Request Started ===');
+    
     // Get the form data from the request
     const formData = await req.formData();
     const audioFile = formData.get('audio');
@@ -187,28 +247,28 @@ serve(async (req) => {
     const prompt = buildPrompt(promptConfig);
     
     if (!audioFile || !(audioFile instanceof File)) {
+      console.error('Missing or invalid audio file');
       return new Response(
         JSON.stringify({ error: 'Missing audio file' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Received audio file: ${audioFile.name}, size: ${audioFile.size} bytes`);
-    console.log(`Using prompt: ${prompt}`);
+    console.log(`Received audio file: ${audioFile.name}, size: ${audioFile.size} bytes, type: ${audioFile.type}`);
 
     // Get authentication token
+    console.log('Getting authentication token...');
     const accessToken = await generateJWT();
-    console.log('Successfully obtained access token');
+    console.log('Authentication successful');
 
     // Read the audio file as an array buffer
     const arrayBuffer = await audioFile.arrayBuffer();
     
-    // Use a properly formatted base64 encoding method
+    // Convert to base64
     const base64Audio = await properlyEncodedBase64(arrayBuffer, audioFile.type);
-    
     console.log(`Audio conversion complete, base64 length: ${base64Audio.length}`);
     
-    // Define the Vertex AI request with proper structure
+    // Define the Vertex AI request with proper structure for Gemini 2.0 Flash
     const vertexAIRequestBody = {
       contents: [
         {
@@ -228,17 +288,14 @@ serve(async (req) => {
         temperature: 0.1,
         top_p: 0.95,
         top_k: 40,
-        max_output_tokens: 540
+        max_output_tokens: 8192
       }
     };
-
-    // Log the request for debugging
-    console.log('Vertex AI Request Body:', JSON.stringify(vertexAIRequestBody, null, 2));
     
-    console.log('Sending request to Vertex AI');
+    console.log('Sending request to Vertex AI Gemini...');
     
     // Make the request to Vertex AI
-    const vertexAIUrl = `https://global-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_NAME}:generateContent`;
+    const vertexAIUrl = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_NAME}:generateContent`;
     
     const vertexResponse = await fetch(vertexAIUrl, {
       method: "POST",
@@ -256,7 +313,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: `Vertex AI error: ${vertexResponse.statusText}`,
-          details: errorText
+          details: errorText,
+          status: vertexResponse.status
         }),
         { 
           status: vertexResponse.status, 
@@ -305,6 +363,7 @@ serve(async (req) => {
     }
     
     console.log(`Generated VTT content (${vttContent.length} chars)`);
+    console.log('=== Gemini Transcription Request Completed Successfully ===');
 
     // Return the successful response
     return new Response(
@@ -318,6 +377,7 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing transcription request:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({ 
         error: 'Error processing transcription request',
@@ -348,8 +408,6 @@ async function properlyEncodedBase64(buffer: ArrayBuffer, mimeType: string): Pro
   }
   
   // Use btoa for standard base64 encoding
-  // This needs to be called once on the complete binary string
-  // to ensure proper padding and formatting
   return btoa(binary);
 }
 
