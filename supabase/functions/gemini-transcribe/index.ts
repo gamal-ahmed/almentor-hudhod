@@ -1,9 +1,18 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Google Cloud configuration
+const PROJECT_ID = "silicon-talent-454813-a2";
+const LOCATION = "global";
+const MODEL_NAME = "gemini-2.5-pro-preview-06-05";
+
+// Cache for JWT token
+let cachedToken: { token: string; expires: number } | null = null;
 
 function buildPrompt(promptConfig: any) {
   const {
@@ -33,12 +42,13 @@ WEBVTT
 
 5. Maintain exact timing format: HH:MM:SS.mmm
 6. Do not include timestamps or numbers within the transcribed text
-7. Preserve English words exactly as spoken, write Arabic words in Arabic`;
+7. Preserve the original language of each word exactly as spoken - write English words in English script and Arabic words in Arabic script
+8. Do not translate any words - maintain the exact language they were spoken in`;
 
   if (noiseHandling === 'transcribe') {
-    prompt += '\n8. Include descriptions of significant background sounds and music in [square brackets]';
+    prompt += '\n9. Include descriptions of significant background sounds and music in [square brackets]';
   } else {
-    prompt += '\n8. Ignore background sounds and music';
+    prompt += '\n9. Ignore background sounds and music';
   }
 
   if (customInstructions) {
@@ -50,19 +60,122 @@ WEBVTT
   return prompt;
 }
 
+// Generate JWT token for Google Cloud authentication
+async function generateJWT() {
+  const serviceAccountKey = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY');
+  
+  if (!serviceAccountKey) {
+    throw new Error('Missing GOOGLE_CLOUD_SERVICE_ACCOUNT_KEY environment variable');
+  }
+
+  // Check if we have a valid cached token
+  if (cachedToken && Date.now() < cachedToken.expires) {
+    return cachedToken.token;
+  }
+
+  try {
+    const serviceAccount = JSON.parse(serviceAccountKey);
+    
+    // Create JWT header
+    const header = {
+      "alg": "RS256",
+      "typ": "JWT"
+    };
+
+    // Create JWT payload
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      "iss": serviceAccount.client_email,
+      "scope": "https://www.googleapis.com/auth/cloud-platform",
+      "aud": "https://oauth2.googleapis.com/token",
+      "exp": now + 3600, // 1 hour
+      "iat": now
+    };
+
+    // Encode header and payload
+    const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    
+    // Create signature (simplified - in production use proper crypto library)
+    const message = `${encodedHeader}.${encodedPayload}`;
+    
+    // Import the private key
+    const privateKeyPem = serviceAccount.private_key;
+    const privateKeyDer = pemToDer(privateKeyPem);
+    
+    const cryptoKey = await crypto.subtle.importKey(
+      "pkcs8",
+      privateKeyDer,
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: "SHA-256",
+      },
+      false,
+      ["sign"]
+    );
+
+    // Sign the message
+    const signature = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      cryptoKey,
+      new TextEncoder().encode(message)
+    );
+
+    // Encode signature
+    const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+    const jwt = `${message}.${encodedSignature}`;
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        'assertion': jwt
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      throw new Error(`Token exchange failed: ${errorText}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    
+    // Cache the token
+    cachedToken = {
+      token: tokenData.access_token,
+      expires: Date.now() + (tokenData.expires_in - 300) * 1000 // 5 min buffer
+    };
+
+    return tokenData.access_token;
+  } catch (error) {
+    console.error('JWT generation failed:', error);
+    throw new Error(`Authentication failed: ${error.message}`);
+  }
+}
+
+// Helper function to convert PEM to DER
+function pemToDer(pem: string): ArrayBuffer {
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
+  
+  const binaryString = atob(pemContents);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
-  console.log('apiKey', apiKey);
-  if (!apiKey) {
-    console.error('Missing GEMINI_API_KEY environment variable');
-    return new Response(
-      JSON.stringify({ error: 'Server configuration error: Missing API key' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   }
 
   try {
@@ -83,6 +196,10 @@ serve(async (req) => {
     console.log(`Received audio file: ${audioFile.name}, size: ${audioFile.size} bytes`);
     console.log(`Using prompt: ${prompt}`);
 
+    // Get authentication token
+    const accessToken = await generateJWT();
+    console.log('Successfully obtained access token');
+
     // Read the audio file as an array buffer
     const arrayBuffer = await audioFile.arrayBuffer();
     
@@ -91,8 +208,8 @@ serve(async (req) => {
     
     console.log(`Audio conversion complete, base64 length: ${base64Audio.length}`);
     
-    // Define the Gemini API request with system instructions
-    const geminiRequestBody = {
+    // Define the Vertex AI request with proper structure
+    const vertexAIRequestBody = {
       contents: [
         {
           role: "user",
@@ -115,60 +232,59 @@ serve(async (req) => {
       }
     };
 
-    // Log the full request body for debugging
-    console.log('Full Gemini Request Body:', JSON.stringify(geminiRequestBody, null, 2));
+    // Log the request for debugging
+    console.log('Vertex AI Request Body:', JSON.stringify(vertexAIRequestBody, null, 2));
     
-    console.log('Sending request to Gemini API');
+    console.log('Sending request to Vertex AI');
     
-    // Make the request to the Gemini API with the updated model
-    const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify(geminiRequestBody)
-      }
-    );
+    // Make the request to Vertex AI
+    const vertexAIUrl = `https://global-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_NAME}:generateContent`;
+    
+    const vertexResponse = await fetch(vertexAIUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(vertexAIRequestBody)
+    });
 
-    // Check for errors in the Gemini response
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error(`Gemini APاI error (${geminiResponse.status}): ${errorText}`);
+    // Check for errors in the Vertex AI response
+    if (!vertexResponse.ok) {
+      const errorText = await vertexResponse.text();
+      console.error(`Vertex AI error (${vertexResponse.status}): ${errorText}`);
       return new Response(
         JSON.stringify({ 
-          error: `Gemini API error: ${geminiResponse.statusText}`,
+          error: `Vertex AI error: ${vertexResponse.statusText}`,
           details: errorText
         }),
         { 
-          status: geminiResponse.status, 
+          status: vertexResponse.status, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    // Parse the Gemini response
-    const geminiData = await geminiResponse.json();
-    console.log('Received response from Gemini API');
+    // Parse the Vertex AI response
+    const vertexData = await vertexResponse.json();
+    console.log('Received response from Vertex AI');
     
     let transcription = '';
     
-    // Extract the text from the Gemini response
-    if (geminiData.candidates && geminiData.candidates.length > 0 && 
-        geminiData.candidates[0].content && 
-        geminiData.candidates[0].content.parts && 
-        geminiData.candidates[0].content.parts.length > 0) {
+    // Extract the text from the Vertex AI response
+    if (vertexData.candidates && vertexData.candidates.length > 0 && 
+        vertexData.candidates[0].content && 
+        vertexData.candidates[0].content.parts && 
+        vertexData.candidates[0].content.parts.length > 0) {
       
-      transcription = geminiData.candidates[0].content.parts[0].text;
+      transcription = vertexData.candidates[0].content.parts[0].text;
       console.log(`Extracted transcription (${transcription.length} chars)`);
     } else {
-      console.error('Unexpected Gemini response format:', JSON.stringify(geminiData, null, 2));
+      console.error('Unexpected Vertex AI response format:', JSON.stringify(vertexData, null, 2));
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid response format from Gemini API',
-          rawResponse: geminiData
+          error: 'Invalid response format from Vertex AI',
+          rawResponse: vertexData
         }),
         { 
           status: 500, 
