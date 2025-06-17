@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -120,9 +121,9 @@ serve(async (req) => {
     
     console.log('Sending request to Gemini API');
     
-    // Make the request to the Gemini API with the updated model
+    // Make the request to the Gemini API with the Flash model
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
       {
         method: "POST",
         headers: {
@@ -136,7 +137,7 @@ serve(async (req) => {
     // Check for errors in the Gemini response
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      console.error(`Gemini APاI error (${geminiResponse.status}): ${errorText}`);
+      console.error(`Gemini API error (${geminiResponse.status}): ${errorText}`);
       return new Response(
         JSON.stringify({ 
           error: `Gemini API error: ${geminiResponse.statusText}`,
