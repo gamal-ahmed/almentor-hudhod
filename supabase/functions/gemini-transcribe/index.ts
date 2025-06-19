@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -121,9 +122,9 @@ serve(async (req) => {
     
     console.log('Sending request to Gemini API');
     
-    // Make the request to the Gemini API with the Flash model
+    // Make the request to the Gemini API with the Pro model
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent",
       {
         method: "POST",
         headers: {
